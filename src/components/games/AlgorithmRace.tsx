@@ -1,0 +1,79 @@
+'use client';
+
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import type { GameProps } from './GameProps';
+
+/** Tap the numbers from smallest to largest as fast as you can. Teaches sorting. */
+export function AlgorithmRace({ onWin }: GameProps) {
+  const numbers = useMemo(() => {
+    const set = new Set<number>();
+    while (set.size < 8) set.add(1 + Math.floor(Math.random() * 99));
+    return [...set];
+  }, []);
+  const sorted = useMemo(() => [...numbers].sort((a, b) => a - b), [numbers]);
+
+  const [next, setNext] = useState(0);
+  const [started, setStarted] = useState(false);
+  const [time, setTime] = useState(0);
+  const [wrong, setWrong] = useState(false);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
+
+  const start = () => {
+    setStarted(true);
+    timer.current = setInterval(() => setTime((t) => t + 0.1), 100);
+  };
+
+  const tap = (n: number) => {
+    if (!started) return;
+    if (n === sorted[next]) {
+      const newNext = next + 1;
+      setNext(newNext);
+      setWrong(false);
+      if (newNext === sorted.length) {
+        if (timer.current) clearInterval(timer.current);
+        const stars = time < 6 ? 3 : time < 10 ? 2 : 1;
+        setTimeout(() => onWin(stars), 300);
+      }
+    } else {
+      setWrong(true);
+      setTime((t) => t + 1); // penalty
+    }
+  };
+
+  return (
+    <div className="card text-center">
+      {!started ? (
+        <div className="py-6">
+          <p className="font-bold text-ink-soft">Tap the numbers from smallest to biggest — as fast as you can!</p>
+          <button onClick={start} className="btn-primary mt-4 text-lg">🏁 Start race!</button>
+        </div>
+      ) : (
+        <>
+          <p className="font-display text-lg font-extrabold">⏱️ {time.toFixed(1)}s · Next: <span className="text-grape">{sorted[next] ?? '🎉'}</span></p>
+          {wrong && <p className="text-sm font-bold text-bubble-600">Oops! Find the smallest one left. (+1s)</p>}
+          <div className="mx-auto mt-4 grid max-w-xs grid-cols-4 gap-2">
+            {numbers.map((n) => {
+              const done = sorted.indexOf(n) < next;
+              return (
+                <motion.button
+                  key={n}
+                  onClick={() => tap(n)}
+                  disabled={done}
+                  whileTap={{ scale: 0.9 }}
+                  className={`grid aspect-square place-items-center rounded-2xl font-display text-xl font-extrabold shadow-card ${
+                    done ? 'bg-mint/30 text-mint-600' : 'bg-white hover:bg-grape-50'
+                  }`}
+                >
+                  {done ? '✓' : n}
+                </motion.button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
