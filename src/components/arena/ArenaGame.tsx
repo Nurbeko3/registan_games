@@ -12,16 +12,22 @@ import {
   WORLD_W,
   WORLD_H,
   type World,
+  type Rect,
+  type ArenaDifficulty,
 } from '@/lib/arena/engine';
 import { drawWorld } from '@/lib/arena/render';
+import { Fx } from '@/lib/arena/effects';
+import { ArenaAudio, createSynth, type ArenaSound } from '@/lib/arena/audio';
 import { pickQuestion, isCorrect } from '@/lib/arena/questionEngine';
 import {
+  TEAMS,
   type ArenaMode,
   type ArenaPhase,
   type Category,
   type LearnState,
   type MatchResult,
   type PreparedQuestion,
+  type TeamId,
 } from '@/lib/arena/types';
 import { ArenaHUD } from './ArenaHUD';
 import { LearningPanel } from './LearningPanel';
@@ -31,12 +37,21 @@ const WRONG_COOLDOWN_MS = 8000;
 const CELEBRATE_MS = 1300;
 const JOY_R = 56; // joystick radius (css px)
 const DEADZONE = 12;
+const SHIELD_MS = 2600; // post-respawn hero invulnerability
+const DEATH_DUR = 0.85; // seconds of freeze-frame death camera
+const DEATH_DUR_RM = 0.4; // …shortened when the player prefers reduced motion
+
+const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 export interface ArenaGameConfig {
   mode: ArenaMode;
   perTeam: number;
   categories?: Category[];
   hero: { name: string; avatar: string };
+  /** custom map layout (defaults to the engine's built-in map) */
+  obstacles?: Rect[];
+  /** bot difficulty for Practice (defaults to medium) */
+  difficulty?: ArenaDifficulty;
 }
 
 interface Controls {
@@ -57,12 +72,17 @@ interface Controls {
   spaceFire: boolean;
 }
 
+interface FeedEntry { id: number; killerName: string; victimName: string; team: TeamId; crit: boolean }
+interface Banner { text: string; key: number }
+
 export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   const { mode, perTeam } = config;
   const target = mode.targetScore;
 
   const arenaAnswerCorrect = useGame((s) => s.arenaAnswerCorrect);
   const arenaMatchEnd = useGame((s) => s.arenaMatchEnd);
+  const soundOn = useGame((s) => s.settings.sound);
+  const reducedMotion = useGame((s) => s.settings.reducedMotion);
 
   const [phase, setPhase] = useState<ArenaPhase>('intro');
   const [count, setCount] = useState(3);
@@ -71,6 +91,8 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   const [learnState, setLearnState] = useState<LearnState>('answering');
   const [lastReward, setLastReward] = useState<{ xp: number; coins: number } | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
+  const [feed, setFeed] = useState<FeedEntry[]>([]);
+  const [banner, setBanner] = useState<Banner | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -84,6 +106,20 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   const usedIds = useRef<Set<string>>(new Set());
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const lastScores = useRef({ red: 0, blue: 0 });
+
+  // game-feel refs
+  const fxRef = useRef(new Fx());
+  const audioRef = useRef(new ArenaAudio());
+  const synthRef = useRef<ReturnType<typeof createSynth> | null>(null);
+  const resumedRef = useRef(false);
+  const camRef = useRef({ zoom: 1, cx: WORLD_W / 2, cy: WORLD_H / 2 });
+  const dyingRef = useRef({ active: false, t: 0, x: 0, y: 0 });
+  const heroKills = useRef<number[]>([]);
+  const feedSeq = useRef(0);
+  const matchPointRef = useRef(false);
+  const behindRef = useRef(false);
+  const frameRef = useRef<(ts: number) => boolean | void>(() => {});
+
   const ctl = useRef<Controls>({
     moveId: null, moveBase: { x: 0, y: 0 }, moveKnob: { x: 0, y: 0 },
     fireId: null, fireBase: { x: 0, y: 0 }, fireKnob: { x: 0, y: 0 },
@@ -94,6 +130,20 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
 
   const setPhaseBoth = (p: ArenaPhase) => { phaseRef.current = p; setPhase(p); };
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+
+  // ── audio setup ──
+  useEffect(() => {
+    const synth = createSynth();
+    synthRef.current = synth;
+    audioRef.current.setHook(synth.hook);
+  }, []);
+  useEffect(() => { audioRef.current.setMuted(!soundOn); }, [soundOn]);
+  useEffect(() => { fxRef.current.intensity = reducedMotion ? 0.35 : 1; }, [reducedMotion]);
+
+  const resumeAudio = () => {
+    if (!resumedRef.current) { synthRef.current?.resume(); resumedRef.current = true; }
+  };
+  const emit = (s: ArenaSound, i = 1) => audioRef.current.emit(s, i);
 
   // ── sizing (responsive, crisp on retina) ──
   const resize = useCallback(() => {
@@ -113,24 +163,36 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   }, []);
 
   // ── question loading ──
-  const loadQuestion = useCallback(() => {
+  const loadQuestion = () => {
     const level = levelForXp(useGame.getState().xp);
     const q = pickQuestion({ level, exclude: usedIds.current, categories: config.categories });
     usedIds.current.add(q.q.id);
     if (usedIds.current.size > 24) usedIds.current.clear();
     setPrepared(q);
     setLearnState('answering');
-  }, [config.categories]);
+  };
 
-  const enterLearning = useCallback(() => {
+  const enterLearning = () => {
     const c = ctl.current;
     c.touchFire = c.mouseFire = c.spaceFire = false;
+    dyingRef.current.active = false;
     setPhaseBoth('learning');
     setLastReward(null);
     loadQuestion();
-  }, [loadQuestion]);
+  };
 
-  const endMatch = useCallback(() => {
+  const startDying = (pos: { x: number; y: number }) => {
+    dyingRef.current = { active: true, t: 0, x: pos.x, y: pos.y };
+    setPhaseBoth('dying');
+  };
+
+  const announce = (text: string) => {
+    const key = Date.now() + Math.random();
+    setBanner({ text, key });
+    timers.current.push(setTimeout(() => setBanner((b) => (b && b.key === key ? null : b)), 1600));
+  };
+
+  const endMatch = () => {
     if (phaseRef.current === 'ended') return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
@@ -139,6 +201,7 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     const myScore = w.scores.red;
     const enemyScore = w.scores.blue;
     const won = myScore >= enemyScore && (myScore >= target || myScore > enemyScore);
+    emit(won ? 'victory' : 'defeat');
     const bonus = arenaMatchEnd({ won, correct: stats.current.correct, elims: w.fighters[0].score });
     setResult({
       won,
@@ -152,42 +215,91 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
       coinsEarned: stats.current.coins + bonus.bonusCoins,
     });
     setPhaseBoth('ended');
-  }, [arenaMatchEnd, target]);
+  };
 
-  const respawnHero = useCallback(() => {
+  const respawnHero = () => {
     const w = worldRef.current;
     if (!w) return;
-    respawn(w.fighters[0], performance.now());
+    const now = performance.now();
+    const hero = w.fighters[0];
+    respawn(hero, now);
+    hero.shieldUntil = now + SHIELD_MS;
+    fxRef.current.portal(hero.x, hero.y, '#FFD43B');
+    emit('respawn');
+    emit('shield');
     setPrepared(null);
     if (phaseRef.current !== 'ended') setPhaseBoth('playing');
-  }, []);
+  };
 
-  const submitAnswer = useCallback(
-    (response: number | string[]) => {
-      if (!prepared || learnState !== 'answering') return;
-      stats.current.answered += 1;
-      if (isCorrect(prepared, response)) {
-        const reward = arenaAnswerCorrect(prepared.q.difficulty);
-        stats.current.correct += 1;
-        stats.current.xp += reward.xp;
-        stats.current.coins += reward.coins;
-        setLastReward(reward);
-        setLearnState('correct');
-        timers.current.push(setTimeout(respawnHero, CELEBRATE_MS));
-      } else {
-        setLearnState('wrong-cooldown');
-        timers.current.push(
-          setTimeout(() => { if (phaseRef.current === 'learning') loadQuestion(); }, WRONG_COOLDOWN_MS),
-        );
+  const submitAnswer = (response: number | string[]) => {
+    if (!prepared || learnState !== 'answering') return;
+    stats.current.answered += 1;
+    if (isCorrect(prepared, response)) {
+      const reward = arenaAnswerCorrect(prepared.q.difficulty);
+      stats.current.correct += 1;
+      stats.current.xp += reward.xp;
+      stats.current.coins += reward.coins;
+      setLastReward(reward);
+      setLearnState('correct');
+      emit('correct');
+      timers.current.push(setTimeout(respawnHero, CELEBRATE_MS));
+    } else {
+      setLearnState('wrong-cooldown');
+      emit('wrong');
+      timers.current.push(
+        setTimeout(() => { if (phaseRef.current === 'learning') loadQuestion(); }, WRONG_COOLDOWN_MS),
+      );
+    }
+  };
+
+  // ── feedback: kill feed, multi-kills, comeback / match-point ──
+  const pushKills = (
+    kills: { killerId: string; killerName: string; victimName: string; team: TeamId; crit: boolean }[],
+    ts: number,
+  ) => {
+    if (!kills.length) return;
+    const entries: FeedEntry[] = kills.map((k) => ({
+      id: feedSeq.current++, killerName: k.killerName, victimName: k.victimName, team: k.team, crit: k.crit,
+    }));
+    setFeed((prev) => [...entries, ...prev].slice(0, 4));
+    for (const e of entries) {
+      timers.current.push(setTimeout(() => setFeed((f) => f.filter((x) => x.id !== e.id)), 3200));
+    }
+
+    const heroK = kills.filter((k) => k.killerId === 'hero').length;
+    if (heroK > 0) {
+      const arr = heroKills.current;
+      for (let i = 0; i < heroK; i++) arr.push(ts);
+      const recent = arr.filter((t) => ts - t < 2500);
+      heroKills.current = recent;
+      if (recent.length >= 2) {
+        announce(recent.length >= 4 ? 'RAMPAGE! 🔥' : recent.length === 3 ? 'TRIPLE TAG-OUT! ⚡' : 'DOUBLE TAG-OUT! ✨');
+        emit(recent.length >= 3 ? 'streak' : 'multikill');
       }
-    },
-    [arenaAnswerCorrect, learnState, loadQuestion, prepared, respawnHero],
-  );
+    }
+  };
+
+  const checkScoreAlerts = (red: number, blue: number) => {
+    if (!matchPointRef.current && (red === target - 1 || blue === target - 1)) {
+      matchPointRef.current = true;
+      announce('MATCH POINT! 🏁');
+    }
+    if (blue - red >= 8) behindRef.current = true;
+    if (behindRef.current && red >= blue && red > 0) {
+      behindRef.current = false;
+      announce('COMEBACK! 💪');
+    }
+  };
+
+  const playSounds = (list: ArenaSound[]) => {
+    if (!list.length) return;
+    const seen = new Set<ArenaSound>();
+    for (const s of list) { if (!seen.has(s)) { seen.add(s); emit(s); } }
+  };
 
   // ── combine all input sources into world.input each frame ──
   const applyInput = (w: World) => {
     const c = ctl.current;
-    // movement: joystick takes priority over keyboard
     if (c.moveId !== null) {
       const dx = c.moveKnob.x - c.moveBase.x;
       const dy = c.moveKnob.y - c.moveBase.y;
@@ -202,7 +314,6 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
       if (k.has('d') || k.has('arrowright')) mx += 1;
       w.input.moveX = mx; w.input.moveY = my;
     }
-    // fire + aim
     w.input.firing = c.touchFire || c.mouseFire || c.spaceFire;
     if (c.touchFire && c.touchAimActive) w.input.aim = { type: 'dir', angle: c.touchAimAngle };
     else if (c.touchFire) w.input.aim = { type: 'none' };
@@ -210,7 +321,24 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     else w.input.aim = { type: 'none' };
   };
 
-  // ── render: world (scaled) + on-screen joysticks & hero HP (screen space) ──
+  // ── camera easing (zoom toward the death point during 'dying') ──
+  const updateCamera = (dt: number) => {
+    const cam = camRef.current;
+    let tz = 1, tx = WORLD_W / 2, ty = WORLD_H / 2;
+    if (dyingRef.current.active) {
+      tz = reducedMotion ? 1.25 : 1.7;
+      tx = dyingRef.current.x; ty = dyingRef.current.y;
+    }
+    const halfW = WORLD_W / (2 * tz), halfH = WORLD_H / (2 * tz);
+    tx = clampN(tx, halfW, WORLD_W - halfW);
+    ty = clampN(ty, halfH, WORLD_H - halfH);
+    const k = Math.min(1, 7 * dt);
+    cam.zoom += (tz - cam.zoom) * k;
+    cam.cx += (tx - cam.cx) * k;
+    cam.cy += (ty - cam.cy) * k;
+  };
+
+  // ── render: world (camera-transformed) + screen-space overlays ──
   const render = (now: number) => {
     const canvas = canvasRef.current;
     const w = worldRef.current;
@@ -219,20 +347,35 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     if (!ctx) return;
     const dpr = dprRef.current;
     const s = scaleRef.current;
+    const fx = fxRef.current;
+    const cam = camRef.current;
+    const cssW = canvas.width / dpr;
+    const cssH = canvas.height / dpr;
 
-    ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
-    drawWorld(ctx, w, now);
+    const sh = reducedMotion ? { x: 0, y: 0 } : fx.shake(7);
+    const a = dpr * s * cam.zoom;
+    const tx = dpr * (cssW / 2 - cam.cx * s * cam.zoom + sh.x);
+    const ty = dpr * (cssH / 2 - cam.cy * s * cam.zoom + sh.y);
+    ctx.setTransform(a, 0, 0, a, tx, ty);
+    drawWorld(ctx, w, now, fx);
 
     // screen-space overlays
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // hero hit vignette
+    if (fx.heroFlash > 0) {
+      ctx.globalAlpha = fx.heroFlash * 0.33;
+      ctx.fillStyle = '#FF3B6B';
+      ctx.fillRect(0, 0, cssW, cssH);
+      ctx.globalAlpha = 1;
+    }
+
     const c = ctl.current;
     if (c.moveId !== null) drawStick(ctx, c.moveBase, c.moveKnob, '#7C5CFC');
     if (c.fireId !== null) drawStick(ctx, c.fireBase, c.fireKnob, '#FFD43B');
 
     // hero HP bar (bottom center)
     const hero = w.fighters[0];
-    const cssW = canvas.width / dpr;
-    const cssH = canvas.height / dpr;
     const bw = 160, bx = cssW / 2 - bw / 2, by = cssH - 16;
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.fillRect(bx - 4, by - 4, bw + 8, 12);
@@ -241,43 +384,64 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     ctx.fillRect(bx, by, bw * hp, 4);
   };
 
-  // ── the loop ──
-  const loop = useCallback(
-    (ts: number) => {
-      const w = worldRef.current;
-      if (!w) return;
-      const dt = lastTs.current ? (ts - lastTs.current) / 1000 : 0;
-      lastTs.current = ts;
+  // ── one frame (stored in a ref so the rAF trampoline never goes stale) ──
+  frameRef.current = (ts: number) => {
+    const w = worldRef.current;
+    if (!w) return;
+    const dt = lastTs.current ? (ts - lastTs.current) / 1000 : 0;
+    lastTs.current = ts;
+    const fx = fxRef.current;
 
-      applyInput(w);
-      if (phaseRef.current === 'playing') {
-        const res = step(w, dt, ts);
-        if (w.scores.red !== lastScores.current.red || w.scores.blue !== lastScores.current.blue) {
-          lastScores.current = { red: w.scores.red, blue: w.scores.blue };
-          setScores(lastScores.current);
-        }
-        if (w.scores.red >= target || w.scores.blue >= target) {
-          endMatch();
-          return;
-        }
-        if (res.heroDied) enterLearning();
+    applyInput(w);
+
+    if (phaseRef.current === 'playing') {
+      const res = step(w, dt, ts, fx);
+      playSounds(res.sounds);
+      pushKills(res.kills, ts);
+      if (w.scores.red !== lastScores.current.red || w.scores.blue !== lastScores.current.blue) {
+        lastScores.current = { red: w.scores.red, blue: w.scores.blue };
+        setScores(lastScores.current);
+        checkScoreAlerts(w.scores.red, w.scores.blue);
       }
-      render(ts);
-      rafRef.current = requestAnimationFrame(loop);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [endMatch, enterLearning, target],
-  );
+      if (w.scores.red >= target || w.scores.blue >= target) { endMatch(); return false; }
+      if (res.heroDied && res.heroDeath) startDying(res.heroDeath);
+    }
+
+    // freeze-frame slow-mo during the death camera, normal speed otherwise
+    fx.update(phaseRef.current === 'dying' ? dt * 0.32 : dt);
+
+    if (phaseRef.current === 'dying') {
+      dyingRef.current.t += dt;
+      if (dyingRef.current.t >= (reducedMotion ? DEATH_DUR_RM : DEATH_DUR)) enterLearning();
+    }
+
+    updateCamera(dt);
+    render(ts);
+  };
+
+  const loop = useCallback((ts: number) => {
+    const cont = frameRef.current(ts);
+    if (cont !== false) rafRef.current = requestAnimationFrame(loop);
+  }, []);
 
   // ── boot / restart a match ──
   const boot = useCallback(() => {
     clearTimers();
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    worldRef.current = createWorld(perTeam, config.hero);
+    worldRef.current = createWorld(perTeam, config.hero, config.obstacles, config.difficulty);
     stats.current = { correct: 0, answered: 0, xp: 0, coins: 0 };
     usedIds.current.clear();
     lastTs.current = 0;
     lastScores.current = { red: 0, blue: 0 };
+    fxRef.current = new Fx();
+    fxRef.current.intensity = reducedMotion ? 0.35 : 1;
+    camRef.current = { zoom: 1, cx: WORLD_W / 2, cy: WORLD_H / 2 };
+    dyingRef.current = { active: false, t: 0, x: 0, y: 0 };
+    heroKills.current = [];
+    matchPointRef.current = false;
+    behindRef.current = false;
+    setFeed([]);
+    setBanner(null);
     setScores({ red: 0, blue: 0 });
     setResult(null);
     setPrepared(null);
@@ -287,15 +451,17 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
 
     // intro countdown 3-2-1 → play
     let n = 3;
+    emit('countdown');
     const tick = () => {
       n -= 1;
+      emit('countdown');
       if (n <= 0) { setCount(0); setPhaseBoth('playing'); }
       else { setCount(n); timers.current.push(setTimeout(tick, 800)); }
     };
     timers.current.push(setTimeout(tick, 800));
     rafRef.current = requestAnimationFrame(loop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perTeam, resize, loop]);
+  }, [perTeam, resize, loop, reducedMotion]);
 
   useEffect(() => {
     boot();
@@ -304,6 +470,7 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
 
     const onKey = (down: boolean) => (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
+      if (down) resumeAudio();
       if (k === ' ') { ctl.current.spaceFire = down; e.preventDefault(); return; }
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
         if (down) ctl.current.keys.add(k); else ctl.current.keys.delete(k);
@@ -337,6 +504,7 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
+    resumeAudio();
     if (phaseRef.current !== 'playing') return;
     const c = ctl.current;
     const { cssX, cssY, wx, wy, half } = toLocal(e);
@@ -412,6 +580,43 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
           style={{ cursor: 'crosshair', touchAction: 'none' }}
         />
 
+        {/* kill feed */}
+        <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
+          <AnimatePresence>
+            {feed.map((e) => (
+              <motion.div
+                key={e.id}
+                initial={{ opacity: 0, x: 28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 28 }}
+                className="rounded-full bg-ink/80 px-2.5 py-1 text-[11px] font-extrabold text-white shadow"
+              >
+                <span>{TEAMS[e.team].emoji} {e.killerName}</span>
+                <span className="mx-1 text-mango">⚡</span>
+                <span className="opacity-80">{e.victimName}</span>
+                {e.crit && <span className="ml-1 text-sun">CRIT</span>}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* big announcement (multi-kill / comeback / match point) */}
+        <AnimatePresence>
+          {banner && (
+            <motion.div
+              key={banner.key}
+              initial={{ opacity: 0, scale: 0.6, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 1.35 }}
+              className="pointer-events-none absolute inset-x-0 top-10 z-20 text-center"
+            >
+              <span className="font-display text-2xl font-extrabold text-white drop-shadow-[0_2px_10px_rgba(124,92,252,0.95)]">
+                {banner.text}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* intro countdown */}
         <AnimatePresence>
           {phase === 'intro' && (
@@ -431,6 +636,22 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
           )}
         </AnimatePresence>
 
+        {/* death freeze-frame flourish */}
+        <AnimatePresence>
+          {phase === 'dying' && (
+            <motion.div
+              className="pointer-events-none absolute inset-0 grid place-items-center"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+              <motion.p
+                initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="font-display text-4xl font-extrabold text-white drop-shadow-[0_2px_12px_rgba(255,59,107,0.9)]"
+              >
+                TAGGED OUT!
+              </motion.p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* learning pod — full-screen modal over the blurred battlefield */}

@@ -163,7 +163,7 @@ export interface MatchResult {
 }
 
 // ── Match flow (shared by the engine + UI) ────────────────────────────────────
-export type ArenaPhase = 'intro' | 'playing' | 'learning' | 'ended';
+export type ArenaPhase = 'intro' | 'playing' | 'dying' | 'learning' | 'ended';
 
 /** Sub-state while the hero is in the LEARNING POD (the respawn screen). */
 export type LearnState = 'answering' | 'correct' | 'wrong-cooldown';

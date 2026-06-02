@@ -26,3 +26,4 @@ packages/database/prisma/*.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.vercel

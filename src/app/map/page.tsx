@@ -7,8 +7,10 @@ import { useGame, useHydrated, selectTotalStars } from '@/store/useGame';
 import { ZONES } from '@/data/worlds';
 import { getGame } from '@/data/games';
 import { Stars } from '@/components/ui/Bits';
+import { useT } from '@/lib/i18n';
 
 export default function WorldMapPage() {
+  const t = useT();
   const hydrated = useHydrated();
   const totalStars = useGame(selectTotalStars);
   const completed = useGame((s) => s.completed);
@@ -18,8 +20,8 @@ export default function WorldMapPage() {
       <TopBar />
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="text-center">
-          <h1 className="font-display text-3xl font-extrabold">🗺️ World Map</h1>
-          <p className="mt-1 text-ink-soft">Earn ⭐ to unlock new worlds! You have <strong>{hydrated ? totalStars : 0}</strong> stars.</p>
+          <h1 className="font-display text-3xl font-extrabold">{t('map.title')}</h1>
+          <p className="mt-1 text-ink-soft">{t('map.stars', { n: hydrated ? totalStars : 0 })}</p>
         </div>
 
         <div className="relative mt-8 space-y-6">
@@ -44,9 +46,9 @@ export default function WorldMapPage() {
                     {unlocked ? zone.emoji : '🔒'}
                   </span>
                   <div className="flex-1">
-                    <h2 className="font-display text-xl font-extrabold">{zone.title}</h2>
+                    <h2 className="font-display text-xl font-extrabold">{t(`world.${zone.slug}.title`)}</h2>
                     <p className={`text-sm ${unlocked ? 'text-white/85' : 'text-ink-soft'}`}>
-                      {unlocked ? zone.description : `Unlock at ${zone.unlockStars} ⭐`}
+                      {unlocked ? t(`world.${zone.slug}.desc`) : t('map.unlockAt', { n: zone.unlockStars })}
                     </p>
                   </div>
                 </div>
@@ -65,10 +67,10 @@ export default function WorldMapPage() {
                         >
                           <span className="text-2xl">{g.emoji}</span>
                           <div className="flex-1">
-                            <p className="font-display font-extrabold leading-tight">{g.title}</p>
+                            <p className="font-display font-extrabold leading-tight">{t(`game.${slug}.title`)}</p>
                             <div className="text-sm"><Stars count={hydrated ? stars : 0} size="text-xs" /></div>
                           </div>
-                          <span className="font-display font-bold text-grape">Play →</span>
+                          <span className="font-display font-bold text-grape">{t('common.play')}</span>
                         </Link>
                       );
                     })}
@@ -78,8 +80,8 @@ export default function WorldMapPage() {
                 {unlocked && zone.finale && (
                   <div className="mt-4 rounded-2xl bg-white/90 p-4 text-center text-ink">
                     <p className="text-4xl">🏆</p>
-                    <p className="mt-2 font-display font-extrabold">You’re a Code Hero!</p>
-                    <p className="text-sm text-ink-soft">You’ve mastered every world. Replay games to beat your star records!</p>
+                    <p className="mt-2 font-display font-extrabold">{t('map.hero')}</p>
+                    <p className="text-sm text-ink-soft">{t('map.heroSub')}</p>
                   </div>
                 )}
               </motion.section>

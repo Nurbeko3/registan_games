@@ -11,6 +11,8 @@ export interface Avatar {
 
 export const AVATARS: Avatar[] = [
   { id: 'kid', emoji: '🧒', name: 'Rookie', cost: 0 },
+  { id: 'boy', emoji: '👦', name: 'Boy', cost: 0 },
+  { id: 'girl', emoji: '👧', name: 'Girl', cost: 0 },
   { id: 'robot', emoji: '🤖', name: 'Byte Bot', cost: 50 },
   { id: 'fox', emoji: '🦊', name: 'Clever Fox', cost: 80 },
   { id: 'cat', emoji: '🐱', name: 'Code Cat', cost: 80 },

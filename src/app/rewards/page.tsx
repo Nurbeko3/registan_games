@@ -8,6 +8,7 @@ import { ACHIEVEMENTS, RARITY_RING } from '@/data/achievements';
 import { AVATARS, THEMES } from '@/data/cosmetics';
 import { levelForXp, levelState } from '@/lib/leveling';
 import { CloudSaveCard } from '@/components/CloudSaveCard';
+import { useT } from '@/lib/i18n';
 
 export default function RewardsPage() {
   const hydrated = useHydrated();
@@ -29,6 +30,7 @@ export default function RewardsPage() {
 }
 
 function RewardsContent() {
+  const t = useT();
   const xp = useGame((s) => s.xp);
   const ls = levelState(xp);
   const totalStars = useGame(selectTotalStars);
@@ -43,18 +45,18 @@ function RewardsContent() {
 
   const onClaim = () => {
     const r = claimDaily();
-    if (r) setClaimMsg(`+${r.coins} 💰 and +${r.xp} ⚡!`);
+    if (r) setClaimMsg(t('rw.claimMsg', { coins: r.coins, xp: r.xp }));
   };
 
   return (
     <main id="main" className="mx-auto max-w-3xl px-4 py-6">
       {/* header stats */}
       <section className="card bg-gradient-to-br from-grape to-grape-600 text-center text-white">
-        <h1 className="font-display text-2xl font-extrabold">Your Hero Profile</h1>
+        <h1 className="font-display text-2xl font-extrabold">{t('rw.profile')}</h1>
         <div className="mt-3 flex justify-center gap-6 font-display font-extrabold">
-          <div><div className="text-3xl">{ls.level}</div><div className="text-sm text-white/80">Level</div></div>
-          <div><div className="text-3xl">{totalStars}⭐</div><div className="text-sm text-white/80">Stars</div></div>
-          <div><div className="text-3xl">{coins}💰</div><div className="text-sm text-white/80">Coins</div></div>
+          <div><div className="text-3xl">{ls.level}</div><div className="text-sm text-white/80">{t('rw.level')}</div></div>
+          <div><div className="text-3xl">{totalStars}⭐</div><div className="text-sm text-white/80">{t('rw.stars')}</div></div>
+          <div><div className="text-3xl">{coins}💰</div><div className="text-sm text-white/80">{t('rw.coins')}</div></div>
         </div>
       </section>
 
@@ -62,15 +64,15 @@ function RewardsContent() {
       <section className="card mt-5 flex items-center gap-4">
         <div className="text-4xl">🎁</div>
         <div className="flex-1">
-          <p className="font-display font-extrabold">Daily Reward</p>
-          <p className="text-sm text-ink-soft">{canClaim ? 'Claim your gift for playing today!' : claimMsg ?? 'Come back tomorrow for more!'}</p>
+          <p className="font-display font-extrabold">{t('rw.daily')}</p>
+          <p className="text-sm text-ink-soft">{canClaim ? t('rw.dailyClaim') : claimMsg ?? t('rw.dailyBack')}</p>
         </div>
-        <button onClick={onClaim} disabled={!canClaim} className="btn-primary disabled:opacity-40">{canClaim ? 'Claim' : '✓'}</button>
+        <button onClick={onClaim} disabled={!canClaim} className="btn-primary disabled:opacity-40">{canClaim ? t('rw.claim') : '✓'}</button>
       </section>
 
       {/* achievements */}
       <section className="mt-6">
-        <h2 className="font-display text-xl font-extrabold">🏅 Achievements ({unlockedAch.length}/{ACHIEVEMENTS.length})</h2>
+        <h2 className="font-display text-xl font-extrabold">{t('rw.achievements')} ({unlockedAch.length}/{ACHIEVEMENTS.length})</h2>
         <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
           {ACHIEVEMENTS.map((a) => {
             const got = unlockedAch.includes(a.code);
@@ -94,6 +96,7 @@ function RewardsContent() {
 }
 
 function AvatarShop() {
+  const t = useT();
   const avatarId = useGame((s) => s.avatarId);
   const unlocked = useGame((s) => s.unlockedAvatars);
   const coins = useGame((s) => s.coins);
@@ -104,7 +107,7 @@ function AvatarShop() {
 
   return (
     <section className="mt-6">
-      <h2 className="font-display text-xl font-extrabold">🧑‍🚀 Characters</h2>
+      <h2 className="font-display text-xl font-extrabold">{t('rw.characters')}</h2>
       <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
         {AVATARS.map((a) => {
           const owned = unlocked.includes(a.id);
@@ -121,7 +124,7 @@ function AvatarShop() {
               <span className="text-3xl">{a.emoji}</span>
               <span className="mt-1 text-xs font-bold leading-tight">{a.name}</span>
               <span className="mt-0.5 text-[11px] font-bold">
-                {active ? 'Wearing' : owned ? 'Tap to wear' : lockedByLevel ? `Lv ${a.unlockLevel}` : `💰 ${a.cost}`}
+                {active ? t('rw.wearing') : owned ? t('rw.tapWear') : lockedByLevel ? `${t('common.lv')} ${a.unlockLevel}` : `💰 ${a.cost}`}
               </span>
             </motion.button>
           );
@@ -132,6 +135,7 @@ function AvatarShop() {
 }
 
 function ThemeShop() {
+  const t = useT();
   const themeId = useGame((s) => s.themeId);
   const unlocked = useGame((s) => s.unlockedThemes);
   const coins = useGame((s) => s.coins);
@@ -140,21 +144,21 @@ function ThemeShop() {
 
   return (
     <section className="mt-6">
-      <h2 className="font-display text-xl font-extrabold">🎨 Themes</h2>
+      <h2 className="font-display text-xl font-extrabold">{t('rw.themes')}</h2>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {THEMES.map((t) => {
-          const owned = unlocked.includes(t.id);
-          const active = themeId === t.id;
+        {THEMES.map((th) => {
+          const owned = unlocked.includes(th.id);
+          const active = themeId === th.id;
           return (
             <button
-              key={t.id}
-              onClick={() => (owned ? select(t.id) : buy(t.id))}
-              disabled={!owned && coins < t.cost}
-              className={`rounded-2xl p-4 text-center shadow-card transition ${active ? 'ring-2 ring-grape' : ''} ${t.bg} ${!owned && coins < t.cost ? 'opacity-50' : ''}`}
+              key={th.id}
+              onClick={() => (owned ? select(th.id) : buy(th.id))}
+              disabled={!owned && coins < th.cost}
+              className={`rounded-2xl p-4 text-center shadow-card transition ${active ? 'ring-2 ring-grape' : ''} ${th.bg} ${!owned && coins < th.cost ? 'opacity-50' : ''}`}
             >
-              <div className="text-3xl">{t.emoji}</div>
-              <p className="mt-1 text-sm font-bold">{t.name}</p>
-              <p className="text-[11px] font-bold">{active ? 'Active' : owned ? 'Use' : `💰 ${t.cost}`}</p>
+              <div className="text-3xl">{th.emoji}</div>
+              <p className="mt-1 text-sm font-bold">{th.name}</p>
+              <p className="text-[11px] font-bold">{active ? t('rw.active') : owned ? t('rw.use') : `💰 ${th.cost}`}</p>
             </button>
           );
         })}

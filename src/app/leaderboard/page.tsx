@@ -8,10 +8,12 @@ import { isCloudEnabled } from '@/lib/supabase/client';
 import { fetchLeaderboard, type LeaderboardRow } from '@/lib/supabase/leaderboard';
 import { useGame } from '@/store/useGame';
 import { levelForXp } from '@/lib/leveling';
+import { useT } from '@/lib/i18n';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function LeaderboardPage() {
+  const t = useT();
   const [rows, setRows] = useState<LeaderboardRow[] | null>(null);
   const [mounted, setMounted] = useState(false);
   const myName = useGame((s) => s.playerName);
@@ -27,8 +29,8 @@ export default function LeaderboardPage() {
       <TopBar />
       <div className="mx-auto max-w-2xl px-4 py-6">
         <div className="text-center">
-          <h1 className="font-display text-3xl font-extrabold">🏆 Leaderboard</h1>
-          <p className="mt-1 text-ink-soft">Top young coders around the world!</p>
+          <h1 className="font-display text-3xl font-extrabold">{t('lb.title')}</h1>
+          <p className="mt-1 text-ink-soft">{t('lb.sub')}</p>
         </div>
 
         {/* before mount: neutral placeholder (matches server render) */}
@@ -40,9 +42,9 @@ export default function LeaderboardPage() {
         {mounted && !isCloudEnabled() && (
           <div className="card mt-6 text-center">
             <div className="text-4xl">☁️</div>
-            <p className="mt-2 font-display font-extrabold">Leaderboard is offline</p>
-            <p className="mt-1 text-ink-soft">Turn on Cloud Save to compete with others!</p>
-            <Link href="/rewards" className="btn-primary mt-4">Go to Cloud Save</Link>
+            <p className="mt-2 font-display font-extrabold">{t('lb.offline')}</p>
+            <p className="mt-1 text-ink-soft">{t('lb.offlineSub')}</p>
+            <Link href="/rewards" className="btn-primary mt-4">{t('lb.goCloud')}</Link>
           </div>
         )}
 
@@ -54,9 +56,9 @@ export default function LeaderboardPage() {
             {rows && rows.length === 0 && (
               <div className="card text-center">
                 <div className="text-4xl">🌱</div>
-                <p className="mt-2 font-display font-extrabold">No champions yet</p>
-                <p className="mt-1 text-ink-soft">Be the first — play a game and turn on Cloud Save!</p>
-                <Link href="/map" className="btn-primary mt-4">Play now</Link>
+                <p className="mt-2 font-display font-extrabold">{t('lb.noChamps')}</p>
+                <p className="mt-1 text-ink-soft">{t('lb.noChampsSub')}</p>
+                <Link href="/map" className="btn-primary mt-4">{t('lb.playNow')}</Link>
               </div>
             )}
             {rows && rows.length > 0 && (
@@ -74,8 +76,8 @@ export default function LeaderboardPage() {
                       <span className="w-8 text-center font-display text-lg font-extrabold text-ink-faint">{MEDALS[i] ?? i + 1}</span>
                       <span className="grid h-9 w-9 place-items-center rounded-full bg-grape-50 text-lg">🧑‍🚀</span>
                       <div className="flex-1 truncate">
-                        <p className="truncate font-display font-extrabold">{r.display_name ?? 'Anonymous'}{me && ' (you)'}</p>
-                        <p className="text-xs font-bold text-ink-faint">Level {levelForXp(r.xp)}</p>
+                        <p className="truncate font-display font-extrabold">{r.display_name ?? t('lb.anon')}{me && ` ${t('common.you')}`}</p>
+                        <p className="text-xs font-bold text-ink-faint">{t('common.level')} {levelForXp(r.xp)}</p>
                       </div>
                       <span className="font-bold text-mango">{r.total_stars}⭐</span>
                       <span className="font-display font-extrabold text-grape">{r.xp} XP</span>

@@ -7,6 +7,7 @@ import { getGame } from '@/data/games';
 import { ZONES } from '@/data/worlds';
 import { ACHIEVEMENTS, type Achievement, type AchievementSnapshot } from '@/data/achievements';
 import { AVATARS, THEMES, getAvatar, getTheme } from '@/data/cosmetics';
+import type { Locale } from '@/lib/i18n/config';
 
 interface GameRecord {
   stars: number;
@@ -52,6 +53,7 @@ interface GameState {
   themeId: string;
   unlockedThemes: string[];
   settings: Settings;
+  locale: Locale;
   playerName: string;
   // Battle Learn Arena lifetime stats
   arenaMatches: number;
@@ -65,6 +67,7 @@ interface GameState {
 
   // actions
   setPlayerName: (name: string) => void;
+  setLocale: (locale: Locale) => void;
   completeGame: (slug: string, stars: number) => CompleteResult;
   arenaAnswerCorrect: (difficulty: 'easy' | 'medium' | 'hard') => { xp: number; coins: number };
   arenaMatchEnd: (r: { won: boolean; correct: number; elims: number }) => {
@@ -92,10 +95,11 @@ const DEFAULTS = {
   completed: {} as Record<string, GameRecord>,
   unlockedAchievements: [] as string[],
   avatarId: 'kid',
-  unlockedAvatars: ['kid'],
+  unlockedAvatars: ['kid', 'boy', 'girl'],
   themeId: 'cloud',
   unlockedThemes: ['cloud'],
   settings: { sound: true, reducedMotion: false } as Settings,
+  locale: 'uz' as Locale,
   playerName: '',
   arenaMatches: 0,
   arenaWins: 0,
@@ -132,6 +136,8 @@ export const useGame = create<GameState>()(
       celebrations: [],
 
       setPlayerName: (name) => set({ playerName: name.slice(0, 20) }),
+
+      setLocale: (locale) => set({ locale }),
 
       completeGame: (slug, stars) => {
         const state = get();
@@ -256,7 +262,9 @@ export const useGame = create<GameState>()(
         return true;
       },
       selectAvatar: (id) => {
-        if (get().unlockedAvatars.includes(id)) set({ avatarId: id });
+        // free characters (cost 0, e.g. boy/girl) are always selectable
+        const free = getAvatar(id).cost === 0;
+        if (free || get().unlockedAvatars.includes(id)) set({ avatarId: id });
       },
 
       buyTheme: (id) => {

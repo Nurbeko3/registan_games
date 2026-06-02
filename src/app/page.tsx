@@ -8,6 +8,7 @@ import { Mascot } from '@/components/Mascot';
 import { GAMES } from '@/data/games';
 import { ZONES } from '@/data/worlds';
 import { useGame, useHydrated } from '@/store/useGame';
+import { useT } from '@/lib/i18n';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 22 },
@@ -15,6 +16,7 @@ const fadeUp = {
 };
 
 function NamePrompt() {
+  const t = useT();
   const hydrated = useHydrated();
   const playerName = useGame((s) => s.playerName);
   const setPlayerName = useGame((s) => s.setPlayerName);
@@ -40,19 +42,19 @@ function NamePrompt() {
         <div className="card flex items-center gap-3 bg-gradient-to-r from-sun/20 to-mango/20">
           <span className="text-3xl">🧑‍🚀</span>
           <div className="flex-1">
-            <p className="font-display font-extrabold">What's your hero name?</p>
+            <p className="font-display font-extrabold">{t('home.name.q')}</p>
             <div className="mt-2 flex gap-2">
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && save()}
-                placeholder="e.g. Robo, Aziz, Luna…"
+                placeholder={t('home.name.ph')}
                 maxLength={20}
                 autoFocus
                 className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2 font-bold outline-none focus:border-grape"
               />
               <button onClick={save} className="btn-primary px-5">
-                Go! 🚀
+                {t('home.name.go')}
               </button>
             </div>
           </div>
@@ -66,6 +68,7 @@ function NamePrompt() {
 }
 
 export default function HomePage() {
+  const t = useT();
   return (
     <main id="main">
       <TopBar />
@@ -85,15 +88,15 @@ export default function HomePage() {
           >
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <span className="chip bg-white/20 text-white">🎮 Ages 7–14 · Free</span>
+                <span className="chip bg-white/20 text-white">{t('home.badge')}</span>
                 <h1 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] md:text-4xl">
-                  Learn to code by <span className="text-sun">playing!</span>
+                  {t('home.title.a')} <span className="text-sun">{t('home.title.play')}</span>
                 </h1>
                 <p className="mt-2 max-w-sm text-white/90">
-                  Explore worlds, beat mini-games, earn stars and become a Code Hero. 🚀
+                  {t('home.subtitle')}
                 </p>
                 <Link href="/map" className="btn-sun mt-5 text-lg">
-                  ▶ Play now
+                  {t('common.playNow')}
                 </Link>
               </div>
               <div className="hidden shrink-0 sm:block">
@@ -110,9 +113,9 @@ export default function HomePage() {
       {/* ── WORLDS ── */}
       <section className="mx-auto max-w-2xl px-5 pb-2">
         <div className="flex items-center justify-between">
-          <h2 className="h-section">🌍 Worlds</h2>
+          <h2 className="h-section">{t('home.worlds')}</h2>
           <Link href="/map" className="font-display text-sm font-extrabold text-grape">
-            See all →
+            {t('home.seeAll')}
           </Link>
         </div>
         <div className="mt-4 flex gap-3 overflow-x-auto pb-3">
@@ -130,7 +133,7 @@ export default function HomePage() {
                 className={`card-tap block min-w-[140px] rounded-xl2 bg-gradient-to-br ${z.color} p-4 text-center text-white shadow-card`}
               >
                 <div className="text-4xl">{z.emoji}</div>
-                <p className="mt-2 font-display font-extrabold leading-tight">{z.title}</p>
+                <p className="mt-2 font-display font-extrabold leading-tight">{t(`world.${z.slug}.title`)}</p>
               </Link>
             </motion.div>
           ))}
@@ -139,9 +142,9 @@ export default function HomePage() {
 
       {/* ── GAMES ── */}
       <section className="mx-auto max-w-2xl px-5 py-6">
-        <h2 className="h-section">🎲 Mini-games</h2>
+        <h2 className="h-section">{t('home.minigames')}</h2>
         <p className="mt-1 text-ink-soft">
-          {GAMES.length} games · each one secretly teaches a real coding skill.
+          {t('home.minigamesSub', { n: GAMES.length })}
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {GAMES.map((g, i) => (
@@ -159,15 +162,15 @@ export default function HomePage() {
                 >
                   {g.emoji}
                 </div>
-                <p className="mt-2 font-display text-sm font-extrabold leading-tight">{g.title}</p>
-                <p className="mt-0.5 text-[11px] font-bold text-ink-faint">{g.skill}</p>
+                <p className="mt-2 font-display text-sm font-extrabold leading-tight">{t(`game.${g.slug}.title`)}</p>
+                <p className="mt-0.5 text-[11px] font-bold text-ink-faint">{t(`game.${g.slug}.skill`)}</p>
               </Link>
             </motion.div>
           ))}
         </div>
       </section>
 
-      <p className="pb-4 text-center text-sm text-ink-faint">Code. Play. Grow. 💜</p>
+      <p className="pb-4 text-center text-sm text-ink-faint">{t('home.footer')}</p>
     </main>
   );
 }
