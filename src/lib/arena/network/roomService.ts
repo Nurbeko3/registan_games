@@ -12,17 +12,20 @@
 
 import { getMode } from '@/data/arenaModes';
 import { createTransport, type PresenceMeta, type Transport } from './realtime';
+import { MatchService } from './matchService';
 import {
   DEFAULT_SETTINGS,
   makeMatchId,
   makeSeed,
   type ConnectionState,
   type MatchScores,
+  type NetEvent,
+  type NetEventType,
   type RoomPhase,
   type RoomPlayer,
   type RoomSettings,
 } from './types';
-import type { TeamId } from '@/lib/arena/types';
+import type { TeamId, RosterEntry } from '@/lib/arena/types';
 
 const COUNTDOWN_MS = 3200;
 
@@ -46,6 +49,8 @@ export interface RoomState {
   matchEnd: MatchScores | null;
   /** last realtime event seen (name + epoch ms) — for the debug panel. */
   lastEvent: { name: string; at: number } | null;
+  /** M2: the humans in this match + their teams (built by the host at start). */
+  roster: RosterEntry[];
 }
 
 export interface RoomOptions {
@@ -72,6 +77,8 @@ export class RoomService {
   private liveScores: MatchScores | null = null;
   private matchEnd: MatchScores | null = null;
   private lastEvent: { name: string; at: number } | null = null;
+  private roster: RosterEntry[] = [];
+  private match: MatchService;
   private listeners = new Set<(s: RoomState) => void>();
   private timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -80,6 +87,7 @@ export class RoomService {
     this.forcedHost = opts.isHost;
     this.settings = opts.settings ?? { ...DEFAULT_SETTINGS };
     this.transport = createTransport(code);
+    this.match = new MatchService(this.transport, this.transport.id);
     this.me = {
       name: opts.name || 'Player',
       avatar: opts.avatar,
@@ -134,6 +142,7 @@ export class RoomService {
       liveScores: this.liveScores,
       matchEnd: this.matchEnd,
       lastEvent: this.lastEvent,
+      roster: this.roster,
     };
   }
 
@@ -174,6 +183,7 @@ export class RoomService {
       // adopt the host's match identity so EVERY client loads the same arena
       this.matchId = (payload.matchId as string) ?? makeMatchId();
       this.seed = Number(payload.seed) || 0;
+      this.roster = Array.isArray(payload.roster) ? (payload.roster as RosterEntry[]) : [];
       this.startAt = Number(payload.at) || Date.now() + COUNTDOWN_MS;
       this.liveScores = { red: 0, blue: 0 };
       this.matchEnd = null;
@@ -196,6 +206,9 @@ export class RoomService {
       // ArenaGame owns the results screen and the exit back to the menu.
       this.emit();
     });
+    // M2: in-match event relay (move/shoot/down/respawn). Register the 'net'
+    // handler BEFORE connect so the transport attaches it to the channel.
+    this.match.start();
     await t.connect(this.me);
   }
 
@@ -218,9 +231,40 @@ export class RoomService {
    *  client build the IDENTICAL arena, and the id lets us prove they share it. */
   start() {
     if (!this.isHost()) return;
+    // guard: never start until every joined player has readied up
+    const players = Object.values(this.presence);
+    if (!players.length || players.some((p) => !p.ready)) return;
     const at = Date.now() + COUNTDOWN_MS;
-    this.transport.broadcast('start', { at, matchId: makeMatchId(), seed: makeSeed() });
+    this.transport.broadcast('start', { at, matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster() });
   }
+
+  /** Host builds the match roster from lobby presence (netId + chosen team). */
+  private buildRoster(): RosterEntry[] {
+    const map: Record<string, RosterEntry> = {};
+    for (const [netId, m] of Object.entries(this.presence)) {
+      map[netId] = { netId, name: m.name, avatar: m.avatar, team: m.team };
+    }
+    // make sure I'm in it with my latest team/avatar (presence can lag a beat)
+    map[this.transport.id] = {
+      netId: this.transport.id, name: this.me.name, avatar: this.me.avatar, team: this.me.team,
+    };
+    const entries = Object.values(map);
+    // Safety: if everyone ended up on one team there'd be no opponent — auto-split
+    // (deterministically by netId) so a 1v1 always has someone to play against.
+    const hasRed = entries.some((e) => e.team === 'red');
+    const hasBlue = entries.some((e) => e.team === 'blue');
+    if (entries.length >= 2 && (!hasRed || !hasBlue)) {
+      [...entries].sort((a, b) => (a.netId < b.netId ? -1 : 1))
+        .forEach((e, i) => { e.team = i % 2 === 0 ? 'red' : 'blue'; });
+    }
+    return entries;
+  }
+
+  /** M2: send one in-match event (move coalesced, shoot/down/respawn immediate). */
+  sendNet(t: NetEventType, data: NetEvent['data']) { this.match.send(t, data); }
+
+  /** M2: drain remote in-match events for the engine to apply this frame. */
+  drainNet(): NetEvent[] { return this.match.receive(); }
 
   /** Host-only: push the authoritative live score to every client. No-op for
    *  non-hosts so a client can never fork the canonical score. */
@@ -239,6 +283,7 @@ export class RoomService {
 
   leave() {
     if (this.timer) clearTimeout(this.timer);
+    this.match.stop();
     this.transport.disconnect();
     this.listeners.clear();
   }

@@ -13,12 +13,17 @@ import {
   requestReload,
   heroWeaponHud,
   aliveCounts,
+  applyRemoteMove,
+  applyRemoteShot,
+  applyRemoteDown,
+  applyRemoteRespawn,
   WORLD_W,
   WORLD_H,
   type World,
   type Rect,
   type ArenaDifficulty,
 } from '@/lib/arena/engine';
+import type { NetEvent, NetEventType } from '@/lib/arena/network/types';
 import { WEAPONS, type WeaponId } from '@/lib/arena/weapons';
 import { useT } from '@/lib/i18n';
 import { ArenaHud, type HudData } from './hud/ArenaHud';
@@ -35,6 +40,7 @@ import {
   type MatchResult,
   type PreparedQuestion,
   type TeamId,
+  type RosterEntry,
 } from '@/lib/arena/types';
 import { LearningPanel } from './LearningPanel';
 import { MatchResults } from './MatchResults';
@@ -63,6 +69,8 @@ export interface ArenaGameConfig {
   seed?: number;
   /** match length in seconds. Scores are uncapped; the clock ends the match. */
   durationSec?: number;
+  /** fill your team's empty slots with ally bots (lobby toggle; default on). */
+  botFill?: boolean;
 }
 
 /** Multiplayer bridge. When present, the match is host-authoritative: the host
@@ -82,6 +90,15 @@ export interface ArenaNet {
   onExit: () => void;
   /** diagnostics overlay data. */
   debug: ArenaDebugInfo;
+  // ── M2: embodied players ──
+  /** my network id (matches my hero's netId). */
+  myNetId: string;
+  /** everyone in the match + their teams (drives the shared world build). */
+  roster: RosterEntry[];
+  /** send an in-match event (move/shoot/down/respawn). */
+  sendNet: (t: NetEventType, data: NetEvent['data']) => void;
+  /** drain remote in-match events to apply this frame. */
+  drainNet: () => NetEvent[];
 }
 
 interface Controls {
@@ -113,6 +130,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   // In multiplayer the HOST owns score/end; non-hosts mirror the host. Offline
   // Practice has no `net`, so `authoritative` is false and everything stays local.
   const authoritative = !!net && !net.isHost;
+  // M2: embodied play needs ≥2 humans in the roster; otherwise fall back to bots.
+  const mp = !!(net && net.roster && net.roster.length >= 2);
+  const myTeam: TeamId = mp ? (net!.roster.find((r) => r.netId === net!.myNetId)?.team ?? 'red') : 'red';
 
   const arenaAnswerCorrect = useGame((s) => s.arenaAnswerCorrect);
   const arenaMatchEnd = useGame((s) => s.arenaMatchEnd);
@@ -280,8 +300,8 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     const w = worldRef.current!;
     const redScore = override?.red ?? w.scores.red;
     const blueScore = override?.blue ?? w.scores.blue;
-    const myScore = redScore;
-    const enemyScore = blueScore;
+    const myScore = myTeam === 'red' ? redScore : blueScore;
+    const enemyScore = myTeam === 'red' ? blueScore : redScore;
     // time-based: highest score when the clock ends wins (ties are not a win)
     const won = myScore > enemyScore;
     // host: publish the authoritative end to everyone (no-op offline)
@@ -290,7 +310,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     const bonus = arenaMatchEnd({ won, correct: stats.current.correct, elims: w.fighters[0].score });
     setResult({
       won,
-      myTeam: 'red',
+      myTeam,
       redScore,
       blueScore,
       elims: w.fighters[0].score,
@@ -312,6 +332,8 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     fxRef.current.portal(hero.x, hero.y, '#FFD43B');
     emit('respawn');
     emit('shield');
+    // M2: tell opponents I'm back on the battlefield
+    if (net && w.multiplayer) net.sendNet('respawn', { x: Math.round(hero.x), y: Math.round(hero.y) });
     setPrepared(null);
     if (phaseRef.current !== 'ended') setPhaseBoth('playing');
   };
@@ -467,7 +489,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       mode: { name: mode.name, emoji: mode.emoji, targetScore: target },
       scores, // authoritative-aware (mirrors host for non-hosts)
       alive: aliveCounts(w),
-      myTeam: 'red',
+      myTeam,
       // count DOWN to the deadline; show the full length before play begins
       timeMs: matchEndsAtRef.current ? Math.max(0, matchEndsAtRef.current - Date.now()) : durationMs,
       hp: hero.hp,
@@ -488,6 +510,30 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     onSwitch: (id: WeaponId) => { const w = worldRef.current; if (w) { switchWeapon(w, id); setHud(buildHud(performance.now())); } },
   };
 
+  // ── M2 helpers: roster lookups, kill feed, host scoring from 'down' events ──
+  const rosterName = (netId: string) => net?.roster.find((r) => r.netId === netId)?.name ?? 'Player';
+  const rosterTeam = (netId: string): TeamId | undefined => net?.roster.find((r) => r.netId === netId)?.team;
+  const pushDown = (killerNetId: string, victimNetId: string, ts: number) => {
+    pushKills([{
+      killerId: killerNetId === net?.myNetId ? 'hero' : `p:${killerNetId}`,
+      killerName: rosterName(killerNetId),
+      victimName: rosterName(victimNetId),
+      team: rosterTeam(killerNetId) ?? 'red',
+      crit: false,
+    }], ts);
+  };
+  // host only: a tag-out scores for the killer's team (authoritative + broadcast)
+  const hostScore = (killerNetId: string) => {
+    const w = worldRef.current;
+    const team = rosterTeam(killerNetId);
+    if (!w || !team) return;
+    w.scores[team] += 1;
+    const s = { red: w.scores.red, blue: w.scores.blue };
+    lastScores.current = s;
+    setScores(s);
+    net?.onScores(s.red, s.blue);
+  };
+
   // ── one frame (stored in a ref so the rAF trampoline never goes stale) ──
   frameRef.current = (ts: number) => {
     const w = worldRef.current;
@@ -497,6 +543,23 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     const fx = fxRef.current;
 
     applyInput(w);
+
+    // M2: apply remote players' events every frame (so opponents keep moving /
+    // shooting even while I'm in the Learning Pod or the intro countdown).
+    if (net && w.multiplayer) {
+      for (const ev of net.drainNet()) {
+        const d = ev.data;
+        if (ev.t === 'move') applyRemoteMove(w, ev.from, { x: +d.x, y: +d.y, vx: +d.vx, vy: +d.vy, aim: +d.aim });
+        else if (ev.t === 'shoot') applyRemoteShot(w, ev.from, { x: +d.x, y: +d.y, angle: +d.angle, speed: +d.speed, dmg: +d.dmg, life: +d.life }, ts);
+        else if (ev.t === 'respawn') applyRemoteRespawn(w, ev.from, { x: +d.x, y: +d.y }, ts);
+        else if (ev.t === 'down') {
+          applyRemoteDown(w, ev.from);
+          const by = String(d.by ?? '');
+          pushDown(by, ev.from, ts);
+          if (net.isHost) hostScore(by); // host tallies other players' tag-outs
+        }
+      }
+    }
 
     if (phaseRef.current === 'playing') {
       const res = step(w, dt, ts, fx);
@@ -514,6 +577,29 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         if (net?.isHost) net.onScores(w.scores.red, w.scores.blue);
       }
       if (res.heroDied && res.heroDeath) startDying(res.heroDeath);
+
+      // ── M2: broadcast MY hero so opponents see me (move coalesced @12Hz) ──
+      if (net && w.multiplayer) {
+        const hero = w.fighters[0];
+        if (hero.alive) {
+          net.sendNet('move', {
+            x: Math.round(hero.x), y: Math.round(hero.y),
+            vx: Math.round(hero.vx), vy: Math.round(hero.vy), aim: +hero.aimAngle.toFixed(3),
+          });
+        }
+        if (res.heroShot) {
+          net.sendNet('shoot', {
+            x: Math.round(res.heroShot.x), y: Math.round(res.heroShot.y), angle: +res.heroShot.angle.toFixed(3),
+            speed: res.heroShot.speed, dmg: res.heroShot.dmg, life: res.heroShot.life,
+          });
+        }
+        if (res.heroDied) {
+          const by = res.heroDownedBy ?? '';
+          net.sendNet('down', { by });           // tell everyone I was tagged out
+          pushDown(by, net.myNetId, ts);         // my own kill-feed line
+          if (net.isHost) hostScore(by);         // self-'down' is filtered, so score here
+        }
+      }
     }
 
     // ── TIME'S UP → end the match (scores are uncapped; the clock decides) ──
@@ -552,7 +638,10 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const boot = useCallback(() => {
     clearTimers();
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    worldRef.current = createWorld(perTeam, config.hero, config.obstacles, config.difficulty, config.seed);
+    worldRef.current = createWorld(
+      perTeam, config.hero, config.obstacles, config.difficulty, config.seed, config.botFill ?? true,
+      mp ? net!.roster : undefined, mp ? net!.myNetId : undefined,
+    );
     stats.current = { correct: 0, answered: 0, xp: 0, coins: 0 };
     usedIds.current.clear();
     lastTs.current = 0;
@@ -836,20 +925,21 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
-      {/* learning pod — full-screen modal over the blurred battlefield */}
-      <AnimatePresence>
-        {phase === 'learning' && prepared && (
-          <LearningPanel
-            prepared={prepared}
-            learnState={learnState}
-            lastReward={lastReward}
-            cooldownMs={WRONG_COOLDOWN_MS}
-            onAnswer={submitAnswer}
-          />
-        )}
-      </AnimatePresence>
+        {/* learning pod — rendered INSIDE the fullscreen element so the question
+            shows in fullscreen too (otherwise the player can't answer to respawn) */}
+        <AnimatePresence>
+          {phase === 'learning' && prepared && (
+            <LearningPanel
+              prepared={prepared}
+              learnState={learnState}
+              lastReward={lastReward}
+              cooldownMs={WRONG_COOLDOWN_MS}
+              onAnswer={submitAnswer}
+            />
+          )}
+        </AnimatePresence>
+      </div>
 
       <p className="mt-2 text-center text-xs font-bold text-ink-faint">
         📱 Left side = move · right side = aim &amp; shoot &nbsp;|&nbsp; ⌨️ WASD move · mouse aim · click/space shoot

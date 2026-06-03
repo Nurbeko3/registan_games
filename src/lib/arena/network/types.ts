@@ -46,8 +46,8 @@ export interface RoomPlayer {
 /** In-match events — the ONLY things sent during play (never full state). */
 export type NetEventType =
   | 'move'      // {x,y,aim,vx,vy} — throttled, latest-wins
-  | 'shoot'     // {x,y,angle}
-  | 'hit'       // {target,dmg,crit}
+  | 'shoot'     // {x,y,angle,speed,dmg,life}
+  | 'down'      // {by} — "my hero was tagged out by <netId>" (victim-reported)
   | 'respawn'   // {x,y}
   | 'answered'  // {correct} — telemetry for the host
   | 'score'     // {red,blue} — host authoritative

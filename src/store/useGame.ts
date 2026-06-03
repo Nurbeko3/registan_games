@@ -55,6 +55,8 @@ interface GameState {
   settings: Settings;
   locale: Locale;
   playerName: string;
+  /** freely-chosen emoji avatar for the Arena (not tied to the coin shop). */
+  arenaAvatar: string;
   // Battle Learn Arena lifetime stats
   arenaMatches: number;
   arenaWins: number;
@@ -67,6 +69,7 @@ interface GameState {
 
   // actions
   setPlayerName: (name: string) => void;
+  setArenaAvatar: (emoji: string) => void;
   setLocale: (locale: Locale) => void;
   completeGame: (slug: string, stars: number) => CompleteResult;
   arenaAnswerCorrect: (difficulty: 'easy' | 'medium' | 'hard') => { xp: number; coins: number };
@@ -101,6 +104,7 @@ const DEFAULTS = {
   settings: { sound: true, reducedMotion: false } as Settings,
   locale: 'uz' as Locale,
   playerName: '',
+  arenaAvatar: '🦊',
   arenaMatches: 0,
   arenaWins: 0,
   arenaCorrect: 0,
@@ -136,6 +140,8 @@ export const useGame = create<GameState>()(
       celebrations: [],
 
       setPlayerName: (name) => set({ playerName: name.slice(0, 20) }),
+
+      setArenaAvatar: (emoji) => set({ arenaAvatar: emoji }),
 
       setLocale: (locale) => set({ locale }),
 

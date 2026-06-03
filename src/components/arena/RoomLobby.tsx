@@ -1,17 +1,19 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useGame, getAvatar } from '@/store/useGame';
+import { useGame } from '@/store/useGame';
 import { useArenaRoom } from '@/lib/arena/network/useArenaRoom';
-import { ARENA_MODES, TEAM_SIZES, getMode } from '@/data/arenaModes';
-import { ARENA_MAPS, getMap } from '@/data/arenaMaps';
+import { TEAM_SIZES, getMode } from '@/data/arenaModes';
+import { getMap } from '@/data/arenaMaps';
 import { DIFFICULTIES } from './PracticeSetup';
-import { MATCH_LENGTHS, type RoomSettings } from '@/lib/arena/network/types';
+import type { RoomSettings } from '@/lib/arena/network/types';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
+import { useT } from '@/lib/i18n';
 import { ArenaGame, type ArenaNet } from './ArenaGame';
 import { ConnectionStatus } from './ConnectionStatus';
 import { PlayerList } from './PlayerList';
 import { ReadyPanel } from './ReadyPanel';
+import { MatchLengthInput } from './MatchLengthInput';
 
 /** The custom-room / quick-match lobby. Shows live players, lets the host tune
  *  settings, and hands off into ArenaGame when the match starts. */
@@ -28,9 +30,10 @@ export function RoomLobby({
   settings?: RoomSettings;
   onLeave: () => void;
 }) {
+  const t = useT();
   const playerName = useGame((s) => s.playerName);
-  const avatarId = useGame((s) => s.avatarId);
-  const hero = { name: playerName || 'You', avatar: getAvatar(avatarId).emoji };
+  const arenaAvatar = useGame((s) => s.arenaAvatar);
+  const hero = { name: playerName || 'You', avatar: arenaAvatar };
 
   const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, quick, settings });
   const s = room.state;
@@ -50,6 +53,7 @@ export function RoomLobby({
       obstacles: getMap(s.settings.mapId).obstacles,
       difficulty: s.settings.difficulty,
       durationSec: s.settings.durationSec,
+      botFill: s.settings.botFill,
       seed: s.seed ?? undefined,
     };
     const net: ArenaNet = {
@@ -59,6 +63,10 @@ export function RoomLobby({
       onScores: room.reportScores,
       onEnd: room.reportEnd,
       onExit: onLeave,
+      myNetId: s.myId,
+      roster: s.roster,
+      sendNet: room.sendNet,
+      drainNet: room.drainNet,
       debug: {
         roomCode: code,
         matchId: s.matchId,
@@ -96,15 +104,15 @@ export function RoomLobby({
   return (
     <div className="mx-auto max-w-md px-4 py-5">
       <div className="mb-3 flex items-center justify-between">
-        <button onClick={onLeave} className="btn-ghost px-3 py-1.5 text-sm">← Leave</button>
+        <button onClick={onLeave} className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</button>
         <ConnectionStatus connection={s.connection} kind={s.kind} />
       </div>
 
       {/* room code */}
       <div className="card text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-ink-faint">{quick ? 'Quick Match' : 'Room Code'}</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-ink-faint">{t('lobby.roomCode')}</p>
         <p className="mt-1 font-display text-4xl font-extrabold tracking-[0.3em] text-grape">{code}</p>
-        {!quick && <p className="mt-1 text-xs text-ink-soft">Share this code so friends can join!</p>}
+        <p className="mt-1 text-xs text-ink-soft">{t('lobby.shareCode')}</p>
       </div>
 
       <div className="mt-4">
@@ -113,36 +121,20 @@ export function RoomLobby({
 
       {/* settings — editable by host, read-only otherwise */}
       <div className="card mt-4">
-        <p className="font-display font-extrabold">Match settings {s.isHost && <span className="text-xs text-grape">(you’re host 👑)</span>}</p>
+        <p className="font-display font-extrabold">
+          {t('lobby.settings')} {s.isHost && <span className="text-xs text-grape">{t('lobby.youreHost')}</span>}
+        </p>
 
-        <SettingRow label="Map">
+        <SettingRow label={t('lobby.teamSize')}>
           <Pills
-            items={ARENA_MAPS.map((m) => ({ id: m.id, label: `${m.emoji} ${m.name}` }))}
-            value={s.settings.mapId}
-            disabled={!s.isHost}
-            onPick={(id) => set({ mapId: id })}
-          />
-        </SettingRow>
-
-        <SettingRow label="Mode">
-          <Pills
-            items={ARENA_MODES.map((m) => ({ id: m.id, label: `${m.emoji} ${m.name}` }))}
-            value={s.settings.modeId}
-            disabled={!s.isHost}
-            onPick={(id) => set({ modeId: id as RoomSettings['modeId'] })}
-          />
-        </SettingRow>
-
-        <SettingRow label="Team size">
-          <Pills
-            items={TEAM_SIZES.map((t) => ({ id: String(t.perTeam), label: t.label }))}
+            items={TEAM_SIZES.map((tz) => ({ id: String(tz.perTeam), label: tz.label }))}
             value={String(s.settings.perTeam)}
             disabled={!s.isHost}
             onPick={(id) => set({ perTeam: Number(id) })}
           />
         </SettingRow>
 
-        <SettingRow label="Bot difficulty">
+        <SettingRow label={t('lobby.botDifficulty')}>
           <Pills
             items={DIFFICULTIES.map((d) => ({ id: d.id, label: `${d.emoji} ${d.label}` }))}
             value={s.settings.difficulty}
@@ -151,16 +143,15 @@ export function RoomLobby({
           />
         </SettingRow>
 
-        <SettingRow label="Match length">
-          <Pills
-            items={MATCH_LENGTHS.map((m) => ({ id: String(m.sec), label: `⏱ ${m.label}` }))}
-            value={String(s.settings.durationSec)}
+        <SettingRow label={t('lobby.matchLength')}>
+          <MatchLengthInput
+            durationSec={s.settings.durationSec}
             disabled={!s.isHost}
-            onPick={(id) => set({ durationSec: Number(id) })}
+            onChange={(sec) => set({ durationSec: sec })}
           />
         </SettingRow>
 
-        <SettingRow label="Fill empty slots with bots">
+        <SettingRow label={t('lobby.fillBots')}>
           <button
             disabled={!s.isHost}
             onClick={() => set({ botFill: !s.settings.botFill })}
@@ -176,8 +167,8 @@ export function RoomLobby({
       <div className="mt-4">
         {counting ? (
           <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="card text-center">
-            <p className="font-display text-2xl font-extrabold text-grape">Get ready… 🚀</p>
-            <p className="text-ink-soft">Match starting!</p>
+            <p className="font-display text-2xl font-extrabold text-grape">{t('lobby.getReady')}</p>
+            <p className="text-ink-soft">{t('lobby.starting')}</p>
           </motion.div>
         ) : (
           <ReadyPanel

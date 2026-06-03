@@ -16,7 +16,7 @@
  *  impact particles, damage numbers, kill bursts and screen-shake trauma. Sound
  *  events accumulate on `StepResult.sounds` for the audio layer to play. */
 
-import type { TeamId } from './types';
+import type { TeamId, RosterEntry } from './types';
 import type { Fx } from './effects';
 import type { ArenaSound } from './audio';
 import { getWeapon, DEFAULT_WEAPON, type WeaponId } from './weapons';
@@ -160,6 +160,10 @@ export interface World {
   bulletSeq: number;
   /** the hero's weapon (ammo/reload); see HeroWeaponState. */
   weapon: HeroWeaponState;
+  /** M2: true when other fighters are network-driven humans (not local bots). */
+  multiplayer: boolean;
+  /** M2: my own network id (matches fighters[0].netId). */
+  myNetId: string | null;
 }
 
 export interface KillEvent {
@@ -180,6 +184,10 @@ export interface StepResult {
   sounds: ArenaSound[];
   /** set when one of the hero's bolts landed this frame → drives the hit marker. */
   heroHit?: { crit: boolean; killed: boolean };
+  /** M2: the hero fired this frame → broadcast so opponents see/spawn the bolt. */
+  heroShot?: { x: number; y: number; angle: number; speed: number; dmg: number; life: number };
+  /** M2: my hero was tagged out by this netId → broadcast a 'down' for scoring. */
+  heroDownedBy?: string | null;
 }
 
 const RED_NAMES = ['Pixel', 'Nova', 'Spark', 'Echo', 'Ziggy', 'Mochi', 'Comet', 'Lumi', 'Pip'];
@@ -220,6 +228,13 @@ export function createWorld(
   difficulty: ArenaDifficulty = 'medium',
   /** shared match seed → deterministic layout/spawns across clients (multiplayer). */
   seed?: number,
+  /** fill your team's empty slots with ally bots (the lobby toggle). Enemies are
+   *  always present so there's an opponent; OFF = lone hero vs the enemy squad. */
+  botFill = true,
+  /** M2: when given, build a human-vs-human world from this roster (no bots);
+   *  fighters[0] is MY hero (the entry matching myNetId), the rest are remote. */
+  roster?: RosterEntry[],
+  myNetId?: string,
 ): World {
   const rand = seed === undefined ? Math.random : makeRng(seed);
   const skill = DIFFICULTY_SKILL[difficulty];
@@ -261,9 +276,22 @@ export function createWorld(
     };
   };
 
-  fighters.push(make('red', true, 0)); // the hero leads red
-  for (let i = 0; i < perTeam - 1; i++) fighters.push(make('red', false, i));
-  for (let i = 0; i < perTeam; i++) fighters.push(make('blue', false, i));
+  const multiplayer = !!(roster && roster.length && myNetId);
+  if (multiplayer) {
+    // human-vs-human: deterministic spawns drawn in netId-sorted order so every
+    // client places everyone identically; fighters[0] is MY hero (local).
+    const sorted = [...roster!].sort((a, b) => (a.netId < b.netId ? -1 : 1));
+    const spawns = new Map<string, { x: number; y: number }>();
+    for (const e of sorted) spawns.set(e.netId, spawnPoint(e.team, rand));
+    const me = roster!.find((r) => r.netId === myNetId) ?? roster![0];
+    fighters.push(makeHuman(me, true, spawns.get(me.netId)!));
+    for (const e of roster!) if (e.netId !== me.netId) fighters.push(makeHuman(e, false, spawns.get(e.netId)!));
+  } else {
+    fighters.push(make('red', true, 0)); // the hero leads red
+    const redAllies = botFill ? perTeam - 1 : 0; // botFill OFF → no ally bots
+    for (let i = 0; i < redAllies; i++) fighters.push(make('red', false, i));
+    for (let i = 0; i < perTeam; i++) fighters.push(make('blue', false, i)); // enemies always present
+  }
 
   const startWeapon = getWeapon(DEFAULT_WEAPON);
   return {
@@ -272,7 +300,74 @@ export function createWorld(
     input: { moveX: 0, moveY: 0, firing: false, aim: { type: 'none' } },
     bulletSeq: 1,
     weapon: { id: DEFAULT_WEAPON, mag: startWeapon.magSize, reserve: startWeapon.reserve, reloadUntil: 0, reloadStart: 0 },
+    multiplayer,
+    myNetId: multiplayer ? myNetId! : null,
   };
+}
+
+/** Build a human fighter (local hero or remote opponent) from a roster entry. */
+function makeHuman(e: RosterEntry, isHero: boolean, p: { x: number; y: number }): Fighter {
+  return {
+    id: isHero ? 'hero' : `p:${e.netId}`,
+    team: e.team,
+    isHero,
+    name: e.name || 'Player',
+    emoji: e.avatar || (e.team === 'red' ? '🦊' : '🐳'),
+    x: p.x, y: p.y, vx: 0, vy: 0,
+    hp: MAX_HP, alive: true, respawnAt: 0,
+    aimAngle: e.team === 'red' ? 0 : Math.PI,
+    cooldownUntil: 0, score: 0, wander: 0,
+    personality: null, skill: 1,
+    recoil: 0, flash: 0, shieldUntil: 0,
+    // a remote human is driven by network packets, not local AI/physics
+    remote: !isHero, local: isHero, netId: e.netId,
+  };
+}
+
+// ── M2: apply remote-human network events to the local world ──────────────────
+
+const byNet = (world: World, netId: string): Fighter | undefined =>
+  world.fighters.find((f) => f.netId === netId && !f.isHero);
+
+/** Remote MOVE: dead-reckon from this snapshot until the next packet. */
+export function applyRemoteMove(
+  world: World, netId: string,
+  d: { x: number; y: number; vx: number; vy: number; aim: number },
+) {
+  const f = byNet(world, netId);
+  if (!f) return;
+  f.x = d.x; f.y = d.y; f.vx = d.vx; f.vy = d.vy; f.aimAngle = d.aim;
+}
+
+/** Remote SHOOT: spawn the opponent's bolt in our world (it can hit our hero). */
+export function applyRemoteShot(
+  world: World, netId: string,
+  d: { x: number; y: number; angle: number; speed: number; dmg: number; life: number }, now: number,
+) {
+  const f = byNet(world, netId);
+  if (!f) return;
+  f.recoil = 1;
+  world.bullets.push({
+    id: world.bulletSeq++,
+    x: d.x + Math.cos(d.angle) * (FIGHTER_R + BULLET_R + 2),
+    y: d.y + Math.sin(d.angle) * (FIGHTER_R + BULLET_R + 2),
+    vx: Math.cos(d.angle) * d.speed, vy: Math.sin(d.angle) * d.speed,
+    team: f.team, ownerId: f.id, born: now, dmg: d.dmg, life: d.life,
+  });
+}
+
+/** Remote DOWN: the opponent was tagged out (hide them until they respawn). */
+export function applyRemoteDown(world: World, netId: string) {
+  const f = byNet(world, netId);
+  if (f) { f.alive = false; f.hp = 0; }
+}
+
+/** Remote RESPAWN: the opponent answered their Learning Pod and is back. */
+export function applyRemoteRespawn(world: World, netId: string, d: { x: number; y: number }, now: number) {
+  const f = byNet(world, netId);
+  if (!f) return;
+  f.alive = true; f.hp = MAX_HP; f.x = d.x; f.y = d.y; f.vx = 0; f.vy = 0;
+  f.shieldUntil = now + SHIELD_MS;
 }
 
 // ── hero weapon controls (called from the React/controls layer) ──────────────
@@ -451,6 +546,8 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
   let heroDied = false;
   let heroDeath: { x: number; y: number } | undefined;
   let heroHit: StepResult['heroHit'];
+  let heroShot: StepResult['heroShot'];
+  let heroDownedBy: string | null | undefined;
   dt = Math.min(dt, 0.05); // clamp big frame gaps
 
   const hero = world.fighters[0];
@@ -500,6 +597,11 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
       if (fireHeroWeapon(world, hero, angle, now)) {
         fx?.muzzle(hero.x, hero.y, angle, '#FFD43B');
         sounds.push('shoot');
+        if (world.multiplayer) {
+          const spec = getWeapon(world.weapon.id);
+          // one representative bolt for opponents to spawn (flat, accurate enough)
+          heroShot = { x: hero.x, y: hero.y, angle, speed: spec.bulletSpeed, dmg: spec.damage, life: spec.rangeMs };
+        }
         if (W.mag === 0 && W.reserve > 0) requestReload(world, now); // auto-reload when empty
       } else if (W.reserve > 0) {
         requestReload(world, now); // clicked on an empty mag → start reloading
@@ -510,6 +612,16 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
   // ── BOTS (personality AI + momentum) ──
   for (let i = 1; i < world.fighters.length; i++) {
     const b = world.fighters[i];
+    // remote humans are driven by network packets, not AI: dead-reckon between
+    // packets and never auto-respawn (their owner controls respawn).
+    if (b.remote) {
+      if (b.alive) {
+        b.x = clamp(b.x + b.vx * dt, FIGHTER_R, world.w - FIGHTER_R);
+        b.y = clamp(b.y + b.vy * dt, FIGHTER_R, world.h - FIGHTER_R);
+        resolveObstacles(b, world.obstacles);
+      }
+      continue;
+    }
     if (!b.alive) {
       if (now >= b.respawnAt) respawn(b, now);
       continue;
@@ -590,13 +702,23 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
       if (!f.alive || f.team === bullet.team) continue;
       if (dist(bullet.x, bullet.y, f.x, f.y) <= FIGHTER_R + BULLET_R) {
         hit = true;
+        const isHeroBolt = bullet.ownerId === 'hero';
+
+        // MP: a bolt only damages MY local hero. Hitting a remote opponent is
+        // feedback-only here — their own client applies the damage to themselves
+        // (victim-authoritative), so nobody double-counts.
+        if (world.multiplayer && !f.local) {
+          fx?.impact(bullet.x, bullet.y, ang, 'player');
+          if (isHeroBolt) heroHit = { crit: false, killed: false };
+          break;
+        }
+
         // respawn shield absorbs the shot harmlessly
         if (now < f.shieldUntil) {
           fx?.shieldHit(bullet.x, bullet.y);
           sounds.push('shield');
           break;
         }
-        const isHeroBolt = bullet.ownerId === 'hero';
         const crit = Math.random() < CRIT_CHANCE;
         // hero bolts use their weapon's headshot multiplier; bots use the baseline
         const mult = crit ? (isHeroBolt ? getWeapon(world.weapon.id).headshotMult : BULLET_DMG_CRIT / BULLET_DMG) : 1;
@@ -611,22 +733,33 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
 
         if (f.hp <= 0) {
           f.alive = false;
-          f.respawnAt = now + RESPAWN_BOT_MS;
-          world.scores[bullet.team] += 1;
           const killer = world.fighters.find((k) => k.id === bullet.ownerId);
-          if (killer) killer.score += 1;
-          fx?.kill(f.x, f.y, TEAM_HEX[f.team]);
-          fx?.addTrauma(f.isHero ? 0.7 : killer?.isHero ? 0.45 : 0.18);
-          sounds.push('kill');
-          kills.push({
-            killerId: bullet.ownerId,
-            killerName: killer?.name ?? '?',
-            victimId: f.id,
-            victimName: f.name,
-            team: bullet.team,
-            crit,
-          });
-          if (f.isHero) { heroDied = true; heroDeath = { x: f.x, y: f.y }; }
+          if (world.multiplayer) {
+            // f is MY hero. Don't score locally — report who downed me; the host
+            // tallies it from my broadcast 'down'. I return via the Learning Pod.
+            heroDied = true;
+            heroDeath = { x: f.x, y: f.y };
+            heroDownedBy = killer?.netId ?? null;
+            fx?.kill(f.x, f.y, TEAM_HEX[f.team]);
+            fx?.addTrauma(0.7);
+            sounds.push('kill');
+          } else {
+            f.respawnAt = now + RESPAWN_BOT_MS;
+            world.scores[bullet.team] += 1;
+            if (killer) killer.score += 1;
+            fx?.kill(f.x, f.y, TEAM_HEX[f.team]);
+            fx?.addTrauma(f.isHero ? 0.7 : killer?.isHero ? 0.45 : 0.18);
+            sounds.push('kill');
+            kills.push({
+              killerId: bullet.ownerId,
+              killerName: killer?.name ?? '?',
+              victimId: f.id,
+              victimName: f.name,
+              team: bullet.team,
+              crit,
+            });
+            if (f.isHero) { heroDied = true; heroDeath = { x: f.x, y: f.y }; }
+          }
         }
         break;
       }
@@ -635,5 +768,5 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
   }
   world.bullets = live;
 
-  return { kills, heroDied, heroDeath, sounds, heroHit };
+  return { kills, heroDied, heroDeath, sounds, heroHit, heroShot, heroDownedBy };
 }

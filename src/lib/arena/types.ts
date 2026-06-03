@@ -25,6 +25,16 @@ export const TEAMS: Record<TeamId, TeamInfo> = {
 
 export const otherTeam = (t: TeamId): TeamId => (t === 'red' ? 'blue' : 'red');
 
+/** One human in a multiplayer match (M2 embodied players). The host builds the
+ *  roster from lobby presence and ships it in the start handshake so every client
+ *  builds the same set of fighters and knows which one is theirs. */
+export interface RosterEntry {
+  netId: string;
+  name: string;
+  avatar: string;
+  team: TeamId;
+}
+
 // ── Players (local hero + simulated bots; identical shape for future netcode) ─
 export interface ArenaPlayer {
   id: string;
