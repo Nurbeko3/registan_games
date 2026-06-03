@@ -38,8 +38,15 @@ export function RoomLobby({
   const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, quick, settings });
   const s = room.state;
 
-  if (!s) {
-    return <div className="mx-auto max-w-md px-4 py-10 text-center text-ink-soft">Connecting…</div>;
+  // joiner stays here until the host is confirmed (or it times out → error)
+  if (!s || s.phase === 'connecting') {
+    return (
+      <div className="mx-auto max-w-md px-4 py-12 text-center">
+        <motion.div animate={{ rotate: [0, 12, -12, 0] }} transition={{ duration: 1.6, repeat: Infinity }} className="text-4xl">🔍</motion.div>
+        <p className="mt-3 font-display font-extrabold text-ink-soft">{t('lobby.lookingForRoom')}</p>
+        <button onClick={onLeave} className="btn-ghost mt-5 px-4 py-2 text-sm">← {t('hud.leave')}</button>
+      </div>
+    );
   }
 
   // ── match running → hand off to the engine (ONE shared match) ──
@@ -86,13 +93,14 @@ export function RoomLobby({
   }
 
   if (s.phase === 'error') {
+    const notFound = s.errorReason === 'notfound';
     return (
       <div className="mx-auto max-w-md px-4 py-8">
         <div className="card text-center">
-          <div className="text-4xl">📡</div>
-          <p className="mt-2 font-display font-extrabold">Multiplayer needs the internet</p>
-          <p className="mt-1 text-ink-soft">Cloud isn’t set up here. Practice vs Bots works fully offline!</p>
-          <button onClick={onLeave} className="btn-primary mt-4">← Back to menu</button>
+          <div className="text-4xl">{notFound ? '🚫' : '📡'}</div>
+          <p className="mt-2 font-display font-extrabold">{notFound ? t('arena.invalidTitle') : t('arena.cloudTitle')}</p>
+          <p className="mt-1 text-ink-soft">{notFound ? t('arena.invalidBody') : t('arena.cloudBody')}</p>
+          <button onClick={onLeave} className="btn-primary mt-4">← {t('hud.leave')}</button>
         </div>
       </div>
     );

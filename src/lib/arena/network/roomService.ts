@@ -28,6 +28,9 @@ import {
 import type { TeamId, RosterEntry } from '@/lib/arena/types';
 
 const COUNTDOWN_MS = 3200;
+/** How long a code-joining client waits to see the host before declaring the
+ *  room non-existent (invalid code). Generous enough for cross-device presence. */
+const ROOM_FIND_MS = 6000;
 
 export interface RoomState {
   phase: RoomPhase;
@@ -51,6 +54,9 @@ export interface RoomState {
   lastEvent: { name: string; at: number } | null;
   /** M2: the humans in this match + their teams (built by the host at start). */
   roster: RosterEntry[];
+  /** why we're in the 'error' phase: 'cloud' = no connection; 'notfound' = the
+   *  joined code has no host (invalid / non-existent room). */
+  errorReason: 'cloud' | 'notfound' | null;
 }
 
 export interface RoomOptions {
@@ -81,6 +87,10 @@ export class RoomService {
   private match: MatchService;
   private listeners = new Set<(s: RoomState) => void>();
   private timer: ReturnType<typeof setTimeout> | null = null;
+  // join validation: a code-joiner must see a host or the room is "not found"
+  private validated = false;
+  private validateTimer: ReturnType<typeof setTimeout> | null = null;
+  private errorReason: 'cloud' | 'notfound' | null = null;
 
   constructor(public readonly code: string, opts: RoomOptions) {
     this.quick = opts.quick ?? false;
@@ -143,7 +153,21 @@ export class RoomService {
       matchEnd: this.matchEnd,
       lastEvent: this.lastEvent,
       roster: this.roster,
+      errorReason: this.errorReason,
     };
+  }
+
+  /** A code-joiner (not host, not quick) must prove the room exists by seeing a
+   *  host in presence within ROOM_FIND_MS — otherwise it's an invalid code. */
+  private startJoinValidation() {
+    if (this.forcedHost || this.quick || this.validated || this.validateTimer) return;
+    this.validateTimer = setTimeout(() => {
+      if (!this.validated) {
+        this.errorReason = 'notfound';
+        this.phase = 'error';
+        this.emit();
+      }
+    }, ROOM_FIND_MS);
   }
 
   private note(name: string) { this.lastEvent = { name, at: Date.now() }; }
@@ -152,14 +176,25 @@ export class RoomService {
     const t = this.transport;
     t.onState((s) => {
       this.connection = s;
-      if (s === 'connected' && this.phase === 'connecting') this.phase = 'lobby';
-      if (s === 'error') this.phase = 'error';
+      if (s === 'connected') {
+        // host goes straight to the lobby; a code-joiner stays 'connecting'
+        // (shown as "looking for room…") until a host is confirmed present.
+        if (this.phase === 'connecting' && (this.forcedHost || this.quick)) this.phase = 'lobby';
+        this.startJoinValidation();
+      }
+      if (s === 'error') { this.errorReason = 'cloud'; this.phase = 'error'; }
       this.emit();
     });
     t.onPresence((map) => {
       const grew = Object.keys(map).length > Object.keys(this.presence).length;
       this.note('presence');
       this.presence = map;
+      // a code-joiner is "in" only once a host actually shows up in the room
+      if (!this.forcedHost && !this.quick && !this.validated && Object.values(map).some((p) => p.isHost)) {
+        this.validated = true;
+        if (this.phase === 'connecting') this.phase = 'lobby'; // now show the real lobby
+        if (this.validateTimer) { clearTimeout(this.validateTimer); this.validateTimer = null; }
+      }
       // keep my own host crown accurate (matters for elected quick-match hosts)
       const host = this.isHost();
       if (this.me.isHost !== host) {
@@ -283,6 +318,7 @@ export class RoomService {
 
   leave() {
     if (this.timer) clearTimeout(this.timer);
+    if (this.validateTimer) clearTimeout(this.validateTimer);
     this.match.stop();
     this.transport.disconnect();
     this.listeners.clear();
