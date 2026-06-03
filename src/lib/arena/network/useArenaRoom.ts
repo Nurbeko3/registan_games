@@ -27,5 +27,9 @@ export function useArenaRoom(code: string, opts: RoomOptions) {
     setTeam: (t: TeamId) => svcRef.current?.setTeam(t),
     updateSettings: (p: Partial<RoomSettings>) => svcRef.current?.updateSettings(p),
     start: () => svcRef.current?.start(),
+    /** host-only: mirror the authoritative live score to all clients. */
+    reportScores: (red: number, blue: number) => svcRef.current?.reportScores(red, blue),
+    /** host-only: end the match with the final authoritative score. */
+    reportEnd: (red: number, blue: number) => svcRef.current?.reportEnd(red, blue),
   };
 }

@@ -19,6 +19,7 @@
 import type { TeamId } from './types';
 import type { Fx } from './effects';
 import type { ArenaSound } from './audio';
+import { getWeapon, DEFAULT_WEAPON, type WeaponId } from './weapons';
 
 // ── world geometry (logical units; the canvas scales to fit) ──
 export const WORLD_W = 720;
@@ -37,7 +38,6 @@ const BULLET_DMG = 25; // 4 hits to down a full-HP fighter
 const BULLET_DMG_CRIT = 45;
 const CRIT_CHANCE = 0.12; // rare, punchy
 const MAX_HP = 100;
-const HERO_COOLDOWN = 250; // ms between shots
 const RESPAWN_BOT_MS = 2200;
 const RECOIL_KICK = 38; // backward velocity nudge on firing (units/sec)
 const SHIELD_MS = 2600; // post-respawn invulnerability for the hero
@@ -108,6 +108,23 @@ export interface Bullet {
   team: TeamId;
   ownerId: string;
   born: number; // ms
+  /** base damage this bolt deals on hit (before headshot/crit multiplier). */
+  dmg: number;
+  /** lifetime in ms → effective range. */
+  life: number;
+}
+
+/** The hero's live weapon state (ammo + reload). Bots keep the simple blaster. */
+export interface HeroWeaponState {
+  id: WeaponId;
+  /** rounds in the current magazine. */
+  mag: number;
+  /** rounds held in reserve. */
+  reserve: number;
+  /** ms timestamp the in-progress reload completes (0 = not reloading). */
+  reloadUntil: number;
+  /** ms the current reload started (for the HUD progress bar). */
+  reloadStart: number;
 }
 
 /** Hero input, mutated by the controls layer and read each frame. */
@@ -119,6 +136,20 @@ export interface ArenaInput {
   aim: { type: 'none' | 'dir' | 'point'; angle?: number; x?: number; y?: number };
 }
 
+/** Read-only view of the hero weapon for the HUD (ammo / reload progress). */
+export interface HeroWeaponHud {
+  id: WeaponId;
+  name: string;
+  nameKey: string;
+  emoji: string;
+  mag: number;
+  magSize: number;
+  reserve: number;
+  reloading: boolean;
+  /** 0..1 reload progress (0 when not reloading). */
+  reloadPct: number;
+}
+
 export interface World {
   w: number; h: number;
   obstacles: Rect[];
@@ -127,6 +158,8 @@ export interface World {
   scores: { red: number; blue: number };
   input: ArenaInput;
   bulletSeq: number;
+  /** the hero's weapon (ammo/reload); see HeroWeaponState. */
+  weapon: HeroWeaponState;
 }
 
 export interface KillEvent {
@@ -145,6 +178,8 @@ export interface StepResult {
   heroDeath?: { x: number; y: number };
   /** semantic sound events for the audio layer to play this frame. */
   sounds: ArenaSound[];
+  /** set when one of the hero's bolts landed this frame → drives the hit marker. */
+  heroHit?: { crit: boolean; killed: boolean };
 }
 
 const RED_NAMES = ['Pixel', 'Nova', 'Spark', 'Echo', 'Ziggy', 'Mochi', 'Comet', 'Lumi', 'Pip'];
@@ -154,12 +189,27 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** Seeded PRNG (mulberry32). Used so every client in a multiplayer match builds
+ *  the IDENTICAL world (map + initial spawns + roster) from one shared seed. */
+export function makeRng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 const TEAM_HEX: Record<TeamId, string> = { red: '#FF7AB6', blue: '#3BA7FF' };
 
-/** Base/spawn point for a team (left = red, right = blue) with a little spread. */
-function spawnPoint(team: TeamId): { x: number; y: number } {
-  const x = team === 'red' ? rnd(40, 150) : rnd(WORLD_W - 150, WORLD_W - 40);
-  const y = rnd(60, WORLD_H - 60);
+/** Base/spawn point for a team (left = red, right = blue) with a little spread.
+ *  Pass a seeded `rand` for deterministic initial spawns; defaults to Math.random
+ *  for cosmetic in-match respawns where divergence doesn't matter. */
+function spawnPoint(team: TeamId, rand: () => number = Math.random): { x: number; y: number } {
+  const r = (a: number, b: number) => a + rand() * (b - a);
+  const x = team === 'red' ? r(40, 150) : r(WORLD_W - 150, WORLD_W - 40);
+  const y = r(60, WORLD_H - 60);
   return { x, y };
 }
 
@@ -168,7 +218,10 @@ export function createWorld(
   hero: { name: string; avatar: string },
   obstacles?: Rect[],
   difficulty: ArenaDifficulty = 'medium',
+  /** shared match seed → deterministic layout/spawns across clients (multiplayer). */
+  seed?: number,
 ): World {
+  const rand = seed === undefined ? Math.random : makeRng(seed);
   const skill = DIFFICULTY_SKILL[difficulty];
   const walls: Rect[] = obstacles ?? [
     { x: WORLD_W / 2 - 22, y: WORLD_H / 2 - 70, w: 44, h: 140 }, // center pillar
@@ -185,14 +238,14 @@ export function createWorld(
   let nbI = 0;
 
   const make = (team: TeamId, isHero: boolean, idx: number): Fighter => {
-    const p = spawnPoint(team);
+    const p = spawnPoint(team, rand);
     const name = isHero
       ? hero.name || 'You'
       : team === 'red'
         ? RED_NAMES[nrI++ % RED_NAMES.length]
         : BLUE_NAMES[nbI++ % BLUE_NAMES.length];
     return {
-      id: isHero ? 'hero' : `${team}-${name}-${Math.random().toString(36).slice(2, 6)}`,
+      id: isHero ? 'hero' : `${team}-${name}-${Math.floor(rand() * 1e6).toString(36)}`,
       team,
       isHero,
       name,
@@ -200,7 +253,7 @@ export function createWorld(
       x: p.x, y: p.y, vx: 0, vy: 0,
       hp: MAX_HP, alive: true, respawnAt: 0,
       aimAngle: team === 'red' ? 0 : Math.PI,
-      cooldownUntil: 0, score: 0, wander: rnd(0, Math.PI * 2),
+      cooldownUntil: 0, score: 0, wander: rand() * Math.PI * 2,
       personality: isHero ? null : SQUAD[idx % SQUAD.length],
       skill: isHero ? 1 : skill,
       recoil: 0, flash: 0, shieldUntil: 0,
@@ -212,12 +265,53 @@ export function createWorld(
   for (let i = 0; i < perTeam - 1; i++) fighters.push(make('red', false, i));
   for (let i = 0; i < perTeam; i++) fighters.push(make('blue', false, i));
 
+  const startWeapon = getWeapon(DEFAULT_WEAPON);
   return {
     w: WORLD_W, h: WORLD_H, obstacles: walls, fighters, bullets: [],
     scores: { red: 0, blue: 0 },
     input: { moveX: 0, moveY: 0, firing: false, aim: { type: 'none' } },
     bulletSeq: 1,
+    weapon: { id: DEFAULT_WEAPON, mag: startWeapon.magSize, reserve: startWeapon.reserve, reloadUntil: 0, reloadStart: 0 },
   };
+}
+
+// ── hero weapon controls (called from the React/controls layer) ──────────────
+
+/** Switch the hero's blaster — fresh full magazine + that weapon's reserve. */
+export function switchWeapon(world: World, id: WeaponId) {
+  if (world.weapon.id === id) return;
+  const spec = getWeapon(id);
+  world.weapon = { id, mag: spec.magSize, reserve: spec.reserve, reloadUntil: 0, reloadStart: 0 };
+}
+
+/** Begin a reload if it makes sense (not full, have reserve, not already reloading). */
+export function requestReload(world: World, now: number) {
+  const w = world.weapon;
+  const spec = getWeapon(w.id);
+  if (w.reloadUntil > 0 || w.mag >= spec.magSize || w.reserve <= 0) return;
+  w.reloadStart = now;
+  w.reloadUntil = now + spec.reloadMs;
+}
+
+/** Snapshot the hero weapon for the HUD (ammo + reload progress). */
+export function heroWeaponHud(world: World, now: number): HeroWeaponHud {
+  const w = world.weapon;
+  const spec = getWeapon(w.id);
+  const reloading = w.reloadUntil > now;
+  const span = w.reloadUntil - w.reloadStart;
+  return {
+    id: spec.id, name: spec.name, nameKey: spec.nameKey, emoji: spec.emoji,
+    mag: w.mag, magSize: spec.magSize, reserve: w.reserve,
+    reloading,
+    reloadPct: reloading && span > 0 ? clamp((now - w.reloadStart) / span, 0, 1) : 0,
+  };
+}
+
+/** Count living fighters per team — for the "ALIVE x vs y" HUD pill. */
+export function aliveCounts(world: World): { red: number; blue: number } {
+  const out = { red: 0, blue: 0 };
+  for (const f of world.fighters) if (f.alive) out[f.team] += 1;
+  return out;
 }
 
 /** Respawn a fighter at its base with full HP. */
@@ -300,23 +394,53 @@ function teammateCentroid(world: World, f: Fighter): { x: number; y: number } | 
   return n ? { x: sx / n, y: sy / n } : null;
 }
 
-function fire(world: World, f: Fighter, angle: number, now: number, cooldown: number) {
-  f.cooldownUntil = now + cooldown;
-  f.recoil = 1;
+/** Spawn one bolt from `f` along `angle`. Shared by bots and the hero weapon. */
+function spawnBolt(
+  world: World, f: Fighter, angle: number, now: number,
+  speed: number, dmg: number, lifeMs: number,
+) {
   const muzzle = FIGHTER_R + BULLET_R + 2;
   world.bullets.push({
     id: world.bulletSeq++,
     x: f.x + Math.cos(angle) * muzzle,
     y: f.y + Math.sin(angle) * muzzle,
-    vx: Math.cos(angle) * BULLET_SPEED,
-    vy: Math.sin(angle) * BULLET_SPEED,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
     team: f.team,
     ownerId: f.id,
     born: now,
+    dmg,
+    life: lifeMs,
   });
-  // recoil kick (visual momentum) + muzzle flash
+}
+
+/** Bot firing — one bolt, baseline stats (unchanged behavior). */
+function fire(world: World, f: Fighter, angle: number, now: number, cooldown: number) {
+  f.cooldownUntil = now + cooldown;
+  f.recoil = 1;
+  spawnBolt(world, f, angle, now, BULLET_SPEED, BULLET_DMG, BULLET_LIFE * 1000);
+  // recoil kick (visual momentum)
   f.vx -= Math.cos(angle) * RECOIL_KICK;
   f.vy -= Math.sin(angle) * RECOIL_KICK;
+}
+
+/** Hero firing — full weapon: ammo, spread, pellets, per-weapon recoil/range.
+ *  Returns true if a shot actually went out (mag had a round). */
+function fireHeroWeapon(world: World, hero: Fighter, angle: number, now: number): boolean {
+  const w = world.weapon;
+  const spec = getWeapon(w.id);
+  if (w.mag <= 0) return false;
+  for (let p = 0; p < spec.pellets; p++) {
+    const spr = spec.spread ? rnd(-spec.spread, spec.spread) : 0;
+    spawnBolt(world, hero, angle + spr, now, spec.bulletSpeed, spec.damage, spec.rangeMs);
+  }
+  w.mag -= 1;
+  hero.cooldownUntil = now + spec.fireRate;
+  hero.recoil = 1;
+  // single recoil kick regardless of pellet count
+  hero.vx -= Math.cos(angle) * RECOIL_KICK * spec.recoil;
+  hero.vy -= Math.sin(angle) * RECOIL_KICK * spec.recoil;
+  return true;
 }
 
 /** Advance the whole world by dt seconds. Mutates `world`; returns events.
@@ -326,6 +450,7 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
   const sounds: ArenaSound[] = [];
   let heroDied = false;
   let heroDeath: { x: number; y: number } | undefined;
+  let heroHit: StepResult['heroHit'];
   dt = Math.min(dt, 0.05); // clamp big frame gaps
 
   const hero = world.fighters[0];
@@ -362,10 +487,23 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
     }
     hero.aimAngle = angle;
 
-    if (inp.firing && now >= hero.cooldownUntil) {
-      fire(world, hero, angle, now, HERO_COOLDOWN);
-      fx?.muzzle(hero.x, hero.y, angle, '#FFD43B');
-      sounds.push('shoot');
+    // ── weapon: finish a completed reload, then fire if ammo allows ──
+    const W = world.weapon;
+    if (W.reloadUntil > 0 && now >= W.reloadUntil) {
+      const spec = getWeapon(W.id);
+      const take = Math.min(spec.magSize - W.mag, W.reserve);
+      W.mag += take; W.reserve -= take;
+      W.reloadUntil = 0; W.reloadStart = 0;
+    }
+    const reloading = W.reloadUntil > 0;
+    if (inp.firing && !reloading && now >= hero.cooldownUntil) {
+      if (fireHeroWeapon(world, hero, angle, now)) {
+        fx?.muzzle(hero.x, hero.y, angle, '#FFD43B');
+        sounds.push('shoot');
+        if (W.mag === 0 && W.reserve > 0) requestReload(world, now); // auto-reload when empty
+      } else if (W.reserve > 0) {
+        requestReload(world, now); // clicked on an empty mag → start reloading
+      }
     }
   }
 
@@ -437,7 +575,7 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
     const ang = Math.atan2(bullet.vy, bullet.vx);
-    if (now - bullet.born > BULLET_LIFE * 1000) continue;
+    if (now - bullet.born > bullet.life) continue;
     if (bullet.x < 0 || bullet.x > world.w || bullet.y < 0 || bullet.y > world.h) {
       fx?.impact(clamp(bullet.x, 0, world.w), clamp(bullet.y, 0, world.h), ang, 'wall');
       continue;
@@ -458,14 +596,18 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
           sounds.push('shield');
           break;
         }
+        const isHeroBolt = bullet.ownerId === 'hero';
         const crit = Math.random() < CRIT_CHANCE;
-        const dmg = crit ? BULLET_DMG_CRIT : BULLET_DMG;
+        // hero bolts use their weapon's headshot multiplier; bots use the baseline
+        const mult = crit ? (isHeroBolt ? getWeapon(world.weapon.id).headshotMult : BULLET_DMG_CRIT / BULLET_DMG) : 1;
+        const dmg = Math.round(bullet.dmg * mult);
         f.hp -= dmg;
         f.flash = 1;
         fx?.impact(bullet.x, bullet.y, ang, 'player');
         fx?.damage(f.x, f.y - FIGHTER_R, dmg, crit);
         sounds.push(crit ? 'crit' : 'hit');
         if (f.isHero) { fx?.addTrauma(crit ? 0.42 : 0.22); if (fx) fx.heroFlash = 1; sounds.push('hurt'); }
+        if (isHeroBolt) heroHit = { crit, killed: f.hp <= 0 };
 
         if (f.hp <= 0) {
           f.alive = false;
@@ -493,5 +635,5 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
   }
   world.bullets = live;
 
-  return { kills, heroDied, heroDeath, sounds };
+  return { kills, heroDied, heroDeath, sounds, heroHit };
 }

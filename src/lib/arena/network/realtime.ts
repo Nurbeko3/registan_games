@@ -61,7 +61,9 @@ class SupabaseTransport implements Transport {
       const raw = channel.presenceState() as Record<string, Array<Partial<PresenceMeta>>>;
       const map: PresenceMap = {};
       for (const [id, metas] of Object.entries(raw)) {
-        const m = metas[0] ?? {};
+        // NEWEST presence wins: re-track() (ready/team change) can leave the old
+        // ref at [0], so reading metas[0] showed stale state to other clients.
+        const m = metas[metas.length - 1] ?? {};
         map[id] = {
           name: m.name ?? 'Player', avatar: m.avatar ?? '🐱',
           team: m.team ?? 'red', ready: m.ready ?? false, isHost: m.isHost ?? false,

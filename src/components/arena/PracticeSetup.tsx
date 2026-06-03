@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useGame, getAvatar } from '@/store/useGame';
 import { ARENA_MODES, TEAM_SIZES } from '@/data/arenaModes';
 import { ARENA_MAPS } from '@/data/arenaMaps';
+import { MATCH_LENGTHS } from '@/lib/arena/network/types';
 import type { ArenaMode } from '@/lib/arena/types';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
 import { ArenaGame } from './ArenaGame';
@@ -26,11 +27,12 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
   const [perTeam, setPerTeam] = useState<number>(TEAM_SIZES[1].perTeam);
   const [mapId, setMapId] = useState<string>(ARENA_MAPS[0].id);
   const [difficulty, setDifficulty] = useState<ArenaDifficulty>('medium');
+  const [durationSec, setDurationSec] = useState<number>(180);
   const [started, setStarted] = useState(false);
 
   if (started) {
     const map = ARENA_MAPS.find((m) => m.id === mapId) ?? ARENA_MAPS[0];
-    return <ArenaGame config={{ mode, perTeam, hero, obstacles: map.obstacles, difficulty }} />;
+    return <ArenaGame config={{ mode, perTeam, hero, obstacles: map.obstacles, difficulty, durationSec }} />;
   }
 
   return (
@@ -120,6 +122,24 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
               }`}
             >
               {t.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* match length — scores are uncapped; the clock ends the match */}
+      <section className="mt-5">
+        <p className="mb-2 font-display font-extrabold">Match length</p>
+        <div className="flex gap-2">
+          {MATCH_LENGTHS.map((m) => (
+            <button
+              key={m.sec}
+              onClick={() => setDurationSec(m.sec)}
+              className={`flex-1 rounded-2xl py-3 font-display font-extrabold shadow-card transition ${
+                m.sec === durationSec ? 'bg-sun text-ink ring-2 ring-grape' : 'bg-white hover:bg-grape-50'
+              }`}
+            >
+              ⏱ {m.label}
             </button>
           ))}
         </div>

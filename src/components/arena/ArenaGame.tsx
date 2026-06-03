@@ -9,12 +9,19 @@ import {
   createWorld,
   respawn,
   step,
+  switchWeapon,
+  requestReload,
+  heroWeaponHud,
+  aliveCounts,
   WORLD_W,
   WORLD_H,
   type World,
   type Rect,
   type ArenaDifficulty,
 } from '@/lib/arena/engine';
+import { WEAPONS, type WeaponId } from '@/lib/arena/weapons';
+import { useT } from '@/lib/i18n';
+import { ArenaHud, type HudData } from './hud/ArenaHud';
 import { drawWorld } from '@/lib/arena/render';
 import { Fx } from '@/lib/arena/effects';
 import { ArenaAudio, createSynth, type ArenaSound } from '@/lib/arena/audio';
@@ -29,9 +36,9 @@ import {
   type PreparedQuestion,
   type TeamId,
 } from '@/lib/arena/types';
-import { ArenaHUD } from './ArenaHUD';
 import { LearningPanel } from './LearningPanel';
 import { MatchResults } from './MatchResults';
+import { ArenaDebugPanel, type ArenaDebugInfo } from './ArenaDebugPanel';
 
 const WRONG_COOLDOWN_MS = 8000;
 const CELEBRATE_MS = 1300;
@@ -52,6 +59,29 @@ export interface ArenaGameConfig {
   obstacles?: Rect[];
   /** bot difficulty for Practice (defaults to medium) */
   difficulty?: ArenaDifficulty;
+  /** shared match seed → identical arena across clients (multiplayer only). */
+  seed?: number;
+  /** match length in seconds. Scores are uncapped; the clock ends the match. */
+  durationSec?: number;
+}
+
+/** Multiplayer bridge. When present, the match is host-authoritative: the host
+ *  publishes score + the end signal; non-hosts display and obey them so every
+ *  client shares ONE match. Absent for offline Practice (everything local). */
+export interface ArenaNet {
+  isHost: boolean;
+  /** host-authoritative live score (mirrored to non-hosts). */
+  scores: { red: number; blue: number } | null;
+  /** host-authoritative end signal (final score). */
+  ended: { red: number; blue: number } | null;
+  /** host → publish live score as it changes. */
+  onScores: (red: number, blue: number) => void;
+  /** host → declare the match over. */
+  onEnd: (red: number, blue: number) => void;
+  /** leave the match (back to menu) — used by the results screen in multiplayer. */
+  onExit: () => void;
+  /** diagnostics overlay data. */
+  debug: ArenaDebugInfo;
 }
 
 interface Controls {
@@ -75,14 +105,20 @@ interface Controls {
 interface FeedEntry { id: number; killerName: string; victimName: string; team: TeamId; crit: boolean }
 interface Banner { text: string; key: number }
 
-export function ArenaGame({ config }: { config: ArenaGameConfig }) {
+export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: ArenaNet }) {
   const { mode, perTeam } = config;
   const target = mode.targetScore;
+  const durationMs = (config.durationSec ?? 180) * 1000;
+
+  // In multiplayer the HOST owns score/end; non-hosts mirror the host. Offline
+  // Practice has no `net`, so `authoritative` is false and everything stays local.
+  const authoritative = !!net && !net.isHost;
 
   const arenaAnswerCorrect = useGame((s) => s.arenaAnswerCorrect);
   const arenaMatchEnd = useGame((s) => s.arenaMatchEnd);
   const soundOn = useGame((s) => s.settings.sound);
   const reducedMotion = useGame((s) => s.settings.reducedMotion);
+  const t = useT();
 
   const [phase, setPhase] = useState<ArenaPhase>('intro');
   const [count, setCount] = useState(3);
@@ -93,6 +129,9 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   const [result, setResult] = useState<MatchResult | null>(null);
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [banner, setBanner] = useState<Banner | null>(null);
+  const [hud, setHud] = useState<HudData | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const isFullscreenRef = useRef(false); // read inside resize() (kept deps-free)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -119,6 +158,13 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   const matchPointRef = useRef(false);
   const behindRef = useRef(false);
   const frameRef = useRef<(ts: number) => boolean | void>(() => {});
+  // HUD: throttle the overlay snapshot, track match clock + hit-marker pulses
+  const hudAccum = useRef(0);
+  /** epoch ms the match ends at (0 until play begins). The clock — not score —
+   *  ends the match; the host is authoritative for the actual end. */
+  const matchEndsAtRef = useRef(0);
+  const hitMarkerRef = useRef<{ id: number; crit: boolean } | null>(null);
+  const hitSeq = useRef(0);
 
   const ctl = useRef<Controls>({
     moveId: null, moveBase: { x: 0, y: 0 }, moveKnob: { x: 0, y: 0 },
@@ -146,13 +192,21 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   const emit = (s: ArenaSound, i = 1) => audioRef.current.emit(s, i);
 
   // ── sizing (responsive, crisp on retina) ──
+  // Windowed: fit the wrapper width (capped). Fullscreen: fit the WHOLE screen,
+  // letterboxing to keep the world's aspect ratio. scaleRef stays world→css so
+  // pointer mapping and the camera transform keep working at any size.
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
     if (!canvas || !wrap) return;
-    const cssW = Math.min(wrap.clientWidth, 760);
+    const aspect = WORLD_W / WORLD_H;
+    const fs = isFullscreenRef.current;
+    const maxW = fs ? window.innerWidth : Math.min(wrap.clientWidth, 760);
+    const maxH = fs ? window.innerHeight : Number.POSITIVE_INFINITY;
+    let cssW = maxW;
+    let cssH = cssW / aspect;
+    if (cssH > maxH) { cssH = maxH; cssW = cssH * aspect; }
     const scale = cssW / WORLD_W;
-    const cssH = WORLD_H * scale;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     scaleRef.current = scale;
     dprRef.current = dpr;
@@ -161,6 +215,30 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
   }, []);
+
+  // ── fullscreen toggle (real Fullscreen API + CSS fallback for iOS) ──
+  const applyFullscreen = useCallback((on: boolean) => {
+    isFullscreenRef.current = on;
+    setIsFullscreen(on);
+    requestAnimationFrame(() => resize());
+  }, [resize]);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
+    const node = el as HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> };
+    const active = !!(document.fullscreenElement || doc.webkitFullscreenElement);
+    if (active) {
+      (document.exitFullscreen ?? doc.webkitExitFullscreen)?.call(document);
+      applyFullscreen(false);
+    } else {
+      const req = node.requestFullscreen ?? node.webkitRequestFullscreen;
+      // request real fullscreen where supported; CSS fallback covers the rest
+      req?.call(node).catch(() => {});
+      applyFullscreen(true);
+    }
+  }, [applyFullscreen]);
 
   // ── question loading ──
   const loadQuestion = () => {
@@ -192,22 +270,29 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     timers.current.push(setTimeout(() => setBanner((b) => (b && b.key === key ? null : b)), 1600));
   };
 
-  const endMatch = () => {
+  // `override` carries the host's authoritative final score (non-host path);
+  // otherwise the local world's score is canonical (host / offline practice).
+  const endMatch = (override?: { red: number; blue: number }) => {
     if (phaseRef.current === 'ended') return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
     clearTimers();
     const w = worldRef.current!;
-    const myScore = w.scores.red;
-    const enemyScore = w.scores.blue;
-    const won = myScore >= enemyScore && (myScore >= target || myScore > enemyScore);
+    const redScore = override?.red ?? w.scores.red;
+    const blueScore = override?.blue ?? w.scores.blue;
+    const myScore = redScore;
+    const enemyScore = blueScore;
+    // time-based: highest score when the clock ends wins (ties are not a win)
+    const won = myScore > enemyScore;
+    // host: publish the authoritative end to everyone (no-op offline)
+    if (net?.isHost) net.onEnd(redScore, blueScore);
     emit(won ? 'victory' : 'defeat');
     const bonus = arenaMatchEnd({ won, correct: stats.current.correct, elims: w.fighters[0].score });
     setResult({
       won,
       myTeam: 'red',
-      redScore: w.scores.red,
-      blueScore: w.scores.blue,
+      redScore,
+      blueScore,
       elims: w.fighters[0].score,
       correct: stats.current.correct,
       answered: stats.current.answered,
@@ -280,10 +365,7 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   };
 
   const checkScoreAlerts = (red: number, blue: number) => {
-    if (!matchPointRef.current && (red === target - 1 || blue === target - 1)) {
-      matchPointRef.current = true;
-      announce('MATCH POINT! 🏁');
-    }
+    // (no score target in time-based play) — celebrate big comebacks only
     if (blue - red >= 8) behindRef.current = true;
     if (behindRef.current && red >= blue && red > 0) {
       behindRef.current = false;
@@ -373,15 +455,37 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     const c = ctl.current;
     if (c.moveId !== null) drawStick(ctx, c.moveBase, c.moveKnob, '#7C5CFC');
     if (c.fireId !== null) drawStick(ctx, c.fireBase, c.fireKnob, '#FFD43B');
+    // hero HP / shield / ammo now live in the DOM HUD overlay (ArenaHud)
+  };
 
-    // hero HP bar (bottom center)
+  // ── snapshot the world into HUD data (called throttled, ~10x/sec) ──
+  const buildHud = (now: number): HudData => {
+    const w = worldRef.current!;
     const hero = w.fighters[0];
-    const bw = 160, bx = cssW / 2 - bw / 2, by = cssH - 16;
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.fillRect(bx - 4, by - 4, bw + 8, 12);
-    const hp = Math.max(0, hero.hp) / 100;
-    ctx.fillStyle = hp > 0.5 ? '#22C55E' : hp > 0.25 ? '#FFD43B' : '#FF7AB6';
-    ctx.fillRect(bx, by, bw * hp, 4);
+    const gs = useGame.getState();
+    return {
+      mode: { name: mode.name, emoji: mode.emoji, targetScore: target },
+      scores, // authoritative-aware (mirrors host for non-hosts)
+      alive: aliveCounts(w),
+      myTeam: 'red',
+      // count DOWN to the deadline; show the full length before play begins
+      timeMs: matchEndsAtRef.current ? Math.max(0, matchEndsAtRef.current - Date.now()) : durationMs,
+      hp: hero.hp,
+      shielded: now < hero.shieldUntil,
+      streak: gs.streak,
+      coins: gs.coins,
+      learnCorrect: stats.current.correct,
+      weapon: heroWeaponHud(w, now),
+      roster: w.fighters.map((f) => ({ name: f.name, team: f.team, hp: f.hp, alive: f.alive, isHero: f.isHero })),
+      minimap: w.fighters.map((f) => ({ x: f.x, y: f.y, team: f.team, alive: f.alive, isHero: f.isHero })),
+      worldW: w.w, worldH: w.h,
+      hitMarker: hitMarkerRef.current,
+    };
+  };
+
+  const hudActions = {
+    onReload: () => { const w = worldRef.current; if (w) { requestReload(w, performance.now()); setHud(buildHud(performance.now())); } },
+    onSwitch: (id: WeaponId) => { const w = worldRef.current; if (w) { switchWeapon(w, id); setHud(buildHud(performance.now())); } },
   };
 
   // ── one frame (stored in a ref so the rAF trampoline never goes stale) ──
@@ -398,13 +502,29 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
       const res = step(w, dt, ts, fx);
       playSounds(res.sounds);
       pushKills(res.kills, ts);
+      if (res.heroHit) hitMarkerRef.current = { id: ++hitSeq.current, crit: res.heroHit.crit };
       if (w.scores.red !== lastScores.current.red || w.scores.blue !== lastScores.current.blue) {
         lastScores.current = { red: w.scores.red, blue: w.scores.blue };
-        setScores(lastScores.current);
-        checkScoreAlerts(w.scores.red, w.scores.blue);
+        // non-hosts mirror the host's score (applied via effect) — never their own
+        if (!authoritative) {
+          setScores(lastScores.current);
+          checkScoreAlerts(w.scores.red, w.scores.blue);
+        }
+        // host publishes its authoritative score to all clients
+        if (net?.isHost) net.onScores(w.scores.red, w.scores.blue);
       }
-      if (w.scores.red >= target || w.scores.blue >= target) { endMatch(); return false; }
       if (res.heroDied && res.heroDeath) startDying(res.heroDeath);
+    }
+
+    // ── TIME'S UP → end the match (scores are uncapped; the clock decides) ──
+    // Runs in any phase so it ends even while the hero is in the Learning Pod.
+    // Host/offline triggers it; non-hosts end on the host's authoritative signal.
+    if (
+      !authoritative && matchEndsAtRef.current &&
+      Date.now() >= matchEndsAtRef.current && phaseRef.current !== 'ended'
+    ) {
+      endMatch();
+      return false;
     }
 
     // freeze-frame slow-mo during the death camera, normal speed otherwise
@@ -417,6 +537,10 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
 
     updateCamera(dt);
     render(ts);
+
+    // throttled HUD overlay refresh (~10 Hz keeps re-renders cheap)
+    hudAccum.current += dt;
+    if (hudAccum.current >= 0.1 && worldRef.current) { hudAccum.current = 0; setHud(buildHud(ts)); }
   };
 
   const loop = useCallback((ts: number) => {
@@ -428,7 +552,7 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   const boot = useCallback(() => {
     clearTimers();
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    worldRef.current = createWorld(perTeam, config.hero, config.obstacles, config.difficulty);
+    worldRef.current = createWorld(perTeam, config.hero, config.obstacles, config.difficulty, config.seed);
     stats.current = { correct: 0, answered: 0, xp: 0, coins: 0 };
     usedIds.current.clear();
     lastTs.current = 0;
@@ -440,6 +564,9 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     heroKills.current = [];
     matchPointRef.current = false;
     behindRef.current = false;
+    matchEndsAtRef.current = 0;
+    hudAccum.current = 0;
+    hitMarkerRef.current = null;
     setFeed([]);
     setBanner(null);
     setScores({ red: 0, blue: 0 });
@@ -455,7 +582,7 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     const tick = () => {
       n -= 1;
       emit('countdown');
-      if (n <= 0) { setCount(0); setPhaseBoth('playing'); }
+      if (n <= 0) { setCount(0); matchEndsAtRef.current = Date.now() + durationMs; setPhaseBoth('playing'); }
       else { setCount(n); timers.current.push(setTimeout(tick, 800)); }
     };
     timers.current.push(setTimeout(tick, 800));
@@ -468,10 +595,30 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
     const onResize = () => resize();
     window.addEventListener('resize', onResize);
 
+    // keep state in sync when the user leaves real fullscreen via Esc
+    const onFsChange = () => {
+      const active = !!(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement);
+      isFullscreenRef.current = active;
+      setIsFullscreen(active);
+      requestAnimationFrame(() => resize());
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+
     const onKey = (down: boolean) => (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (down) resumeAudio();
       if (k === ' ') { ctl.current.spaceFire = down; e.preventDefault(); return; }
+      if (down && k === 'f') { toggleFullscreen(); return; } // F = toggle fullscreen
+      // weapon controls (refs are stable, so a stale closure is fine here):
+      // R = reload, 1..8 = switch blaster. The next HUD tick reflects it.
+      if (down && k === 'r') { const w = worldRef.current; if (w) requestReload(w, performance.now()); return; }
+      if (down && k >= '1' && k <= '8') {
+        const spec = WEAPONS[Number(k) - 1];
+        const w = worldRef.current;
+        if (spec && w) switchWeapon(w, spec.id);
+        return;
+      }
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
         if (down) ctl.current.keys.add(k); else ctl.current.keys.delete(k);
         e.preventDefault();
@@ -485,11 +632,30 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       clearTimers();
       window.removeEventListener('resize', onResize);
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
       window.removeEventListener('keydown', kd);
       window.removeEventListener('keyup', ku);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── non-host: mirror the host's authoritative live score into the HUD ──
+  const netScoreRed = net?.scores?.red;
+  const netScoreBlue = net?.scores?.blue;
+  useEffect(() => {
+    if (!authoritative || netScoreRed == null || netScoreBlue == null) return;
+    setScores({ red: netScoreRed, blue: netScoreBlue });
+    checkScoreAlerts(netScoreRed, netScoreBlue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authoritative, netScoreRed, netScoreBlue]);
+
+  // ── non-host: end the match when the host says so (shared, single end) ──
+  const netEnded = net?.ended;
+  useEffect(() => {
+    if (authoritative && netEnded && phaseRef.current !== 'ended') endMatch(netEnded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authoritative, netEnded]);
 
   // ── pointer controls (touch joysticks + mouse aim/fire) ──
   const toLocal = (e: React.PointerEvent) => {
@@ -550,9 +716,11 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
 
   // ── ended → results ──
   if (phase === 'ended' && result) {
+    // multiplayer: "Play Again" returns to the menu (a fresh local boot would
+    // re-create the isolated-match bug). Re-lobbying in place is an M2 task.
     return (
       <div className="mx-auto max-w-md px-4 py-5">
-        <MatchResults result={result} onPlayAgain={boot} />
+        <MatchResults result={result} onPlayAgain={net ? net.onExit : boot} />
       </div>
     );
   }
@@ -560,13 +728,14 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
   return (
     <div className="mx-auto max-w-2xl px-3 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <Link href="/arena" className="btn-ghost px-3 py-1.5 text-sm">← Leave</Link>
+        <Link href="/arena" className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</Link>
         <span className="chip bg-grape-50 text-grape">{mode.emoji} {mode.name}</span>
       </div>
 
-      <ArenaHUD mode={mode} scores={scores} myTeam="red" />
-
-      <div ref={wrapRef} className="relative mt-3 select-none">
+      <div
+        ref={wrapRef}
+        className={`select-none ${isFullscreen ? 'fixed inset-0 z-50 grid place-items-center bg-ink' : 'relative mt-3'}`}
+      >
         <canvas
           ref={canvasRef}
           onPointerDown={onPointerDown}
@@ -574,14 +743,29 @@ export function ArenaGame({ config }: { config: ArenaGameConfig }) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           onPointerLeave={onPointerUp}
-          className={`w-full touch-none rounded-xl2 shadow-card ring-1 ring-grape-100 transition ${
-            phase === 'learning' ? 'blur-sm brightness-90' : ''
-          }`}
+          className={`touch-none transition ${
+            isFullscreen ? '' : 'w-full rounded-xl2 shadow-card ring-1 ring-grape-100'
+          } ${phase === 'learning' ? 'blur-sm brightness-90' : ''}`}
           style={{ cursor: 'crosshair', touchAction: 'none' }}
         />
 
-        {/* kill feed */}
-        <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
+        {/* CS2-inspired competitive HUD overlay */}
+        {hud && phase !== 'ended' && <ArenaHud d={hud} actions={hudActions} />}
+
+        {/* multiplayer diagnostics — proves matchId + seed match across clients */}
+        {net && <ArenaDebugPanel info={net.debug} />}
+
+        {/* fullscreen toggle (F key also works) */}
+        <button
+          onClick={toggleFullscreen}
+          aria-label={t(isFullscreen ? 'hud.exitFullscreen' : 'hud.fullscreen')}
+          className="pointer-events-auto absolute right-2 top-2 z-40 grid h-9 w-9 place-items-center rounded-xl bg-ink/80 text-lg text-white shadow-card backdrop-blur transition hover:bg-ink"
+        >
+          {isFullscreen ? '✕' : '⛶'}
+        </button>
+
+        {/* kill feed (sits below the fullscreen button) */}
+        <div className="pointer-events-none absolute right-2 top-12 z-20 flex flex-col items-end gap-1">
           <AnimatePresence>
             {feed.map((e) => (
               <motion.div

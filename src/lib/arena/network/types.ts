@@ -19,10 +19,19 @@ export interface RoomSettings {
   perTeam: number;
   botFill: boolean;
   targetScore: number;
+  /** match length in seconds — the match ends when the clock runs out. */
+  durationSec: number;
   difficulty: ArenaDifficulty;
   /** schema version — clients on a different version are rejected at join */
   v: number;
 }
+
+/** Match lengths a host can pick (seconds). Scores are uncapped; time decides. */
+export const MATCH_LENGTHS: { sec: number; label: string }[] = [
+  { sec: 120, label: '2 min' },
+  { sec: 180, label: '3 min' },
+  { sec: 300, label: '5 min' },
+];
 
 /** A lobby member, materialised from channel presence. */
 export interface RoomPlayer {
@@ -53,7 +62,7 @@ export interface NetEvent {
   data: Record<string, number | string | boolean>;
 }
 
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
 
 export const DEFAULT_SETTINGS: RoomSettings = {
   mapId: 'training',
@@ -61,9 +70,31 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   perTeam: 3,
   botFill: true,
   targetScore: 30,
+  durationSec: 180,
   difficulty: 'medium',
   v: SETTINGS_VERSION,
 };
 
 /** 6-digit numeric room code, e.g. "483921". */
 export const makeRoomCode = (): string => String(Math.floor(100000 + Math.random() * 900000));
+
+/** Identity for ONE shared match. The host generates these at start and ships
+ *  them in the `start` handshake so every client loads the IDENTICAL arena. */
+export interface MatchInfo {
+  /** unique per started match — clients in the same match share this exactly. */
+  matchId: string;
+  /** PRNG seed → deterministic map, spawns and roster across all clients. */
+  seed: number;
+}
+
+/** Authoritative match score, owned by the host and broadcast to everyone. */
+export interface MatchScores {
+  red: number;
+  blue: number;
+}
+
+export const makeMatchId = (): string =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+/** A 31-bit non-negative seed (safe for the mulberry32 PRNG). */
+export const makeSeed = (): number => Math.floor(Math.random() * 0x7fffffff);

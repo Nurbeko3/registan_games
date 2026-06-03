@@ -6,9 +6,9 @@ import { useArenaRoom } from '@/lib/arena/network/useArenaRoom';
 import { ARENA_MODES, TEAM_SIZES, getMode } from '@/data/arenaModes';
 import { ARENA_MAPS, getMap } from '@/data/arenaMaps';
 import { DIFFICULTIES } from './PracticeSetup';
-import type { RoomSettings } from '@/lib/arena/network/types';
+import { MATCH_LENGTHS, type RoomSettings } from '@/lib/arena/network/types';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
-import { ArenaGame } from './ArenaGame';
+import { ArenaGame, type ArenaNet } from './ArenaGame';
 import { ConnectionStatus } from './ConnectionStatus';
 import { PlayerList } from './PlayerList';
 import { ReadyPanel } from './ReadyPanel';
@@ -39,7 +39,9 @@ export function RoomLobby({
     return <div className="mx-auto max-w-md px-4 py-10 text-center text-ink-soft">Connecting…</div>;
   }
 
-  // ── match running → hand off to the engine (room settings drive it) ──
+  // ── match running → hand off to the engine (ONE shared match) ──
+  // Every client builds the identical arena from the host's seed, and the host
+  // drives the authoritative score/end. This is what makes one room = one match.
   if (s.phase === 'playing') {
     const cfg = {
       mode: getMode(s.settings.modeId),
@@ -47,8 +49,32 @@ export function RoomLobby({
       hero,
       obstacles: getMap(s.settings.mapId).obstacles,
       difficulty: s.settings.difficulty,
+      durationSec: s.settings.durationSec,
+      seed: s.seed ?? undefined,
     };
-    return <ArenaGame config={cfg} />;
+    const net: ArenaNet = {
+      isHost: s.isHost,
+      scores: s.liveScores,
+      ended: s.matchEnd,
+      onScores: room.reportScores,
+      onEnd: room.reportEnd,
+      onExit: onLeave,
+      debug: {
+        roomCode: code,
+        matchId: s.matchId,
+        hostId: s.players.find((p) => p.isHost)?.id ?? null,
+        myId: s.myId,
+        isHost: s.isHost,
+        playerCount: s.players.length,
+        seed: s.seed,
+        connection: s.connection,
+        kind: s.kind,
+        version: s.settings.v,
+        scores: s.liveScores,
+        lastEvent: s.lastEvent,
+      },
+    };
+    return <ArenaGame config={cfg} net={net} />;
   }
 
   if (s.phase === 'error') {
@@ -122,6 +148,15 @@ export function RoomLobby({
             value={s.settings.difficulty}
             disabled={!s.isHost}
             onPick={(id) => set({ difficulty: id as ArenaDifficulty })}
+          />
+        </SettingRow>
+
+        <SettingRow label="Match length">
+          <Pills
+            items={MATCH_LENGTHS.map((m) => ({ id: String(m.sec), label: `⏱ ${m.label}` }))}
+            value={String(s.settings.durationSec)}
+            disabled={!s.isHost}
+            onPick={(id) => set({ durationSec: Number(id) })}
           />
         </SettingRow>
 

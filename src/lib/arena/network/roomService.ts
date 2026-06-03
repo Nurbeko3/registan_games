@@ -14,7 +14,10 @@ import { getMode } from '@/data/arenaModes';
 import { createTransport, type PresenceMeta, type Transport } from './realtime';
 import {
   DEFAULT_SETTINGS,
+  makeMatchId,
+  makeSeed,
   type ConnectionState,
+  type MatchScores,
   type RoomPhase,
   type RoomPlayer,
   type RoomSettings,
@@ -33,6 +36,16 @@ export interface RoomState {
   settings: RoomSettings;
   /** epoch ms the match starts at, during 'countdown' */
   startAt: number | null;
+  /** shared identity of the CURRENT match (null until the host starts one). */
+  matchId: string | null;
+  /** shared PRNG seed → every client builds the identical arena. */
+  seed: number | null;
+  /** host-authoritative live score (mirrored to everyone during play). */
+  liveScores: MatchScores | null;
+  /** host-authoritative final score (set once when the match ends). */
+  matchEnd: MatchScores | null;
+  /** last realtime event seen (name + epoch ms) — for the debug panel. */
+  lastEvent: { name: string; at: number } | null;
 }
 
 export interface RoomOptions {
@@ -54,6 +67,11 @@ export class RoomService {
   private phase: RoomPhase = 'connecting';
   private connection: ConnectionState = 'offline';
   private startAt: number | null = null;
+  private matchId: string | null = null;
+  private seed: number | null = null;
+  private liveScores: MatchScores | null = null;
+  private matchEnd: MatchScores | null = null;
+  private lastEvent: { name: string; at: number } | null = null;
   private listeners = new Set<(s: RoomState) => void>();
   private timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -88,7 +106,15 @@ export class RoomService {
   private emit() { const s = this.snapshot(); this.listeners.forEach((cb) => cb(s)); }
 
   private toPlayers(): RoomPlayer[] {
-    const list: RoomPlayer[] = Object.entries(this.presence).map(([id, m]) => ({ id, ...m }));
+    // Optimistic local echo: my OWN row always reflects my latest intent
+    // (ready/team) immediately, instead of waiting for the presence round-trip
+    // to come back (which over Supabase makes taps look like they did nothing).
+    const myId = this.transport.id;
+    const merged: Record<string, PresenceMeta> = {
+      ...this.presence,
+      [myId]: { ...(this.presence[myId] ?? this.me), ...this.me },
+    };
+    const list: RoomPlayer[] = Object.entries(merged).map(([id, m]) => ({ id, ...m }));
     list.sort((a, b) => (a.isHost === b.isHost ? a.name.localeCompare(b.name) : a.isHost ? -1 : 1));
     return list;
   }
@@ -103,8 +129,15 @@ export class RoomService {
       players: this.toPlayers(),
       settings: this.settings,
       startAt: this.startAt,
+      matchId: this.matchId,
+      seed: this.seed,
+      liveScores: this.liveScores,
+      matchEnd: this.matchEnd,
+      lastEvent: this.lastEvent,
     };
   }
+
+  private note(name: string) { this.lastEvent = { name, at: Date.now() }; }
 
   async connect() {
     const t = this.transport;
@@ -116,6 +149,7 @@ export class RoomService {
     });
     t.onPresence((map) => {
       const grew = Object.keys(map).length > Object.keys(this.presence).length;
+      this.note('presence');
       this.presence = map;
       // keep my own host crown accurate (matters for elected quick-match hosts)
       const host = this.isHost();
@@ -130,22 +164,44 @@ export class RoomService {
       this.emit();
     });
     t.on('settings', (payload) => {
+      this.note('settings');
       if (this.isHost()) return; // host is the source of truth
       this.settings = payload as unknown as RoomSettings;
       this.emit();
     });
     t.on('start', (payload) => {
+      this.note('start');
+      // adopt the host's match identity so EVERY client loads the same arena
+      this.matchId = (payload.matchId as string) ?? makeMatchId();
+      this.seed = Number(payload.seed) || 0;
       this.startAt = Number(payload.at) || Date.now() + COUNTDOWN_MS;
+      this.liveScores = { red: 0, blue: 0 };
+      this.matchEnd = null;
       this.phase = 'countdown';
       this.emit();
       const delay = Math.max(0, this.startAt - Date.now());
       this.timer = setTimeout(() => { this.phase = 'playing'; this.emit(); }, delay);
     });
+    // host-authoritative score mirror (host also receives its own via broadcast:self)
+    t.on('score', (payload) => {
+      this.note('score');
+      this.liveScores = { red: Number(payload.red) || 0, blue: Number(payload.blue) || 0 };
+      this.emit();
+    });
+    t.on('match_end', (payload) => {
+      this.note('match_end');
+      this.matchEnd = { red: Number(payload.red) || 0, blue: Number(payload.blue) || 0 };
+      this.liveScores = this.matchEnd;
+      // keep phase 'playing' so RoomLobby keeps ArenaGame mounted to show results;
+      // ArenaGame owns the results screen and the exit back to the menu.
+      this.emit();
+    });
     await t.connect(this.me);
   }
 
-  setReady(ready: boolean) { this.me = { ...this.me, ready }; this.transport.track(this.me); }
-  setTeam(team: TeamId) { this.me = { ...this.me, team }; this.transport.track(this.me); }
+  // emit() so my own row updates instantly (optimistic); track() syncs to others.
+  setReady(ready: boolean) { this.me = { ...this.me, ready }; this.transport.track(this.me); this.emit(); }
+  setTeam(team: TeamId) { this.me = { ...this.me, team }; this.transport.track(this.me); this.emit(); }
 
   /** Host-only: change room settings (mode change also resets the target score). */
   updateSettings(patch: Partial<RoomSettings>) {
@@ -157,11 +213,28 @@ export class RoomService {
     this.emit();
   }
 
-  /** Host-only: everyone counts down, then flips to 'playing'. */
+  /** Host-only: mint ONE match identity (id + seed) and tell everyone to start it.
+   *  This is the fix for "one room = many local matches": the seed makes every
+   *  client build the IDENTICAL arena, and the id lets us prove they share it. */
   start() {
     if (!this.isHost()) return;
     const at = Date.now() + COUNTDOWN_MS;
-    this.transport.broadcast('start', { at });
+    this.transport.broadcast('start', { at, matchId: makeMatchId(), seed: makeSeed() });
+  }
+
+  /** Host-only: push the authoritative live score to every client. No-op for
+   *  non-hosts so a client can never fork the canonical score. */
+  reportScores(red: number, blue: number) {
+    if (!this.isHost()) return;
+    this.liveScores = { red, blue };
+    this.transport.broadcast('score', { red, blue });
+  }
+
+  /** Host-only: declare the match over with the final authoritative score. */
+  reportEnd(red: number, blue: number) {
+    if (!this.isHost()) return;
+    this.matchEnd = { red, blue };
+    this.transport.broadcast('match_end', { red, blue });
   }
 
   leave() {

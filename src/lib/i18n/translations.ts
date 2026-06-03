@@ -8,6 +8,15 @@ import type { Locale } from './config';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  // arena HUD + weapons
+  'hud.firstTo': 'First to {n}', 'hud.alive': 'ALIVE', 'hud.team': 'Team',
+  'hud.health': 'Health', 'hud.shield': 'Shield', 'hud.reload': 'Reload',
+  'hud.reloading': 'Reloading…', 'hud.learning': 'Learning', 'hud.leave': 'Leave',
+  'hud.fullscreen': 'Fullscreen', 'hud.exitFullscreen': 'Exit fullscreen',
+  'weapon.training-rifle.name': 'Training Rifle', 'weapon.energy-rifle.name': 'Energy Rifle',
+  'weapon.burst-rifle.name': 'Burst Rifle', 'weapon.smg.name': 'SMG',
+  'weapon.shotgun.name': 'Shotgun', 'weapon.sniper.name': 'Sniper',
+  'weapon.support.name': 'Support', 'weapon.learning-blaster.name': 'Learning Blaster',
   // nav
   'nav.home': 'Home', 'nav.worlds': 'Worlds', 'nav.arena': 'Arena',
   'nav.party': 'Party', 'nav.ranks': 'Ranks', 'nav.profile': 'Profile',
@@ -143,6 +152,15 @@ const en: Dict = {
 };
 
 const ru: Dict = {
+  // arena HUD + weapons
+  'hud.firstTo': 'До {n} очков', 'hud.alive': 'В ИГРЕ', 'hud.team': 'Команда',
+  'hud.health': 'Здоровье', 'hud.shield': 'Щит', 'hud.reload': 'Перезарядка',
+  'hud.reloading': 'Перезарядка…', 'hud.learning': 'Обучение', 'hud.leave': 'Выйти',
+  'hud.fullscreen': 'Во весь экран', 'hud.exitFullscreen': 'Выйти из полноэкранного',
+  'weapon.training-rifle.name': 'Учебная винтовка', 'weapon.energy-rifle.name': 'Энерговинтовка',
+  'weapon.burst-rifle.name': 'Импульсная винтовка', 'weapon.smg.name': 'Пистолет-пулемёт',
+  'weapon.shotgun.name': 'Дробовик', 'weapon.sniper.name': 'Снайперка',
+  'weapon.support.name': 'Пулемёт', 'weapon.learning-blaster.name': 'Бластер знаний',
   'nav.home': 'Главная', 'nav.worlds': 'Миры', 'nav.arena': 'Арена',
   'nav.party': 'Вечеринка', 'nav.ranks': 'Рейтинг', 'nav.profile': 'Профиль',
   'common.back': '← Назад', 'common.map': '← Карта', 'common.playNow': '▶ Играть',
@@ -257,6 +275,15 @@ const ru: Dict = {
 };
 
 const uz: Dict = {
+  // arena HUD + weapons
+  'hud.firstTo': '{n} gacha', 'hud.alive': 'TIRIK', 'hud.team': 'Jamoa',
+  'hud.health': 'Jon', 'hud.shield': 'Qalqon', 'hud.reload': 'O‘qlash',
+  'hud.reloading': 'O‘qlanmoqda…', 'hud.learning': 'O‘rganish', 'hud.leave': 'Chiqish',
+  'hud.fullscreen': 'Butun ekran', 'hud.exitFullscreen': 'Ekrandan chiqish',
+  'weapon.training-rifle.name': 'Mashq miltig‘i', 'weapon.energy-rifle.name': 'Energiya miltig‘i',
+  'weapon.burst-rifle.name': 'Navbatli miltiq', 'weapon.smg.name': 'Avtomat',
+  'weapon.shotgun.name': 'Sochma miltiq', 'weapon.sniper.name': 'Snayper',
+  'weapon.support.name': 'Qo‘llab-quvvatlash', 'weapon.learning-blaster.name': 'Bilim blasteri',
   'nav.home': 'Bosh sahifa', 'nav.worlds': 'Olamlar', 'nav.arena': 'Arena',
   'nav.party': 'Bazm', 'nav.ranks': 'Reyting', 'nav.profile': 'Profil',
   'common.back': '← Orqaga', 'common.map': '← Xarita', 'common.playNow': '▶ O‘ynash',
