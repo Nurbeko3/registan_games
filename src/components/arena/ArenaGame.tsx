@@ -684,6 +684,16 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     const onResize = () => resize();
     window.addEventListener('resize', onResize);
 
+    // Mobile robustness: re-size whenever the canvas wrapper's box changes (layout
+    // settling after mount, orientation change, address-bar show/hide). Without
+    // this the canvas can mount at 0×0 on a phone → "the game doesn't show".
+    let ro: ResizeObserver | null = null;
+    if (wrapRef.current && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => resize());
+      ro.observe(wrapRef.current);
+    }
+    requestAnimationFrame(() => resize()); // one more pass after first paint
+
     // keep state in sync when the user leaves real fullscreen via Esc
     const onFsChange = () => {
       const active = !!(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement);
@@ -720,6 +730,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       clearTimers();
+      ro?.disconnect();
       window.removeEventListener('resize', onResize);
       document.removeEventListener('fullscreenchange', onFsChange);
       document.removeEventListener('webkitfullscreenchange', onFsChange);

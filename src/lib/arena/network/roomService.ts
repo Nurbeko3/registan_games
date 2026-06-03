@@ -219,13 +219,16 @@ export class RoomService {
       this.matchId = (payload.matchId as string) ?? makeMatchId();
       this.seed = Number(payload.seed) || 0;
       this.roster = Array.isArray(payload.roster) ? (payload.roster as RosterEntry[]) : [];
-      this.startAt = Number(payload.at) || Date.now() + COUNTDOWN_MS;
+      // FIXED relative countdown from when WE receive 'start'. Never use the host's
+      // absolute epoch — cross-device clock skew would leave a client stuck in
+      // 'countdown' (it would "never enter" the match).
+      this.startAt = Date.now() + COUNTDOWN_MS;
       this.liveScores = { red: 0, blue: 0 };
       this.matchEnd = null;
       this.phase = 'countdown';
       this.emit();
-      const delay = Math.max(0, this.startAt - Date.now());
-      this.timer = setTimeout(() => { this.phase = 'playing'; this.emit(); }, delay);
+      if (this.timer) clearTimeout(this.timer);
+      this.timer = setTimeout(() => { this.phase = 'playing'; this.emit(); }, COUNTDOWN_MS);
     });
     // host-authoritative score mirror (host also receives its own via broadcast:self)
     t.on('score', (payload) => {
