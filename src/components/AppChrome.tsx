@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { MotionConfig } from 'framer-motion';
 import { useGame, getTheme } from '@/store/useGame';
@@ -19,6 +20,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const bg = useThemeBg();
   const reduced = useGame((s) => s.settings.reducedMotion);
   const pathname = usePathname() ?? '/';
+
+  // Mark the store hydrated after first paint so locale/theme switch to the
+  // persisted values without an SSR mismatch (see store note on setHydrated).
+  useEffect(() => { useGame.getState().setHydrated(); }, []);
 
   // single-player runner & live battle rooms are fullscreen → no bottom nav there
   const showNav = !pathname.startsWith('/play') && !/^\/party\/.+/.test(pathname);

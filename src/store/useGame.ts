@@ -71,6 +71,7 @@ interface GameState {
   setPlayerName: (name: string) => void;
   setArenaAvatar: (emoji: string) => void;
   setLocale: (locale: Locale) => void;
+  setHydrated: () => void;
   completeGame: (slug: string, stars: number) => CompleteResult;
   arenaAnswerCorrect: (difficulty: 'easy' | 'medium' | 'hard') => { xp: number; coins: number };
   arenaMatchEnd: (r: { won: boolean; correct: number; elims: number }) => {
@@ -144,6 +145,14 @@ export const useGame = create<GameState>()(
       setArenaAvatar: (emoji) => set({ arenaAvatar: emoji }),
 
       setLocale: (locale) => set({ locale }),
+
+      // Flipped from a post-mount effect (AppChrome). Driving it here — instead of
+      // inside persist's onRehydrateStorage — avoids the temporal-dead-zone trap:
+      // localStorage is synchronous, so that callback runs during create() before
+      // `useGame` exists, and its setState silently no-ops, leaving the locale
+      // toggle frozen on the default language. An effect runs after first paint,
+      // so it also keeps SSR and the first client render matching.
+      setHydrated: () => set({ hydrated: true }),
 
       completeGame: (slug, stars) => {
         const state = get();
@@ -295,10 +304,6 @@ export const useGame = create<GameState>()(
       name: 'kcq.v2',
       // never persist transient fields
       partialize: ({ hydrated, celebrations, ...persisted }) => persisted,
-      // flip the hydrated flag once localStorage has loaded (avoids SSR mismatch)
-      onRehydrateStorage: () => () => {
-        useGame.setState({ hydrated: true });
-      },
     },
   ),
 );
