@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { useGame, useHydrated, getAvatar } from '@/store/useGame';
 import { levelState } from '@/lib/leveling';
-import { Stat, ProgressBar } from '@/components/ui/Bits';
+import { Stat } from '@/components/ui/Bits';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '@/lib/i18n';
 
@@ -42,10 +43,37 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
         )}
       </div>
 
+      {/* Profile level-progress — a game XP bar (level → next), not a page loader.
+          Tap it to open the profile. */}
       {hydrated && (
-        <div className="mx-auto max-w-4xl px-4 pb-2">
-          <ProgressBar pct={ls.progressPct} className="bg-gradient-to-r from-grape to-bubble" />
-        </div>
+        <Link
+          href="/rewards"
+          aria-label={t('topbar.profile')}
+          className="group mx-auto flex max-w-4xl items-center gap-2 px-4 pb-2"
+        >
+          <span className="shrink-0 rounded-full bg-grape px-2 py-0.5 font-display text-[11px] font-extrabold text-white shadow-card">
+            {t('common.lv')} {ls.level}
+          </span>
+          <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-grape-100 ring-1 ring-grape-100 transition group-hover:ring-grape-200">
+            <motion.div
+              initial={false}
+              animate={{ width: `${Math.max(4, ls.progressPct)}%` }}
+              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+              className="relative h-full rounded-full bg-gradient-to-r from-grape via-bubble to-sun"
+            >
+              {/* sweeping shine so it reads as a lively XP bar */}
+              <motion.span
+                aria-hidden
+                className="absolute inset-y-0 left-0 w-8 -skew-x-12 bg-white/45 blur-[2px]"
+                animate={{ x: ['-2rem', '14rem'] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.8 }}
+              />
+            </motion.div>
+          </div>
+          <span className="shrink-0 font-bold tabular-nums text-[11px] text-ink-faint">
+            {ls.xpIntoLevel}/{ls.xpForNextLevel} XP
+          </span>
+        </Link>
       )}
     </header>
   );

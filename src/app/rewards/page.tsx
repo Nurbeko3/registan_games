@@ -7,7 +7,7 @@ import { useGame, useHydrated, selectTotalStars } from '@/store/useGame';
 import { ACHIEVEMENTS, RARITY_RING } from '@/data/achievements';
 import { AVATARS, THEMES } from '@/data/cosmetics';
 import { levelForXp, levelState } from '@/lib/leveling';
-import { CloudSaveCard } from '@/components/CloudSaveCard';
+import { AccountCard } from '@/components/AccountCard';
 import { useT } from '@/lib/i18n';
 
 export default function RewardsPage() {
@@ -87,7 +87,7 @@ function RewardsContent() {
         </div>
       </section>
 
-      <CloudSaveCard />
+      <AccountCard />
       <AvatarShop />
       <ThemeShop />
       <SettingsPanel />
@@ -168,6 +168,7 @@ function ThemeShop() {
 }
 
 function SettingsPanel() {
+  const t = useT();
   const settings = useGame((s) => s.settings);
   const toggle = useGame((s) => s.toggleSetting);
   const reset = useGame((s) => s.resetProgress);
@@ -175,20 +176,20 @@ function SettingsPanel() {
 
   return (
     <section className="card mt-6">
-      <h2 className="font-display text-xl font-extrabold">⚙️ Settings</h2>
+      <h2 className="font-display text-xl font-extrabold">{t('rw.settings')}</h2>
       <div className="mt-3 space-y-2">
-        <Toggle label="🔔 Sound effects" on={settings.sound} onClick={() => toggle('sound')} />
-        <Toggle label="🌙 Reduce motion" on={settings.reducedMotion} onClick={() => toggle('reducedMotion')} />
+        <Toggle label={t('rw.sound')} on={settings.sound} onClick={() => toggle('sound')} />
+        <Toggle label={t('rw.motion')} on={settings.reducedMotion} onClick={() => toggle('reducedMotion')} />
       </div>
       <div className="mt-4 border-t border-cloud pt-4">
         {confirm ? (
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-bubble-600">Erase all progress?</span>
-            <button onClick={() => { reset(); setConfirm(false); }} className="btn-primary px-3 py-1.5 text-sm">Yes</button>
-            <button onClick={() => setConfirm(false)} className="btn-ghost px-3 py-1.5 text-sm">No</button>
+            <span className="text-sm font-bold text-bubble-600">{t('rw.erase')}</span>
+            <button onClick={() => { reset(); setConfirm(false); }} className="btn-primary px-3 py-1.5 text-sm">{t('rw.yes')}</button>
+            <button onClick={() => setConfirm(false)} className="btn-ghost px-3 py-1.5 text-sm">{t('rw.no')}</button>
           </div>
         ) : (
-          <button onClick={() => setConfirm(true)} className="text-sm font-bold text-ink-faint hover:text-bubble-600">Reset progress</button>
+          <button onClick={() => setConfirm(true)} className="text-sm font-bold text-ink-faint hover:text-bubble-600">{t('rw.reset')}</button>
         )}
       </div>
     </section>
