@@ -48,6 +48,12 @@ export interface WeaponSpec {
   headshotMult: number;
 }
 
+export interface WeaponUiStats {
+  power: number;
+  speed: number;
+  control: number;
+}
+
 /** Order here is the weapon-switch order (number keys 1..8 in the HUD). */
 export const WEAPONS: WeaponSpec[] = [
   { id: 'training-rifle',  nameKey: 'weapon.training-rifle.name',  name: 'Training Rifle',  emoji: '🎯', damage: 20, fireRate: 240, reloadMs: 1400, magSize: 24, reserve: 96,  recoil: 0.7, spread: 0.03,  bulletSpeed: 380, rangeMs: 1600, pellets: 1, headshotMult: 1.5 },
@@ -68,3 +74,16 @@ export const getWeapon = (id: WeaponId): WeaponSpec => BY_ID[id];
 
 /** The blaster every fighter spawns with. */
 export const DEFAULT_WEAPON: WeaponId = 'energy-rifle';
+
+export function isWeaponId(value: unknown): value is WeaponId {
+  return typeof value === 'string' && value in BY_ID;
+}
+
+export function getWeaponStats(w: WeaponSpec): WeaponUiStats {
+  const burstDamage = w.damage * w.pellets;
+  return {
+    power: Math.min(100, Math.round((burstDamage / 90) * 100)),
+    speed: Math.min(100, Math.round((220 / w.fireRate) * 100)),
+    control: Math.max(15, Math.min(100, Math.round((1.9 - w.recoil - w.spread * 4) * 62))),
+  };
+}

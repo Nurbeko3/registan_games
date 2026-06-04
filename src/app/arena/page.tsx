@@ -8,6 +8,7 @@ import { PracticeSetup } from '@/components/arena/PracticeSetup';
 import { RoomLobby } from '@/components/arena/RoomLobby';
 import { JoinRoomModal } from '@/components/arena/JoinRoomModal';
 import { makeRoomCode, DEFAULT_SETTINGS, type RoomSettings } from '@/lib/arena/network/types';
+import { loadArenaAuthorityStatus } from '@/lib/arena/authority';
 
 type View = 'menu' | 'practice' | 'room';
 interface RoomEntry { code: string; isHost: boolean; quick: boolean; clientId: string; settings?: RoomSettings }
@@ -47,17 +48,36 @@ export default function ArenaPage() {
   const [view, setView] = useState<View>('menu');
   const [modal, setModal] = useState<null | 'create' | 'join'>(null);
   const [room, setRoom] = useState<RoomEntry | null>(null);
+  const [multiplayerEnabled, setMultiplayerEnabled] = useState(false);
+  const [authorityChecked, setAuthorityChecked] = useState(false);
 
   useEffect(() => {
+    let alive = true;
+    loadArenaAuthorityStatus().then((status) => {
+      if (!alive) return;
+      setMultiplayerEnabled(status.enabled);
+      setAuthorityChecked(true);
+      if (!status.enabled) saveRoom(null);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!authorityChecked) return;
+    if (!multiplayerEnabled) {
+      saveRoom(null);
+      return;
+    }
     const saved = readSavedRoom();
     if (!saved) return;
     setRoom(saved);
     setView('room');
-  }, []);
+  }, [authorityChecked, multiplayerEnabled]);
   useEffect(() => { saveRoom(room); }, [room]);
 
   const choose = (c: MenuChoice) => {
     if (c === 'practice') setView('practice');
+    else if (!multiplayerEnabled) return;
     // Create goes straight to the lobby with defaults — tune length/teams/bots there
     else if (c === 'create') {
       setRoom({ code: makeRoomCode(), isHost: true, quick: false, clientId: makeClientId(), settings: { ...DEFAULT_SETTINGS } });
@@ -82,7 +102,7 @@ export default function ArenaPage() {
     <main id="main" className={`min-h-screen pb-24 ${view === 'menu' ? 'dotted' : ''}`}>
       <TopBar />
 
-      {view === 'menu' && <ArenaMenu onSelect={choose} />}
+      {view === 'menu' && <ArenaMenu onSelect={choose} multiplayerEnabled={multiplayerEnabled} authorityChecked={authorityChecked} />}
       {view === 'practice' && <PracticeSetup onBack={toMenu} />}
       {view === 'room' && room && (
         <RoomLobby

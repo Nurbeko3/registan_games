@@ -18,6 +18,45 @@ const FLUSH_HZ = 12;
 const FLUSH_MS = Math.round(1000 / FLUSH_HZ);
 const NET_EVENT = 'net'; // single broadcast channel-event carrying a NetEvent
 const FROM_KEY = '__from';
+const WORLD_LIMIT = 5000;
+const MAX_VELOCITY = 1200;
+const MAX_BULLET_SPEED = 1800;
+const MAX_DAMAGE = 60;
+const MAX_LIFE = 2500;
+
+const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
+const bounded = (n: unknown, min: number, max: number): n is number => finite(n) && n >= min && n <= max;
+const shortId = (v: unknown) => typeof v === 'string' && v.length > 0 && v.length <= 40;
+
+function safeEvent(ev: NetEvent): boolean {
+  if (!shortId(ev.from) || !Number.isInteger(ev.seq) || ev.seq < 1) return false;
+  const d = ev.data;
+  if (!d || typeof d !== 'object') return false;
+  switch (ev.t) {
+    case 'move':
+      return bounded(d.x, 0, WORLD_LIMIT) && bounded(d.y, 0, WORLD_LIMIT) &&
+        bounded(d.vx, -MAX_VELOCITY, MAX_VELOCITY) && bounded(d.vy, -MAX_VELOCITY, MAX_VELOCITY) &&
+        bounded(d.aim, -Math.PI * 2, Math.PI * 2);
+    case 'shoot':
+      return bounded(d.x, 0, WORLD_LIMIT) && bounded(d.y, 0, WORLD_LIMIT) &&
+        bounded(d.angle, -Math.PI * 2, Math.PI * 2) && bounded(d.speed, 0, MAX_BULLET_SPEED) &&
+        bounded(d.dmg, 0, MAX_DAMAGE) && bounded(d.life, 0, MAX_LIFE) &&
+        (typeof d.weapon === 'string' && d.weapon.length <= 32);
+    case 'down':
+      return shortId(d.by);
+    case 'respawn':
+      return bounded(d.x, 0, WORLD_LIMIT) && bounded(d.y, 0, WORLD_LIMIT);
+    case 'leave':
+      return typeof d.name === 'string' && d.name.length > 0 && d.name.length <= 30;
+    case 'answered':
+      return typeof d.correct === 'boolean';
+    case 'score':
+    case 'match_end':
+      return false;
+    default:
+      return false;
+  }
+}
 
 export class MatchService {
   private out = new OutboundQueue();
@@ -34,7 +73,8 @@ export class MatchService {
       if (
         ev &&
         ev.from !== this.myId &&
-        (typeof transportFrom !== 'string' || transportFrom === ev.from)
+        (typeof transportFrom !== 'string' || transportFrom === ev.from) &&
+        safeEvent(ev)
       ) this.inbound.accept(ev);
     });
     this.flushTimer = setInterval(() => this.flush(), FLUSH_MS);
@@ -42,7 +82,9 @@ export class MatchService {
 
   /** Queue one of my events to send (movement is coalesced to latest-wins). */
   send(t: NetEventType, data: NetEvent['data']) {
+    if (t === 'score' || t === 'match_end') return;
     this.out.push(t, this.myId, data);
+    if (t === 'leave') this.flush();
   }
 
   private flush() {

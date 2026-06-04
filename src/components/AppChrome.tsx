@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { MotionConfig } from 'framer-motion';
 import { useGame, getTheme } from '@/store/useGame';
@@ -20,13 +20,22 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const bg = useThemeBg();
   const reduced = useGame((s) => s.settings.reducedMotion);
   const pathname = usePathname() ?? '/';
+  const [arenaPlaying, setArenaPlaying] = useState(false);
 
   // Mark the store hydrated after first paint so locale/theme switch to the
   // persisted values without an SSR mismatch (see store note on setHydrated).
   useEffect(() => { useGame.getState().setHydrated(); }, []);
+  useEffect(() => {
+    const onArenaChrome = (event: Event) => {
+      const detail = (event as CustomEvent<{ playing?: boolean }>).detail;
+      setArenaPlaying(detail?.playing === true);
+    };
+    window.addEventListener('kcq:arena-chrome', onArenaChrome);
+    return () => window.removeEventListener('kcq:arena-chrome', onArenaChrome);
+  }, []);
 
   // single-player runner, live battle rooms & the admin panel are fullscreen → no bottom nav there
-  const showNav = !pathname.startsWith('/play') && !pathname.startsWith('/admin') && !/^\/party\/.+/.test(pathname);
+  const showNav = !arenaPlaying && !pathname.startsWith('/play') && !pathname.startsWith('/admin') && !/^\/party\/.+/.test(pathname);
 
   return (
     <MotionConfig reducedMotion={reduced ? 'always' : 'user'}>

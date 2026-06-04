@@ -1,72 +1,18 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { Mascot } from '@/components/Mascot';
 import { Icon, IconTile, gameIcon, worldIcon } from '@/components/ui/Icon';
 import { GAMES } from '@/data/games';
 import { ZONES } from '@/data/worlds';
-import { useGame, useHydrated } from '@/store/useGame';
 import { useT } from '@/lib/i18n';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 22 },
   show: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.07, duration: 0.5 } }),
 };
-
-function NamePrompt() {
-  const t = useT();
-  const hydrated = useHydrated();
-  const playerName = useGame((s) => s.playerName);
-  const setPlayerName = useGame((s) => s.setPlayerName);
-  const [draft, setDraft] = useState('');
-  const [dismissed, setDismissed] = useState(false);
-
-  if (!hydrated || playerName || dismissed) return null;
-
-  const save = () => {
-    const trimmed = draft.trim();
-    if (trimmed) setPlayerName(trimmed);
-    setDismissed(true);
-  };
-
-  return (
-    <AnimatePresence>
-      <motion.section
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -12 }}
-        className="mx-auto max-w-2xl px-5 pt-4"
-      >
-        <div className="card flex items-center gap-3 bg-gradient-to-r from-sun/20 to-mango/20">
-          <IconTile name="rocket" className="h-12 w-12 shrink-0 bg-white text-grape ring-grape-100" />
-          <div className="flex-1">
-            <p className="font-display font-extrabold">{t('home.name.q')}</p>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && save()}
-                placeholder={t('home.name.ph')}
-                maxLength={20}
-                autoFocus
-                className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2 font-bold outline-none focus:border-grape"
-              />
-              <button onClick={save} className="btn-primary px-5">
-                {t('home.name.go')}
-              </button>
-            </div>
-          </div>
-          <button onClick={() => setDismissed(true)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink" aria-label="Close">
-            <Icon name="x" className="h-4 w-4" />
-          </button>
-        </div>
-      </motion.section>
-    </AnimatePresence>
-  );
-}
 
 export default function HomePage() {
   const t = useT();
@@ -75,7 +21,6 @@ export default function HomePage() {
   return (
     <main id="main">
       <TopBar />
-      <NamePrompt />
 
       {/* ── HERO ── */}
       <section className="dotted relative overflow-hidden">

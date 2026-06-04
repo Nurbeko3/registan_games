@@ -5,6 +5,8 @@ build/
 out/
 coverage/
 .turbo/
+tsconfig.tsbuildinfo
+supabase/.temp/
 
 # env
 .env

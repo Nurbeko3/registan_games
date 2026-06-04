@@ -17,9 +17,10 @@
  *  events accumulate on `StepResult.sounds` for the audio layer to play. */
 
 import type { TeamId, RosterEntry } from './types';
+import { otherTeam } from './types';
 import type { Fx } from './effects';
 import type { ArenaSound } from './audio';
-import { getWeapon, DEFAULT_WEAPON, WEAPONS, type WeaponId } from './weapons';
+import { getWeapon, DEFAULT_WEAPON, WEAPONS, isWeaponId, type WeaponId } from './weapons';
 
 // ── world geometry (logical units; the canvas scales to fit) ──
 export const WORLD_W = 720;
@@ -101,6 +102,7 @@ export interface Fighter {
   local: boolean;
   /** network player id for a remote human, else null. */
   netId: string | null;
+  weaponId?: WeaponId;
 }
 
 export interface Bullet {
@@ -252,6 +254,9 @@ export function createWorld(
    *  fighters[0] is MY hero (the entry matching myNetId), the rest are remote. */
   roster?: RosterEntry[],
   myNetId?: string,
+  initialWeapon: WeaponId = DEFAULT_WEAPON,
+  /** the team the hero chose in the lobby (solo vs bots honours this too). */
+  heroTeam: TeamId = 'red',
 ): World {
   const rand = seed === undefined ? Math.random : makeRng(seed);
   const skill = DIFFICULTY_SKILL[difficulty];
@@ -289,7 +294,7 @@ export function createWorld(
       personality: isHero ? null : SQUAD[idx % SQUAD.length],
       skill: isHero ? 1 : skill,
       recoil: 0, flash: 0, shieldUntil: 0,
-      remote: false, local: true, netId: null,
+      remote: false, local: true, netId: null, weaponId: isHero ? initialWeapon : undefined,
     };
   };
 
@@ -304,19 +309,22 @@ export function createWorld(
     fighters.push(makeHuman(me, true, spawns.get(me.netId)!));
     for (const e of roster!) if (e.netId !== me.netId) fighters.push(makeHuman(e, false, spawns.get(e.netId)!));
   } else {
-    fighters.push(make('red', true, 0)); // the hero leads red
-    const redAllies = botFill ? perTeam - 1 : 0; // botFill OFF → no ally bots
-    for (let i = 0; i < redAllies; i++) fighters.push(make('red', false, i));
-    for (let i = 0; i < perTeam; i++) fighters.push(make('blue', false, i)); // enemies always present
+    const enemyTeam = otherTeam(heroTeam);
+    fighters.push(make(heroTeam, true, 0)); // the hero leads their chosen team
+    const allies = botFill ? perTeam - 1 : 0; // botFill OFF → no ally bots
+    for (let i = 0; i < allies; i++) fighters.push(make(heroTeam, false, i));
+    for (let i = 0; i < perTeam; i++) fighters.push(make(enemyTeam, false, i)); // enemies always present
   }
 
-  const startWeapon = getWeapon(DEFAULT_WEAPON);
+  const startWeaponId = isWeaponId(initialWeapon) ? initialWeapon : DEFAULT_WEAPON;
+  const startWeapon = getWeapon(startWeaponId);
+  if (fighters[0]) fighters[0].weaponId = startWeaponId;
   return {
     w: WORLD_W, h: WORLD_H, obstacles: walls, fighters, bullets: [],
     scores: { red: 0, blue: 0 },
     input: { moveX: 0, moveY: 0, firing: false, aim: { type: 'none' } },
     bulletSeq: 1,
-    weapon: { id: DEFAULT_WEAPON, mag: startWeapon.magSize, reserve: startWeapon.reserve, reloadUntil: 0, reloadStart: 0 },
+    weapon: { id: startWeaponId, mag: startWeapon.magSize, reserve: startWeapon.reserve, reloadUntil: 0, reloadStart: 0 },
     multiplayer,
     myNetId: multiplayer ? myNetId! : null,
   };
@@ -337,7 +345,7 @@ function makeHuman(e: RosterEntry, isHero: boolean, p: { x: number; y: number })
     personality: null, skill: 1,
     recoil: 0, flash: 0, shieldUntil: 0,
     // a remote human is driven by network packets, not local AI/physics
-    remote: !isHero, local: isHero, netId: e.netId,
+    remote: !isHero, local: isHero, netId: e.netId, weaponId: isHero ? undefined : DEFAULT_WEAPON,
   };
 }
 
@@ -374,7 +382,8 @@ export function applyRemoteShot(
 ) {
   const f = byNet(world, netId);
   if (!f || !f.alive || now < f.cooldownUntil) return;
-  const spec = getWeapon(validWeaponId(d.weapon) ? d.weapon : DEFAULT_WEAPON);
+  const remoteWeapon = validWeaponId(d.weapon) ? d.weapon : DEFAULT_WEAPON;
+  const spec = getWeapon(remoteWeapon);
   const rx = finiteClamp(d.x, FIGHTER_R, world.w - FIGHTER_R, f.x);
   const ry = finiteClamp(d.y, FIGHTER_R, world.h - FIGHTER_R, f.y);
   const tooFar = dist(rx, ry, f.x, f.y) > REMOTE_SHOT_ORIGIN_TOLERANCE;
@@ -385,6 +394,7 @@ export function applyRemoteShot(
   const dmg = finiteClamp(d.dmg ?? spec.damage, 1, spec.damage, spec.damage);
   const life = finiteClamp(d.life ?? spec.rangeMs, 120, spec.rangeMs, spec.rangeMs);
   f.aimAngle = angle;
+  f.weaponId = remoteWeapon;
   f.cooldownUntil = now + spec.fireRate * 0.75;
   f.recoil = 1;
   world.bullets.push({
@@ -400,6 +410,18 @@ export function applyRemoteShot(
 export function applyRemoteDown(world: World, netId: string) {
   const f = byNet(world, netId);
   if (f) { f.alive = false; f.hp = 0; }
+}
+
+/** Remote LEAVE: remove the opponent from the active field without scoring. */
+export function applyRemoteLeave(world: World, netId: string) {
+  const f = byNet(world, netId);
+  if (f) {
+    f.alive = false;
+    f.hp = 0;
+    f.respawnAt = Number.POSITIVE_INFINITY;
+    f.vx = 0;
+    f.vy = 0;
+  }
 }
 
 /** Remote RESPAWN: the opponent answered their Learning Pod and is back. */
@@ -418,6 +440,7 @@ export function switchWeapon(world: World, id: WeaponId) {
   if (world.weapon.id === id) return;
   const spec = getWeapon(id);
   world.weapon = { id, mag: spec.magSize, reserve: spec.reserve, reloadUntil: 0, reloadStart: 0 };
+  world.fighters[0].weaponId = id;
 }
 
 /** Begin a reload if it makes sense (not full, have reserve, not already reloading). */

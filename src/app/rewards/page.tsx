@@ -97,6 +97,8 @@ function RewardsContent() {
         </div>
       </section>
 
+      <OfflineNameCard />
+
       {/* daily reward */}
       <section className="card mt-5 flex items-center gap-4">
         <span className="grid h-14 w-14 place-items-center rounded-2xl bg-grape-50 text-grape">
@@ -131,6 +133,46 @@ function RewardsContent() {
       <ThemeShop />
       <SettingsPanel />
     </main>
+  );
+}
+
+/** Offline player identity — cloud-logged-in users edit their name in AccountCard,
+ *  so this only appears when there is no account to sync with. */
+function OfflineNameCard() {
+  const t = useT();
+  const playerName = useGame((s) => s.playerName);
+  const setPlayerName = useGame((s) => s.setPlayerName);
+  const [draft, setDraft] = useState(playerName);
+  const [saved, setSaved] = useState(false);
+
+  if (isCloudEnabled()) return null;
+
+  const save = () => {
+    setPlayerName(draft.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  return (
+    <section className="card mt-5 flex items-center gap-3">
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-grape-50 text-grape">
+        <Icon name="user" className="h-6 w-6" />
+      </span>
+      <div className="flex-1">
+        <p className="mb-1 text-sm font-bold text-ink-soft">{t('home.name.q')}</p>
+        <div className="flex gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && save()}
+            placeholder={t('home.name.ph')}
+            maxLength={20}
+            className="min-w-0 flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape"
+          />
+          <button onClick={save} className="btn-primary px-4">{saved ? '✓' : t('home.name.go')}</button>
+        </div>
+      </div>
+    </section>
   );
 }
 

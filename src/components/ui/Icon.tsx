@@ -79,7 +79,7 @@ export function Icon({ name, className = 'h-5 w-5' }: { name: IconName; classNam
 
 export function IconTile({ name, className = '', iconClassName = 'h-7 w-7' }: { name: IconName; className?: string; iconClassName?: string }) {
   return (
-    <span className={`grid place-items-center rounded-2xl bg-white/18 text-current ring-1 ring-white/25 ${className}`}>
+    <span className={`grid place-items-center rounded-2xl bg-white/20 text-current ring-1 ring-white/30 ${className}`}>
       <Icon name={name} className={iconClassName} />
     </span>
   );

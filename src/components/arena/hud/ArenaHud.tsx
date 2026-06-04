@@ -5,6 +5,7 @@ import { TEAMS, type TeamId } from '@/lib/arena/types';
 import type { HeroWeaponHud } from '@/lib/arena/engine';
 import { WEAPONS, type WeaponId } from '@/lib/arena/weapons';
 import { useT } from '@/lib/i18n';
+import { WeaponIcon } from '../WeaponIcon';
 
 /** Everything the competitive HUD draws each (throttled) tick. Pure data so the
  *  game loop can snapshot it cheaply ~10x/sec without re-rendering every frame. */
@@ -67,7 +68,7 @@ type T = (k: string, v?: Record<string, string | number>) => string;
 function TopCluster({ d, t }: { d: HudData; t: T }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-1.5 z-20 flex flex-col items-center gap-1">
-      <div className="flex items-stretch overflow-hidden rounded-2xl bg-ink/85 text-white shadow-card backdrop-blur">
+      <div className="flex items-stretch overflow-hidden rounded-2xl bg-ink/78 text-white shadow-card ring-1 ring-white/10 backdrop-blur">
         <Score team="red" score={d.scores.red} mine={d.myTeam === 'red'} />
         <div className="flex min-w-[104px] flex-col items-center justify-center px-3 py-1">
           <span
@@ -108,7 +109,7 @@ function Minimap({ d }: { d: HudData }) {
   const W = 118, H = Math.round((d.worldH / d.worldW) * 118);
   return (
     <div
-      className="pointer-events-none absolute left-2 top-2 z-10 overflow-hidden rounded-xl bg-ink/70 ring-1 ring-white/15 backdrop-blur"
+      className="pointer-events-none absolute left-2 top-2 z-10 overflow-hidden rounded-xl bg-ink/64 ring-1 ring-white/15 backdrop-blur"
       style={{ width: W, height: H }}
     >
       {d.minimap.map((p, i) => {
@@ -156,8 +157,8 @@ function Vitals({ d, t }: { d: HudData; t: T }) {
   const hp = Math.max(0, Math.round(d.hp));
   const hpColor = hp > 50 ? 'bg-mint' : hp > 25 ? 'bg-sun' : 'bg-bubble';
   return (
-    <div className="pointer-events-none absolute bottom-2 left-2 z-20 w-44">
-      <div className="rounded-xl bg-ink/80 p-2 shadow-card backdrop-blur">
+    <div className="pointer-events-none absolute bottom-2 left-2 z-20 w-40">
+      <div className="rounded-xl bg-ink/72 p-2 shadow-card ring-1 ring-white/10 backdrop-blur">
         <div className="flex items-center justify-between text-white">
           <span className="text-[10px] font-extrabold uppercase tracking-wide text-white/60">{t('hud.health')}</span>
           <span className="font-display text-xl font-extrabold leading-none">{hp}</span>
@@ -182,28 +183,27 @@ function WeaponPanel({ d, actions, t }: { d: HudData; actions: HudActions; t: T 
   const low = !wpn.reloading && wpn.mag <= Math.max(1, Math.ceil(wpn.magSize * 0.25));
   return (
     <div className="absolute inset-x-0 bottom-2 z-20 flex flex-col items-center gap-1">
-      {/* weapon switch strip */}
-      <div className="pointer-events-auto flex gap-1">
+      <div className="pointer-events-auto flex max-w-[70vw] gap-1 overflow-x-auto rounded-2xl bg-ink/35 px-1.5 py-1 shadow-card backdrop-blur [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {WEAPONS.map((w, i) => (
           <button
             key={w.id}
             onClick={() => actions.onSwitch(w.id)}
             aria-label={t(w.nameKey)}
-            className={`grid h-7 w-7 place-items-center rounded-lg text-sm shadow transition ${
-              w.id === wpn.id ? 'scale-110 bg-sun text-ink ring-2 ring-white' : 'bg-ink/70 text-white/80 hover:bg-ink/90'
+            className={`grid h-7 w-9 shrink-0 place-items-center rounded-xl shadow transition ${
+              w.id === wpn.id ? 'scale-105 bg-sun text-ink ring-2 ring-white' : 'bg-white/10 text-white/80 hover:bg-white/20'
             }`}
           >
-            <span className="relative">
-              {w.emoji}
-              <span className="absolute -bottom-2 -right-1.5 text-[7px] font-extrabold text-white/60">{i + 1}</span>
+            <span className="relative grid place-items-center">
+              <WeaponIcon id={w.id} className="h-5 w-8" />
+              <span className={`absolute -bottom-1.5 -right-1 text-[7px] font-extrabold ${w.id === wpn.id ? 'text-ink/60' : 'text-white/60'}`}>{i + 1}</span>
             </span>
           </button>
         ))}
       </div>
 
-      <div className="flex items-center gap-2 rounded-2xl bg-ink/85 px-3 py-1.5 text-white shadow-card backdrop-blur">
-        <span className="text-2xl">{wpn.emoji}</span>
-        <div className="min-w-[92px]">
+      <div className="flex items-center gap-2 rounded-2xl bg-ink/78 px-3 py-1.5 text-white shadow-card ring-1 ring-white/10 backdrop-blur">
+        <WeaponIcon id={wpn.id} className="h-9 w-16 shrink-0" />
+        <div className="min-w-[84px]">
           <p className="text-[10px] font-extrabold uppercase tracking-wide text-white/60">{t(wpn.nameKey)}</p>
           {wpn.reloading ? (
             <div className="mt-0.5 h-3 w-24 overflow-hidden rounded-full bg-white/15">

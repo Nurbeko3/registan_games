@@ -49,6 +49,7 @@ export type NetEventType =
   | 'shoot'     // {x,y,angle,speed,dmg,life}
   | 'down'      // {by} — "my hero was tagged out by <netId>" (victim-reported)
   | 'respawn'   // {x,y}
+  | 'leave'     // {name} — player intentionally left the match
   | 'answered'  // {correct} — telemetry for the host
   | 'score'     // {red,blue} — host authoritative
   | 'match_end';// {redScore,blueScore}

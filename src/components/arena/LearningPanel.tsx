@@ -21,12 +21,14 @@ export function LearningPanel({
   lastReward,
   cooldownMs,
   onAnswer,
+  onLeave,
 }: {
   prepared: PreparedQuestion;
   learnState: LearnState;
   lastReward: { xp: number; coins: number } | null;
   cooldownMs: number;
   onAnswer: (response: number | string[]) => void;
+  onLeave: () => void;
 }) {
   const t = useT();
   const { q } = prepared;
@@ -48,7 +50,15 @@ export function LearningPanel({
         {/* playful pod header */}
         <div className="-mx-6 -mt-6 mb-4 flex items-center justify-between bg-gradient-to-r from-grape to-bubble px-5 py-3 text-white">
           <span className="font-display text-sm font-extrabold uppercase tracking-wide">{t('arena.learn.pod')}</span>
-          <span className="chip bg-white/20 text-white">{cat.emoji} {cat.label}</span>
+          <div className="flex items-center gap-2">
+            <span className="chip bg-white/20 text-white">{cat.emoji} {cat.label}</span>
+            <button
+              onClick={onLeave}
+              className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold text-white transition hover:bg-white/30"
+            >
+              ← {t('hud.leave')}
+            </button>
+          </div>
         </div>
 
         <AnimatePresence mode="wait">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { useArenaRoom } from '@/lib/arena/network/useArenaRoom';
@@ -15,6 +15,8 @@ import { ConnectionStatus } from './ConnectionStatus';
 import { PlayerList } from './PlayerList';
 import { ReadyPanel } from './ReadyPanel';
 import { MatchLengthInput } from './MatchLengthInput';
+import { WeaponLoadout } from './WeaponLoadout';
+import { DEFAULT_WEAPON, type WeaponId } from '@/lib/arena/weapons';
 
 /** The custom-room / quick-match lobby. Shows live players, lets the host tune
  *  settings, and hands off into ArenaGame when the match starts. */
@@ -39,6 +41,7 @@ export function RoomLobby({
   const playerName = useGame((s) => s.playerName);
   const arenaAvatar = useGame((s) => s.arenaAvatar);
   const hero = { name: playerName || 'You', avatar: arenaAvatar };
+  const [weapon, setWeapon] = useState<WeaponId>(DEFAULT_WEAPON);
 
   const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, clientId, quick, settings });
   const s = room.state;
@@ -71,6 +74,8 @@ export function RoomLobby({
       durationSec: s.settings.durationSec,
       botFill: s.settings.botFill,
       seed: s.seed ?? undefined,
+      initialWeapon: weapon,
+      onExit: onLeave,
     };
     const net: ArenaNet = {
       isHost: s.isHost,
@@ -180,6 +185,8 @@ export function RoomLobby({
           </button>
         </SettingRow>
       </div>
+
+      <WeaponLoadout value={weapon} onChange={setWeapon} compact />
 
       <div className="mt-4">
         {counting ? (

@@ -1,41 +1,12 @@
--- ════════════════════════════════════════════════════════════════════
---  KidsCode Quest — authoritative Party room state
---  Presence still carries live names; match flow is now controlled by
---  RPC-validated room state so non-host clients cannot forge start/question/end.
--- ════════════════════════════════════════════════════════════════════
+-- KidsCode Quest — Party authoritative answers + duplicate protection.
+-- Players receive a per-room token from the DB; answers are submitted through
+-- RPC and scored in Postgres, so clients cannot score as another player or
+-- score the same question twice after a host refresh.
 
-create extension if not exists pgcrypto with schema extensions;
-
-create table if not exists public.kcq_party_rooms (
-  code          text primary key,
-  host_id       text not null,
-  host_token    uuid not null,
-  phase         text not null default 'lobby' check (phase in ('lobby', 'question', 'reveal', 'ended')),
-  order_indices integer[] not null default '{}',
-  q_index       integer not null default -1,
-  player_tokens jsonb not null default '{}'::jsonb,
-  scores        jsonb not null default '{}'::jsonb,
-  answered      jsonb not null default '{}'::jsonb,
-  revision      integer not null default 0,
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
-);
-
-alter table public.kcq_party_rooms enable row level security;
-revoke all on public.kcq_party_rooms from anon, authenticated;
-
-drop policy if exists "kcq_party_public_read" on public.kcq_party_rooms;
-create policy "kcq_party_public_read" on public.kcq_party_rooms
-  for select using (true);
-grant select on public.kcq_party_rooms to anon, authenticated;
-
-do $$
-begin
-  alter publication supabase_realtime add table public.kcq_party_rooms;
-exception
-  when duplicate_object then null;
-  when undefined_object then null;
-end $$;
+alter table public.kcq_party_rooms
+  add column if not exists player_tokens jsonb not null default '{}'::jsonb,
+  add column if not exists scores jsonb not null default '{}'::jsonb,
+  add column if not exists answered jsonb not null default '{}'::jsonb;
 
 create or replace function public.kcq_party_create(p_code text, p_host_id text)
 returns jsonb language plpgsql security definer set search_path = public, extensions, pg_temp
@@ -205,8 +176,6 @@ begin
   end if;
 
   next_scores := r.scores;
-  -- Current PARTY_QUIZ data keeps the correct option at index 0 for every
-  -- question, so the database can validate answers without trusting clients.
   if p_option = 0 then
     old_score := coalesce((r.scores ->> pid)::integer, 0);
     award := greatest(20, 100 - floor(extract(epoch from (now() - r.updated_at)) * 1000 / 120)::integer);
@@ -264,9 +233,5 @@ begin
   return jsonb_build_object('ok', true);
 end; $$;
 
-grant execute on function public.kcq_party_create(text, text) to anon, authenticated;
-grant execute on function public.kcq_party_state(text) to anon, authenticated;
-grant execute on function public.kcq_party_host_resume(text, text, uuid) to anon, authenticated;
 grant execute on function public.kcq_party_join(text, text) to anon, authenticated;
 grant execute on function public.kcq_party_answer(text, text, uuid, integer, integer) to anon, authenticated;
-grant execute on function public.kcq_party_host_state(text, uuid, text, integer, integer[]) to anon, authenticated;

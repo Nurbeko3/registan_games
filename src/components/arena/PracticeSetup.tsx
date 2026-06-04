@@ -10,6 +10,8 @@ import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
 import { ArenaGame } from './ArenaGame';
 import { MatchLengthInput } from './MatchLengthInput';
+import { WeaponLoadout } from './WeaponLoadout';
+import { DEFAULT_WEAPON, type WeaponId } from '@/lib/arena/weapons';
 
 export const DIFFICULTIES: { id: ArenaDifficulty; label: string; emoji: string }[] = [
   { id: 'easy', label: 'Easy', emoji: '😊' },
@@ -31,10 +33,11 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
   const [perTeam, setPerTeam] = useState<number>(TEAM_SIZES[1].perTeam);
   const [difficulty, setDifficulty] = useState<ArenaDifficulty>('medium');
   const [durationSec, setDurationSec] = useState<number>(180);
+  const [weapon, setWeapon] = useState<WeaponId>(DEFAULT_WEAPON);
   const [started, setStarted] = useState(false);
 
   if (started) {
-    return <ArenaGame config={{ mode, perTeam, hero, obstacles: map.obstacles, difficulty, durationSec }} />;
+    return <ArenaGame config={{ mode, perTeam, hero, obstacles: map.obstacles, difficulty, durationSec, initialWeapon: weapon, onExit: onBack }} />;
   }
 
   return (
@@ -83,6 +86,8 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
         <p className="mb-2 font-display font-extrabold">{t('lobby.matchLength')}</p>
         <MatchLengthInput durationSec={durationSec} onChange={setDurationSec} />
       </section>
+
+      <WeaponLoadout value={weapon} onChange={setWeapon} />
 
       <motion.button
         whileTap={{ scale: 0.98 }}

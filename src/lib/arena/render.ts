@@ -5,6 +5,7 @@
 
 import { FIGHTER_R, BULLET_R, type World, type Fighter } from './engine';
 import type { Fx } from './effects';
+import { DEFAULT_WEAPON, type WeaponId } from './weapons';
 
 const TEAM_COLOR: Record<string, string> = { red: '#FF7AB6', blue: '#3BA7FF' };
 const TEAM_DARK: Record<string, string> = { red: '#F0509A', blue: '#1E8FF0' };
@@ -53,19 +54,21 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World, now: numb
     ctx.globalAlpha = 1;
   }
 
-  // bullets (beefier glow + trail)
+  // bullets (clear energy bolts with a short trail, kept slim so gameplay stays readable)
   for (const b of world.bullets) {
+    const ang = Math.atan2(b.vy, b.vx);
+    const tail = 18;
     ctx.strokeStyle = TEAM_COLOR[b.team];
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.lineCap = 'round';
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.42;
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
-    ctx.lineTo(b.x - b.vx * 0.03, b.y - b.vy * 0.03);
+    ctx.lineTo(b.x - Math.cos(ang) * tail, b.y - Math.sin(ang) * tail);
     ctx.stroke();
     ctx.globalAlpha = 1;
     ctx.beginPath();
-    ctx.arc(b.x, b.y, BULLET_R, 0, Math.PI * 2);
+    ctx.ellipse(b.x, b.y, BULLET_R + 2, BULLET_R, ang, 0, Math.PI * 2);
     ctx.fillStyle = TEAM_DARK[b.team];
     ctx.fill();
     ctx.lineWidth = 2;
@@ -77,7 +80,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World, now: numb
   // fighters
   for (const f of world.fighters) {
     if (!f.alive) { drawRespawning(ctx, f, now); continue; }
-    drawFighter(ctx, f, now);
+    drawFighter(ctx, f, now, f.isHero ? world.weapon.id : f.weaponId);
   }
 
   // particles (additive-ish, over fighters)
@@ -117,7 +120,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World, now: numb
   }
 }
 
-function drawFighter(ctx: CanvasRenderingContext2D, f: Fighter, now: number) {
+function drawFighter(ctx: CanvasRenderingContext2D, f: Fighter, now: number, weaponId: WeaponId = DEFAULT_WEAPON) {
   // recoil offset — body kicks backward along the aim when firing
   const rb = f.recoil * 5;
   const fxp = f.x - Math.cos(f.aimAngle) * rb;
@@ -137,13 +140,15 @@ function drawFighter(ctx: CanvasRenderingContext2D, f: Fighter, now: number) {
 
   // aim line (hero only — shows where you'll shoot)
   if (f.isHero) {
-    ctx.strokeStyle = 'rgba(255,212,59,0.7)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255,212,59,0.52)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(fxp, fyp);
-    ctx.lineTo(fxp + Math.cos(f.aimAngle) * 46, fyp + Math.sin(f.aimAngle) * 46);
+    ctx.lineTo(fxp + Math.cos(f.aimAngle) * 58, fyp + Math.sin(f.aimAngle) * 58);
     ctx.stroke();
   }
+
+  drawBlaster(ctx, fxp, fyp, f.aimAngle, weaponId, f.team, f.isHero);
 
   // body
   ctx.beginPath();
@@ -183,6 +188,51 @@ function drawFighter(ctx: CanvasRenderingContext2D, f: Fighter, now: number) {
     ctx.fillStyle = '#1E1B3A';
     ctx.fillText('YOU', fxp, fyp - FIGHTER_R - 18);
   }
+}
+
+function drawBlaster(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  id: WeaponId,
+  team: string,
+  hero: boolean,
+) {
+  const accent = team === 'red' ? '#FFD43B' : '#7FE7FF';
+  const body = hero ? '#1E1B3A' : TEAM_DARK[team];
+  const length = id === 'sniper' ? 34 : id === 'shotgun' ? 29 : id === 'smg' ? 22 : 27;
+  const thick = id === 'shotgun' || id === 'support' ? 7 : 5;
+  const ox = Math.cos(angle) * 14;
+  const oy = Math.sin(angle) * 14;
+
+  ctx.save();
+  ctx.translate(x + ox, y + oy);
+  ctx.rotate(angle);
+  roundRect(ctx, -5, -thick / 2, length, thick, 3);
+  ctx.fillStyle = body;
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.stroke();
+
+  roundRect(ctx, 7, -thick / 2 - 2, 12, 3, 2);
+  ctx.fillStyle = accent;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(3, thick / 2);
+  ctx.lineTo(10, thick / 2 + 9);
+  ctx.lineTo(16, thick / 2);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(30,27,58,0.72)';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(length + 2, 0, hero ? 3.5 : 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = accent;
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawRespawning(ctx: CanvasRenderingContext2D, f: Fighter, now: number) {

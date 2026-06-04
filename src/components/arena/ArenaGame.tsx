@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { levelForXp } from '@/lib/leveling';
@@ -16,6 +15,7 @@ import {
   applyRemoteMove,
   applyRemoteShot,
   applyRemoteDown,
+  applyRemoteLeave,
   applyRemoteRespawn,
   WORLD_W,
   WORLD_H,
@@ -72,6 +72,10 @@ export interface ArenaGameConfig {
   durationSec?: number;
   /** fill your team's empty slots with ally bots (lobby toggle; default on). */
   botFill?: boolean;
+  /** hero's starting blaster selected in the pre-match loadout carousel. */
+  initialWeapon?: WeaponId;
+  /** leave the match and return to the previous Arena screen. */
+  onExit?: () => void;
 }
 
 /** Multiplayer bridge. When present, the match is host-authoritative: the host
@@ -133,7 +137,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const authoritative = !!net && !net.isHost;
   // M2: embodied play needs ≥2 humans in the roster; otherwise fall back to bots.
   const mp = !!(net && net.roster && net.roster.length >= 2);
-  const myTeam: TeamId = mp ? (net!.roster.find((r) => r.netId === net!.myNetId)?.team ?? 'red') : 'red';
+  // The lobby team choice is honoured in BOTH modes — even solo-vs-bots, so picking
+  // Blue actually spawns you on the blue team (not always red).
+  const myTeam: TeamId = net?.roster?.find((r) => r.netId === net.myNetId)?.team ?? 'red';
 
   const arenaAnswerCorrect = useGame((s) => s.arenaAnswerCorrect);
   const arenaMatchEnd = useGame((s) => s.arenaMatchEnd);
@@ -152,6 +158,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const [banner, setBanner] = useState<Banner | null>(null);
   const [hud, setHud] = useState<HudData | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const isFullscreenRef = useRef(false); // read inside resize() (kept deps-free)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -207,6 +214,12 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   }, []);
   useEffect(() => { audioRef.current.setMuted(!soundOn); }, [soundOn]);
   useEffect(() => { fxRef.current.intensity = reducedMotion ? 0.35 : 1; }, [reducedMotion]);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('kcq:arena-chrome', { detail: { playing: true } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('kcq:arena-chrome', { detail: { playing: false } }));
+    };
+  }, []);
 
   const resumeAudio = () => {
     if (!resumedRef.current) { synthRef.current?.resume(); resumedRef.current = true; }
@@ -223,7 +236,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     if (!canvas || !wrap) return;
     const aspect = WORLD_W / WORLD_H;
     const fs = isFullscreenRef.current;
-    const maxW = fs ? window.innerWidth : Math.min(wrap.clientWidth, 760);
+    const maxW = fs ? window.innerWidth : Math.min(wrap.clientWidth, 1080);
     const maxH = fs ? window.innerHeight : Number.POSITIVE_INFINITY;
     let cssW = maxW;
     let cssH = cssW / aspect;
@@ -291,6 +304,27 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     setBanner({ text, key });
     timers.current.push(setTimeout(() => setBanner((b) => (b && b.key === key ? null : b)), 1600));
   };
+
+  const leaveMatch = useCallback(() => {
+    if (leaving) return;
+    setLeaving(true);
+    const c = ctl.current;
+    c.touchFire = c.mouseFire = c.spaceFire = false;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    clearTimers();
+    if (net && worldRef.current?.multiplayer) {
+      net.sendNet('leave', { name: config.hero.name || 'Player' });
+      if (net.isHost) net.onEnd(worldRef.current.scores.red, worldRef.current.scores.blue);
+    }
+    const finish = () => {
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+      if (net) net.onExit();
+      else if (config.onExit) config.onExit();
+      else window.location.assign('/arena');
+    };
+    window.setTimeout(finish, net ? 140 : 0);
+  }, [config, leaving, net]);
 
   // `override` carries the host's authoritative final score (non-host path);
   // otherwise the local world's score is canonical (host / offline practice).
@@ -578,17 +612,24 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
           applyRemoteRespawn(w, ev.from, { x: Number(d.x), y: Number(d.y) }, ts);
           scoredVictims.current.delete(ev.from);
         }
+        else if (ev.t === 'leave') {
+          const name = typeof d.name === 'string' && d.name.trim() ? d.name.slice(0, 30) : rosterName(ev.from);
+          applyRemoteLeave(w, ev.from);
+          scoredVictims.current.delete(ev.from);
+          announce(t('arena.playerLeft', { name }));
+        }
         else if (ev.t === 'down') {
+          // Host never trusts victim-reported DOWN events for scoring. The host
+          // simulates received move/shoot events locally and scores only from
+          // that authoritative simulation, which blocks forged score bumps.
+          if (net.isHost) continue;
           const by = String(d.by ?? '');
           const victim = remoteFighter(ev.from);
           if (!victim || !victim.alive || !validOpposingPlayers(by, ev.from) || scoredVictims.current.has(ev.from)) continue;
           applyRemoteDown(w, ev.from);
           pushDown(by, ev.from, ts);
-          if (net.isHost) hostScore(by, ev.from); // host tallies other players' tag-outs
-          else {
-            scoredVictims.current.add(ev.from);
-            if (by === net.myNetId) w.fighters[0].score += 1;
-          }
+          scoredVictims.current.add(ev.from);
+          if (by === net.myNetId) w.fighters[0].score += 1;
         }
       }
     }
@@ -672,7 +713,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     worldRef.current = createWorld(
       perTeam, config.hero, config.obstacles, config.difficulty, config.seed, config.botFill ?? true,
-      mp ? net!.roster : undefined, mp ? net!.myNetId : undefined,
+      mp ? net!.roster : undefined, mp ? net!.myNetId : undefined, config.initialWeapon, myTeam,
     );
     stats.current = { correct: 0, answered: 0, xp: 0, coins: 0 };
     usedIds.current.clear();
@@ -710,7 +751,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     timers.current.push(setTimeout(tick, 800));
     rafRef.current = requestAnimationFrame(loop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perTeam, resize, loop, reducedMotion]);
+  }, [perTeam, resize, loop, reducedMotion, myTeam]);
 
   useEffect(() => {
     boot();
@@ -863,9 +904,11 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-3 py-3">
+    <div className="mx-auto max-w-5xl px-3 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <Link href="/arena" className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</Link>
+        <button onClick={leaveMatch} disabled={leaving} className="btn-ghost px-3 py-1.5 text-sm disabled:opacity-60">
+          ← {leaving ? t('arena.leaving') : t('hud.leave')}
+        </button>
         <span className="chip bg-grape-50 text-grape">{mode.emoji} {mode.name}</span>
       </div>
 
@@ -893,6 +936,14 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         {net && <ArenaDebugPanel info={net.debug} />}
 
         {/* fullscreen toggle (F key also works) */}
+        <button
+          onClick={leaveMatch}
+          disabled={leaving}
+          className="pointer-events-auto absolute left-2 top-2 z-40 rounded-xl bg-white/90 px-3 py-2 text-xs font-extrabold text-ink shadow-card ring-1 ring-grape-100 backdrop-blur transition hover:bg-white disabled:opacity-60"
+        >
+          ← {leaving ? t('arena.leaving') : t('hud.leave')}
+        </button>
+
         <button
           onClick={toggleFullscreen}
           aria-label={t(isFullscreen ? 'hud.exitFullscreen' : 'hud.fullscreen')}
@@ -984,6 +1035,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
               lastReward={lastReward}
               cooldownMs={WRONG_COOLDOWN_MS}
               onAnswer={submitAnswer}
+              onLeave={leaveMatch}
             />
           )}
         </AnimatePresence>
