@@ -111,8 +111,8 @@ export function CodeAdventure({ onWin }: GameProps) {
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-6xl">
           {node.emoji}
         </motion.div>
-        <p className="mt-3 font-bold text-ink-soft">{node.scene}</p>
-        <p className="mt-2 text-sm font-bold text-ink-faint">Mistakes: {mistakes}</p>
+        <p className="mt-3 text-xl font-extrabold text-ink-soft">{node.scene}</p>
+        <p className="mt-2 text-base font-extrabold text-ink-faint">Mistakes: {mistakes}</p>
         <button onClick={() => onWin(stars)} className="btn-primary mt-4 w-full">
           Claim reward 🎁
         </button>
@@ -124,7 +124,7 @@ export function CodeAdventure({ onWin }: GameProps) {
     return (
       <div className="card text-center">
         <div className="text-6xl">{node.emoji}</div>
-        <p className="mt-3 font-bold text-ink-soft">{node.scene}</p>
+        <p className="mt-3 text-xl font-extrabold text-ink-soft">{node.scene}</p>
         <button onClick={() => setNodeId('start')} className="btn-ghost mt-4 w-full">
           ↺ Try again
         </button>
@@ -140,15 +140,15 @@ export function CodeAdventure({ onWin }: GameProps) {
       className="card text-center"
     >
       <div className="text-6xl">{node.emoji}</div>
-      <p className="mt-3 text-lg font-bold">{node.scene}</p>
+      <p className="mt-3 text-2xl font-extrabold">{node.scene}</p>
       {node.tip && (
-        <p className="mt-2 rounded-2xl bg-sun/20 px-4 py-2 text-sm font-bold text-ink-soft">
+        <p className="mt-3 rounded-2xl bg-sun/20 px-5 py-3 text-lg font-extrabold text-ink-soft">
           {node.tip}
         </p>
       )}
-      <div className="mt-5 grid gap-2">
+      <div className="mt-6 grid gap-3">
         {node.choices?.map((c) => (
-          <button key={c.text} onClick={() => handleChoice(c)} className="btn-ghost w-full text-left">
+          <button key={c.text} onClick={() => handleChoice(c)} className="btn-ghost w-full justify-start text-left text-lg">
             {c.text}
           </button>
         ))}

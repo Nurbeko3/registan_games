@@ -28,6 +28,9 @@ import {
 import type { TeamId, RosterEntry } from '@/lib/arena/types';
 
 const COUNTDOWN_MS = 3200;
+const FROM_KEY = '__from';
+const PLAYER_META_EVENT = 'player_meta';
+const OPTIMISTIC_META_MS = 3000;
 /** How long a code-joining client waits to see the host before declaring the
  *  room non-existent (invalid code). Generous enough for cross-device presence. */
 const ROOM_FIND_MS = 6000;
@@ -63,6 +66,8 @@ export interface RoomOptions {
   name: string;
   avatar: string;
   isHost: boolean;
+  /** stable per-tab player id so refresh can rejoin as the same host/player */
+  clientId?: string;
   /** quick match → host is elected rather than fixed */
   quick?: boolean;
   settings?: RoomSettings;
@@ -75,6 +80,7 @@ export class RoomService {
   private readonly quick: boolean;
   private readonly forcedHost: boolean;
   private presence: Record<string, PresenceMeta> = {};
+  private optimisticPresence: Record<string, { meta: PresenceMeta; until: number }> = {};
   private phase: RoomPhase = 'connecting';
   private connection: ConnectionState = 'offline';
   private startAt: number | null = null;
@@ -91,12 +97,14 @@ export class RoomService {
   private validated = false;
   private validateTimer: ReturnType<typeof setTimeout> | null = null;
   private errorReason: 'cloud' | 'notfound' | null = null;
+  private trustedHostId: string | null = null;
 
   constructor(public readonly code: string, opts: RoomOptions) {
     this.quick = opts.quick ?? false;
     this.forcedHost = opts.isHost;
     this.settings = opts.settings ?? { ...DEFAULT_SETTINGS };
-    this.transport = createTransport(code);
+    this.transport = createTransport(code, opts.clientId);
+    this.trustedHostId = opts.isHost ? this.transport.id : null;
     this.match = new MatchService(this.transport, this.transport.id);
     this.me = {
       name: opts.name || 'Player',
@@ -172,6 +180,52 @@ export class RoomService {
 
   private note(name: string) { this.lastEvent = { name, at: Date.now() }; }
 
+  private hostId(): string | null {
+    if (!this.quick && this.trustedHostId) return this.trustedHostId;
+    const hosts = Object.entries(this.presence)
+      .filter(([, p]) => p.isHost)
+      .map(([id]) => id)
+      .sort();
+    if (hosts.length) return hosts[0];
+    return this.quick ? Object.keys(this.presence).sort()[0] ?? this.transport.id : null;
+  }
+
+  private fromHost(payload: Record<string, unknown>): boolean {
+    const from = payload[FROM_KEY];
+    return typeof from === 'string' && from === this.hostId();
+  }
+
+  private sanitizeMeta(id: string, payload: Record<string, unknown>, existing?: PresenceMeta): PresenceMeta {
+    const team: TeamId = payload.team === 'blue' ? 'blue' : 'red';
+    const fixedHost = !this.quick && (id === this.trustedHostId || (this.forcedHost && id === this.transport.id));
+    return {
+      name: typeof payload.name === 'string' && payload.name.trim() ? payload.name.slice(0, 20) : existing?.name ?? 'Player',
+      avatar: typeof payload.avatar === 'string' && payload.avatar ? payload.avatar : existing?.avatar ?? '🐱',
+      team,
+      ready: payload.ready === true,
+      isHost: this.quick ? payload.isHost === true : fixedHost,
+    };
+  }
+
+  private mergeOptimistic(map: Record<string, PresenceMeta>): Record<string, PresenceMeta> {
+    const now = Date.now();
+    const merged = { ...map };
+    for (const [id, entry] of Object.entries(this.optimisticPresence)) {
+      if (entry.until <= now) {
+        delete this.optimisticPresence[id];
+        continue;
+      }
+      merged[id] = entry.meta;
+    }
+    return merged;
+  }
+
+  private publishMe() {
+    this.transport.track(this.me);
+    this.transport.broadcast(PLAYER_META_EVENT, this.me as unknown as Record<string, unknown>);
+    this.emit();
+  }
+
   async connect() {
     const t = this.transport;
     t.onState((s) => {
@@ -186,11 +240,14 @@ export class RoomService {
       this.emit();
     });
     t.onPresence((map) => {
-      const grew = Object.keys(map).length > Object.keys(this.presence).length;
+      const mergedMap = this.mergeOptimistic(map);
+      const grew = Object.keys(mergedMap).length > Object.keys(this.presence).length;
       this.note('presence');
-      this.presence = map;
+      this.presence = mergedMap;
       // a code-joiner is "in" only once a host actually shows up in the room
-      if (!this.forcedHost && !this.quick && !this.validated && Object.values(map).some((p) => p.isHost)) {
+      const seenHost = Object.entries(mergedMap).find(([, p]) => p.isHost);
+      if (!this.forcedHost && !this.quick && !this.validated && seenHost) {
+        this.trustedHostId = seenHost[0];
         this.validated = true;
         if (this.phase === 'connecting') this.phase = 'lobby'; // now show the real lobby
         if (this.validateTimer) { clearTimeout(this.validateTimer); this.validateTimer = null; }
@@ -210,11 +267,22 @@ export class RoomService {
     t.on('settings', (payload) => {
       this.note('settings');
       if (this.isHost()) return; // host is the source of truth
+      if (!this.fromHost(payload)) return;
       this.settings = payload as unknown as RoomSettings;
+      this.emit();
+    });
+    t.on(PLAYER_META_EVENT, (payload) => {
+      this.note(PLAYER_META_EVENT);
+      const from = payload[FROM_KEY];
+      if (typeof from !== 'string') return;
+      const meta = this.sanitizeMeta(from, payload, this.presence[from]);
+      this.optimisticPresence[from] = { meta, until: Date.now() + OPTIMISTIC_META_MS };
+      this.presence = { ...this.presence, [from]: meta };
       this.emit();
     });
     t.on('start', (payload) => {
       this.note('start');
+      if (!this.fromHost(payload)) return;
       // adopt the host's match identity so EVERY client loads the same arena
       this.matchId = (payload.matchId as string) ?? makeMatchId();
       this.seed = Number(payload.seed) || 0;
@@ -233,11 +301,13 @@ export class RoomService {
     // host-authoritative score mirror (host also receives its own via broadcast:self)
     t.on('score', (payload) => {
       this.note('score');
+      if (!this.fromHost(payload)) return;
       this.liveScores = { red: Number(payload.red) || 0, blue: Number(payload.blue) || 0 };
       this.emit();
     });
     t.on('match_end', (payload) => {
       this.note('match_end');
+      if (!this.fromHost(payload)) return;
       this.matchEnd = { red: Number(payload.red) || 0, blue: Number(payload.blue) || 0 };
       this.liveScores = this.matchEnd;
       // keep phase 'playing' so RoomLobby keeps ArenaGame mounted to show results;
@@ -251,8 +321,8 @@ export class RoomService {
   }
 
   // emit() so my own row updates instantly (optimistic); track() syncs to others.
-  setReady(ready: boolean) { this.me = { ...this.me, ready }; this.transport.track(this.me); this.emit(); }
-  setTeam(team: TeamId) { this.me = { ...this.me, team }; this.transport.track(this.me); this.emit(); }
+  setReady(ready: boolean) { this.me = { ...this.me, ready }; this.publishMe(); }
+  setTeam(team: TeamId) { this.me = { ...this.me, team }; this.publishMe(); }
 
   /** Host-only: change room settings (mode change also resets the target score). */
   updateSettings(patch: Partial<RoomSettings>) {
@@ -270,7 +340,7 @@ export class RoomService {
   start() {
     if (!this.isHost()) return;
     // guard: never start until every joined player has readied up
-    const players = Object.values(this.presence);
+    const players = this.toPlayers();
     if (!players.length || players.some((p) => !p.ready)) return;
     const at = Date.now() + COUNTDOWN_MS;
     this.transport.broadcast('start', { at, matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster() });

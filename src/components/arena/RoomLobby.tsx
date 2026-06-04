@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { useArenaRoom } from '@/lib/arena/network/useArenaRoom';
@@ -20,14 +21,18 @@ import { MatchLengthInput } from './MatchLengthInput';
 export function RoomLobby({
   code,
   isHost,
+  clientId,
   quick,
   settings,
+  onSettingsChange,
   onLeave,
 }: {
   code: string;
   isHost: boolean;
+  clientId: string;
   quick?: boolean;
   settings?: RoomSettings;
+  onSettingsChange?: (settings: RoomSettings) => void;
   onLeave: () => void;
 }) {
   const t = useT();
@@ -35,8 +40,12 @@ export function RoomLobby({
   const arenaAvatar = useGame((s) => s.arenaAvatar);
   const hero = { name: playerName || 'You', avatar: arenaAvatar };
 
-  const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, quick, settings });
+  const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, clientId, quick, settings });
   const s = room.state;
+
+  useEffect(() => {
+    if (s?.settings) onSettingsChange?.(s.settings);
+  }, [onSettingsChange, s?.settings]);
 
   // joiner stays here until the host is confirmed (or it times out → error)
   if (!s || s.phase === 'connecting') {

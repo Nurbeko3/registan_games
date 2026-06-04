@@ -73,13 +73,13 @@ export function QuickMath({ onWin }: GameProps) {
       <motion.p key={step} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mt-4 font-display text-4xl font-extrabold text-grape">
         {q.prompt}
       </motion.p>
-      <div className={`mx-auto mt-5 grid max-w-xs grid-cols-2 gap-3 ${flash === 'ok' ? 'animate-pulse' : ''}`}>
+      <div className={`mx-auto mt-6 grid max-w-md grid-cols-2 gap-4 ${flash === 'ok' ? 'animate-pulse' : ''}`}>
         {q.options.map((opt) => (
           <motion.button
             key={opt}
             onClick={() => answer(opt)}
             whileTap={{ scale: 0.92 }}
-            className="grid h-16 place-items-center rounded-2xl bg-white font-display text-2xl font-extrabold shadow-card hover:bg-grape-50"
+            className="grid h-24 place-items-center rounded-2xl bg-white font-display text-4xl font-extrabold shadow-card hover:bg-grape-50"
           >
             {opt}
           </motion.button>

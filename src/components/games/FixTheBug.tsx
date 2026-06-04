@@ -54,10 +54,10 @@ export function FixTheBug({ onWin }: GameProps) {
   return (
     <div className="card">
       <div className="mb-2 flex items-center justify-between">
-        <p className="font-bold text-ink-soft">{t('mg.bug.instr')}</p>
-        <span className="chip bg-grape-50 text-grape text-xs">{step + 1}/{order.length}</span>
+        <p className="text-lg font-extrabold text-ink-soft">{t('mg.bug.instr')}</p>
+        <span className="chip bg-grape-50 text-grape text-sm">{step + 1}/{order.length}</span>
       </div>
-      <div className="mx-auto mt-4 max-w-md overflow-hidden rounded-2xl bg-ink p-1 font-mono text-sm">
+      <div className="mx-auto mt-5 max-w-2xl overflow-hidden rounded-2xl bg-ink p-2 font-mono text-lg">
         {puzzle.lines.map((line, i) => {
           const isBug = i === puzzle.bug;
           const state =
@@ -75,7 +75,7 @@ export function FixTheBug({ onWin }: GameProps) {
               key={i}
               onClick={() => choose(i)}
               whileHover={{ x: picked === null ? 4 : 0 }}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-mint ${state}`}
+              className={`flex w-full items-center gap-4 rounded-xl px-4 py-4 text-left text-mint ${state}`}
             >
               <span className="select-none text-white/30">{i + 1}</span>
               <span className="whitespace-pre">{line}</span>
@@ -87,7 +87,7 @@ export function FixTheBug({ onWin }: GameProps) {
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mt-3 rounded-xl bg-cloud p-3 text-center text-sm font-bold"
+          className="mt-4 rounded-xl bg-cloud p-4 text-center text-lg font-extrabold"
         >
           {picked === puzzle.bug ? '✅ ' : '❌ '} {puzzle.fix}
         </motion.p>

@@ -15,6 +15,7 @@ import type { ConnectionState, RoomPlayer } from './types';
 export type PresenceMeta = Omit<RoomPlayer, 'id'>;
 type PresenceMap = Record<string, PresenceMeta>;
 type BroadcastHandler = (payload: Record<string, unknown>) => void;
+const FROM_KEY = '__from';
 
 export interface Transport {
   readonly id: string;
@@ -34,7 +35,7 @@ const randomId = () => Math.random().toString(36).slice(2, 10);
 
 // ── Supabase Realtime ─────────────────────────────────────────────────────────
 class SupabaseTransport implements Transport {
-  readonly id = randomId();
+  readonly id: string;
   readonly kind = 'cloud' as const;
   state: ConnectionState = 'offline';
   private channel: RealtimeChannel | null = null;
@@ -42,7 +43,7 @@ class SupabaseTransport implements Transport {
   private presenceCb?: (p: PresenceMap) => void;
   private handlers: Record<string, BroadcastHandler> = {};
 
-  constructor(private code: string) {}
+  constructor(private code: string, id = randomId()) { this.id = id; }
 
   onState(cb: (s: ConnectionState) => void) { this.stateCb = cb; }
   onPresence(cb: (p: PresenceMap) => void) { this.presenceCb = cb; }
@@ -84,7 +85,7 @@ class SupabaseTransport implements Transport {
 
   track(meta: PresenceMeta) { void this.channel?.track(meta); }
   broadcast(event: string, payload: Record<string, unknown>) {
-    void this.channel?.send({ type: 'broadcast', event, payload });
+    void this.channel?.send({ type: 'broadcast', event, payload: { ...payload, [FROM_KEY]: this.id } });
   }
   disconnect() {
     if (this.channel) { void this.channel.unsubscribe(); void supabase!.removeChannel(this.channel); this.channel = null; }
@@ -102,7 +103,7 @@ interface LocalMsg {
 }
 
 class LocalTransport implements Transport {
-  readonly id = randomId();
+  readonly id: string;
   readonly kind = 'local' as const;
   state: ConnectionState = 'offline';
   private bc: BroadcastChannel | null = null;
@@ -112,7 +113,7 @@ class LocalTransport implements Transport {
   private presence: PresenceMap = {};
   private myMeta: PresenceMeta | null = null;
 
-  constructor(private code: string) {}
+  constructor(private code: string, id = randomId()) { this.id = id; }
 
   onState(cb: (s: ConnectionState) => void) { this.stateCb = cb; }
   onPresence(cb: (p: PresenceMap) => void) { this.presenceCb = cb; }
@@ -160,8 +161,9 @@ class LocalTransport implements Transport {
     this.emitPresence();
   }
   broadcast(event: string, payload: Record<string, unknown>) {
-    this.handlers[event]?.(payload); // self (broadcast:self parity)
-    this.post({ kind: 'broadcast', event, payload });
+    const stamped = { ...payload, [FROM_KEY]: this.id };
+    this.handlers[event]?.(stamped); // self (broadcast:self parity)
+    this.post({ kind: 'broadcast', event, payload: stamped });
   }
   disconnect() {
     this.post({ kind: 'leave', id: this.id });
@@ -172,6 +174,6 @@ class LocalTransport implements Transport {
 }
 
 /** Pick the best transport: real Supabase when configured, else same-device local. */
-export function createTransport(code: string): Transport {
-  return isCloudEnabled() ? new SupabaseTransport(code) : new LocalTransport(code);
+export function createTransport(code: string, id?: string): Transport {
+  return isCloudEnabled() ? new SupabaseTransport(code, id) : new LocalTransport(code, id);
 }

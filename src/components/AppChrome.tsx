@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { MotionConfig } from 'framer-motion';
 import { useGame, getTheme } from '@/store/useGame';
 import { Celebrations } from '@/components/Celebrations';
-import { CloudSync } from '@/components/CloudSync';
+import { AccountSync } from '@/components/AccountSync';
 import { BottomNav } from '@/components/layout/BottomNav';
 
 // re-export helper so store stays the single source
@@ -25,14 +25,14 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   // persisted values without an SSR mismatch (see store note on setHydrated).
   useEffect(() => { useGame.getState().setHydrated(); }, []);
 
-  // single-player runner & live battle rooms are fullscreen → no bottom nav there
-  const showNav = !pathname.startsWith('/play') && !/^\/party\/.+/.test(pathname);
+  // single-player runner, live battle rooms & the admin panel are fullscreen → no bottom nav there
+  const showNav = !pathname.startsWith('/play') && !pathname.startsWith('/admin') && !/^\/party\/.+/.test(pathname);
 
   return (
     <MotionConfig reducedMotion={reduced ? 'always' : 'user'}>
       <div className={`min-h-screen ${bg} transition-colors ${showNav ? 'pb-24' : ''}`}>{children}</div>
       <Celebrations />
-      <CloudSync />
+      <AccountSync />
       {showNav && <BottomNav />}
     </MotionConfig>
   );

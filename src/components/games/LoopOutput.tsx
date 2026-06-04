@@ -51,15 +51,15 @@ export function LoopOutput({ onWin }: GameProps) {
   return (
     <div className="card">
       <div className="mb-2 flex items-center justify-between">
-        <p className="font-bold text-ink-soft">{t('mg.loop.instr')}</p>
-        <span className="chip bg-grape-50 text-grape text-xs">{step + 1}/{rounds.length}</span>
+        <p className="text-lg font-extrabold text-ink-soft">{t('mg.loop.instr')}</p>
+        <span className="chip bg-grape-50 text-grape text-sm">{step + 1}/{rounds.length}</span>
       </div>
-      <div className="mx-auto mt-3 max-w-sm rounded-2xl bg-ink p-4 font-mono text-sm text-mint">
+      <div className="mx-auto mt-5 max-w-2xl rounded-2xl bg-ink p-5 font-mono text-xl text-mint">
         {round.code.map((line, i) => (
           <div key={i} className="whitespace-pre">{line}</div>
         ))}
       </div>
-      <div className="mt-4 grid gap-2">
+      <div className="mt-5 grid gap-3">
         {round.options.map((opt, i) => {
           const state =
             picked === null
@@ -74,7 +74,7 @@ export function LoopOutput({ onWin }: GameProps) {
               key={i}
               onClick={() => choose(i)}
               whileTap={{ scale: 0.98 }}
-              className={`rounded-2xl bg-cloud p-3 text-center font-mono font-bold shadow-card ${state}`}
+              className={`rounded-2xl bg-cloud p-5 text-center font-mono text-xl font-extrabold shadow-card ${state}`}
             >
               {opt}
             </motion.button>

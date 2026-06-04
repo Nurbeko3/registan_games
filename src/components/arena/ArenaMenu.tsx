@@ -3,14 +3,15 @@
 import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { ARENA_AVATARS } from '@/data/arenaAvatars';
+import { Icon, IconTile, type IconName } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
 
 export type MenuChoice = 'practice' | 'create' | 'join';
 
-const OPTIONS: { id: MenuChoice; emoji: string; titleKey: string; blurbKey: string; color: string }[] = [
-  { id: 'create', emoji: '🛠️', titleKey: 'arena.create', blurbKey: 'arena.createSub', color: 'from-mango to-sun' },
-  { id: 'join', emoji: '🔑', titleKey: 'arena.join', blurbKey: 'arena.joinSub', color: 'from-mint to-sky' },
-  { id: 'practice', emoji: '🤖', titleKey: 'arena.bots', blurbKey: 'arena.botsSub', color: 'from-grape to-bubble' },
+const OPTIONS: { id: MenuChoice; icon: IconName; titleKey: string; blurbKey: string; color: string }[] = [
+  { id: 'create', icon: 'wrench', titleKey: 'arena.create', blurbKey: 'arena.createSub', color: 'from-mango to-sun' },
+  { id: 'join', icon: 'signal', titleKey: 'arena.join', blurbKey: 'arena.joinSub', color: 'from-mint to-sky' },
+  { id: 'practice', icon: 'bot', titleKey: 'arena.bots', blurbKey: 'arena.botsSub', color: 'from-grape to-bubble' },
 ];
 
 /** Arena landing — pick your name + avatar, then Create / Join / Play vs Bots. */
@@ -22,33 +23,33 @@ export function ArenaMenu({ onSelect }: { onSelect: (c: MenuChoice) => void }) {
   const setArenaAvatar = useGame((s) => s.setArenaAvatar);
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6">
+    <div className="mx-auto max-w-xl px-4 py-6">
       <div className="text-center">
-        <div className="text-5xl">⚔️</div>
-        <h1 className="mt-2 h-section">Battle Learn Arena</h1>
+        <Icon name="sword" className="mx-auto h-14 w-14 text-grape" />
+        <h1 className="mt-2 font-display text-4xl font-extrabold leading-tight">Battle Learn Arena</h1>
       </div>
 
       {/* hero setup: name + avatar */}
-      <section className="card mt-5">
-        <div className="flex items-center gap-3">
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-grape-50 text-3xl">{arenaAvatar}</span>
+      <section className="card mt-6">
+        <div className="flex items-center gap-4">
+          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-grape-50 text-4xl">{arenaAvatar}</span>
           <input
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             placeholder={t('arena.namePlaceholder')}
             maxLength={20}
-            className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape"
+            className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-5 py-4 text-xl font-extrabold outline-none focus:border-grape"
           />
         </div>
 
         {/* avatar grid */}
-        <p className="mt-3 mb-1.5 text-xs font-bold text-ink-faint">{t('arena.pickAvatar')}</p>
-        <div className="grid grid-cols-8 gap-1.5">
+        <p className="mb-2 mt-5 text-base font-extrabold text-ink-soft">{t('arena.pickAvatar')}</p>
+        <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
           {ARENA_AVATARS.map((a) => (
             <button
               key={a}
               onClick={() => setArenaAvatar(a)}
-              className={`grid aspect-square place-items-center rounded-xl text-xl shadow-card transition ${
+              className={`grid aspect-square min-h-14 place-items-center rounded-2xl text-2xl shadow-card transition ${
                 arenaAvatar === a ? 'scale-110 bg-grape text-white ring-2 ring-sun' : 'bg-white hover:bg-grape-50'
               }`}
             >
@@ -59,7 +60,7 @@ export function ArenaMenu({ onSelect }: { onSelect: (c: MenuChoice) => void }) {
       </section>
 
       {/* play options */}
-      <div className="mt-5 grid gap-3">
+      <div className="mt-6 grid gap-4">
         {OPTIONS.map((o, i) => (
           <motion.button
             key={o.id}
@@ -68,14 +69,14 @@ export function ArenaMenu({ onSelect }: { onSelect: (c: MenuChoice) => void }) {
             transition={{ delay: i * 0.06 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => onSelect(o.id)}
-            className={`flex items-center gap-4 rounded-xl2 bg-gradient-to-br ${o.color} p-4 text-left text-white shadow-toy`}
+            className={`flex min-h-28 items-center gap-5 rounded-2xl bg-gradient-to-br ${o.color} p-5 text-left text-white shadow-toy`}
           >
-            <span className="text-3xl">{o.emoji}</span>
+            <IconTile name={o.icon} className="h-16 w-16 shrink-0 bg-white/18 text-white" iconClassName="h-8 w-8" />
             <span className="flex-1">
-              <span className="block font-display text-lg font-extrabold leading-tight">{t(o.titleKey)}</span>
-              <span className="block text-sm text-white/85">{t(o.blurbKey)}</span>
+              <span className="block font-display text-2xl font-extrabold leading-tight">{t(o.titleKey)}</span>
+              <span className="mt-1 block text-lg font-bold text-white/90">{t(o.blurbKey)}</span>
             </span>
-            <span className="text-2xl">›</span>
+            <Icon name="spark" className="h-6 w-6 text-white/85" />
           </motion.button>
         ))}
       </div>

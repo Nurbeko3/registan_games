@@ -40,7 +40,7 @@ export function TreasureHunt({ onWin }: GameProps) {
   return (
     <div className="card">
       <p className="text-center font-bold text-ink-soft">{t('mg.treasure.instr')} <span className="text-mango">{t('mg.treasure.found')}</span></p>
-      <div className="mx-auto mt-4 grid w-full max-w-xs grid-cols-5 gap-2">
+      <div className="mx-auto mt-5 grid w-full max-w-md grid-cols-5 gap-3">
         {Array.from({ length: SIZE * SIZE }, (_, i) => {
           const x = i % SIZE;
           const y = Math.floor(i / SIZE);
@@ -52,7 +52,7 @@ export function TreasureHunt({ onWin }: GameProps) {
               key={key}
               onClick={() => dig(x, y)}
               whileTap={{ scale: 0.9 }}
-              className={`grid aspect-square place-items-center rounded-xl font-display text-lg font-extrabold shadow-card ${open ? heat(d) : 'bg-white hover:bg-grape-50'}`}
+              className={`grid aspect-square min-h-16 place-items-center rounded-xl font-display text-2xl font-extrabold shadow-card ${open ? heat(d) : 'bg-white hover:bg-grape-50'}`}
             >
               {open ? (d === 0 ? '💎' : d) : '⛏️'}
             </motion.button>

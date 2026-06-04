@@ -56,7 +56,7 @@ export function AlgorithmRace({ onWin }: GameProps) {
         <>
           <p className="font-display text-lg font-extrabold">⏱️ {time.toFixed(1)}s · {tr('mg.race.next')} <span className="text-grape">{sorted[next] ?? '🎉'}</span></p>
           {wrong && <p className="text-sm font-bold text-bubble-600">{tr('mg.race.oops')}</p>}
-          <div className="mx-auto mt-4 grid max-w-xs grid-cols-4 gap-2">
+          <div className="mx-auto mt-5 grid max-w-md grid-cols-4 gap-3">
             {numbers.map((n) => {
               const done = sorted.indexOf(n) < next;
               return (
@@ -65,7 +65,7 @@ export function AlgorithmRace({ onWin }: GameProps) {
                   onClick={() => tap(n)}
                   disabled={done}
                   whileTap={{ scale: 0.9 }}
-                  className={`grid aspect-square place-items-center rounded-2xl font-display text-xl font-extrabold shadow-card ${
+                  className={`grid aspect-square min-h-20 place-items-center rounded-2xl font-display text-3xl font-extrabold shadow-card ${
                     done ? 'bg-mint/30 text-mint-600' : 'bg-white hover:bg-grape-50'
                   }`}
                 >

@@ -7,6 +7,7 @@ import { ARENA_MODES, TEAM_SIZES } from '@/data/arenaModes';
 import { ARENA_MAPS } from '@/data/arenaMaps';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
 import { useT } from '@/lib/i18n';
+import { Icon } from '@/components/ui/Icon';
 import { ArenaGame } from './ArenaGame';
 import { MatchLengthInput } from './MatchLengthInput';
 
@@ -40,7 +41,7 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
     <div className="mx-auto max-w-md px-4 py-5">
       <div className="mb-3 flex items-center justify-between">
         <button onClick={onBack} className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</button>
-        <span className="chip bg-grape-50 text-grape">🤖 {t('arena.bots')}</span>
+        <span className="chip bg-grape-50 text-grape"><Icon name="bot" className="h-4 w-4" /> {t('arena.bots')}</span>
       </div>
 
       <section>
@@ -88,7 +89,7 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
         onClick={() => setStarted(true)}
         className="btn-primary mt-6 w-full text-lg"
       >
-        🚀 {t('arena.bots')}
+        <Icon name="rocket" className="h-5 w-5" /> {t('arena.bots')}
       </motion.button>
     </div>
   );

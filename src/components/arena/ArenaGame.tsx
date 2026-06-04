@@ -48,6 +48,7 @@ import { ArenaDebugPanel, type ArenaDebugInfo } from './ArenaDebugPanel';
 
 const WRONG_COOLDOWN_MS = 8000;
 const CELEBRATE_MS = 1300;
+const MAX_REWARDED_LEARNING_PODS = 8;
 const JOY_R = 56; // joystick radius (css px)
 const DEADZONE = 12;
 const SHIELD_MS = 2600; // post-respawn hero invulnerability
@@ -177,6 +178,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const feedSeq = useRef(0);
   const matchPointRef = useRef(false);
   const behindRef = useRef(false);
+  const scoredVictims = useRef<Set<string>>(new Set());
   const frameRef = useRef<(ts: number) => boolean | void>(() => {});
   // HUD: throttle the overlay snapshot, track match clock + hit-marker pulses
   const hudAccum = useRef(0);
@@ -329,6 +331,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     const hero = w.fighters[0];
     respawn(hero, now);
     hero.shieldUntil = now + SHIELD_MS;
+    if (net?.myNetId) scoredVictims.current.delete(net.myNetId);
     fxRef.current.portal(hero.x, hero.y, '#FFD43B');
     emit('respawn');
     emit('shield');
@@ -342,11 +345,15 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     if (!prepared || learnState !== 'answering') return;
     stats.current.answered += 1;
     if (isCorrect(prepared, response)) {
-      const reward = arenaAnswerCorrect(prepared.q.difficulty);
       stats.current.correct += 1;
-      stats.current.xp += reward.xp;
-      stats.current.coins += reward.coins;
-      setLastReward(reward);
+      if (stats.current.correct <= MAX_REWARDED_LEARNING_PODS) {
+        const reward = arenaAnswerCorrect(prepared.q.difficulty);
+        stats.current.xp += reward.xp;
+        stats.current.coins += reward.coins;
+        setLastReward(reward);
+      } else {
+        setLastReward(null);
+      }
       setLearnState('correct');
       emit('correct');
       timers.current.push(setTimeout(respawnHero, CELEBRATE_MS));
@@ -380,7 +387,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       const recent = arr.filter((t) => ts - t < 2500);
       heroKills.current = recent;
       if (recent.length >= 2) {
-        announce(recent.length >= 4 ? 'RAMPAGE! 🔥' : recent.length === 3 ? 'TRIPLE TAG-OUT! ⚡' : 'DOUBLE TAG-OUT! ✨');
+        announce(recent.length >= 4 ? t('arena.rampage') : recent.length === 3 ? t('arena.triple') : t('arena.double'));
         emit(recent.length >= 3 ? 'streak' : 'multikill');
       }
     }
@@ -391,7 +398,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     if (blue - red >= 8) behindRef.current = true;
     if (behindRef.current && red >= blue && red > 0) {
       behindRef.current = false;
-      announce('COMEBACK! 💪');
+      announce(t('arena.comeback'));
     }
   };
 
@@ -513,7 +520,15 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   // ── M2 helpers: roster lookups, kill feed, host scoring from 'down' events ──
   const rosterName = (netId: string) => net?.roster.find((r) => r.netId === netId)?.name ?? 'Player';
   const rosterTeam = (netId: string): TeamId | undefined => net?.roster.find((r) => r.netId === netId)?.team;
+  const remoteFighter = (netId: string) => worldRef.current?.fighters.find((f) => f.netId === netId && !f.isHero);
+  const validOpposingPlayers = (killerNetId: string, victimNetId: string) => {
+    if (!killerNetId || !victimNetId || killerNetId === victimNetId) return false;
+    const killerTeam = rosterTeam(killerNetId);
+    const victimTeam = rosterTeam(victimNetId);
+    return !!killerTeam && !!victimTeam && killerTeam !== victimTeam;
+  };
   const pushDown = (killerNetId: string, victimNetId: string, ts: number) => {
+    if (!validOpposingPlayers(killerNetId, victimNetId)) return;
     pushKills([{
       killerId: killerNetId === net?.myNetId ? 'hero' : `p:${killerNetId}`,
       killerName: rosterName(killerNetId),
@@ -523,11 +538,14 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     }], ts);
   };
   // host only: a tag-out scores for the killer's team (authoritative + broadcast)
-  const hostScore = (killerNetId: string) => {
+  const hostScore = (killerNetId: string, victimNetId: string) => {
     const w = worldRef.current;
     const team = rosterTeam(killerNetId);
-    if (!w || !team) return;
+    if (!w || !team || !validOpposingPlayers(killerNetId, victimNetId)) return;
+    if (scoredVictims.current.has(victimNetId)) return;
+    scoredVictims.current.add(victimNetId);
     w.scores[team] += 1;
+    if (killerNetId === net?.myNetId) w.fighters[0].score += 1;
     const s = { red: w.scores.red, blue: w.scores.blue };
     lastScores.current = s;
     setScores(s);
@@ -549,14 +567,28 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     if (net && w.multiplayer) {
       for (const ev of net.drainNet()) {
         const d = ev.data;
-        if (ev.t === 'move') applyRemoteMove(w, ev.from, { x: +d.x, y: +d.y, vx: +d.vx, vy: +d.vy, aim: +d.aim });
-        else if (ev.t === 'shoot') applyRemoteShot(w, ev.from, { x: +d.x, y: +d.y, angle: +d.angle, speed: +d.speed, dmg: +d.dmg, life: +d.life }, ts);
-        else if (ev.t === 'respawn') applyRemoteRespawn(w, ev.from, { x: +d.x, y: +d.y }, ts);
+        if (ev.t === 'move') applyRemoteMove(w, ev.from, { x: Number(d.x), y: Number(d.y), vx: Number(d.vx), vy: Number(d.vy), aim: Number(d.aim) });
+        else if (ev.t === 'shoot') applyRemoteShot(w, ev.from, {
+          x: Number(d.x), y: Number(d.y), angle: Number(d.angle),
+          speed: Number(d.speed), dmg: Number(d.dmg), life: Number(d.life), weapon: String(d.weapon ?? ''),
+        }, ts);
+        else if (ev.t === 'respawn') {
+          const victim = remoteFighter(ev.from);
+          if (!victim || victim.alive) continue;
+          applyRemoteRespawn(w, ev.from, { x: Number(d.x), y: Number(d.y) }, ts);
+          scoredVictims.current.delete(ev.from);
+        }
         else if (ev.t === 'down') {
-          applyRemoteDown(w, ev.from);
           const by = String(d.by ?? '');
+          const victim = remoteFighter(ev.from);
+          if (!victim || !victim.alive || !validOpposingPlayers(by, ev.from) || scoredVictims.current.has(ev.from)) continue;
+          applyRemoteDown(w, ev.from);
           pushDown(by, ev.from, ts);
-          if (net.isHost) hostScore(by); // host tallies other players' tag-outs
+          if (net.isHost) hostScore(by, ev.from); // host tallies other players' tag-outs
+          else {
+            scoredVictims.current.add(ev.from);
+            if (by === net.myNetId) w.fighters[0].score += 1;
+          }
         }
       }
     }
@@ -590,14 +622,14 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         if (res.heroShot) {
           net.sendNet('shoot', {
             x: Math.round(res.heroShot.x), y: Math.round(res.heroShot.y), angle: +res.heroShot.angle.toFixed(3),
-            speed: res.heroShot.speed, dmg: res.heroShot.dmg, life: res.heroShot.life,
+            speed: res.heroShot.speed, dmg: res.heroShot.dmg, life: res.heroShot.life, weapon: w.weapon.id,
           });
         }
         if (res.heroDied) {
           const by = res.heroDownedBy ?? '';
           net.sendNet('down', { by });           // tell everyone I was tagged out
           pushDown(by, net.myNetId, ts);         // my own kill-feed line
-          if (net.isHost) hostScore(by);         // self-'down' is filtered, so score here
+          if (net.isHost) hostScore(by, net.myNetId); // self-'down' is filtered, so score here
         }
       }
     }
@@ -653,6 +685,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     heroKills.current = [];
     matchPointRef.current = false;
     behindRef.current = false;
+    scoredVictims.current.clear();
     matchEndsAtRef.current = 0;
     hudAccum.current = 0;
     hitMarkerRef.current = null;
@@ -760,11 +793,15 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   // ── pointer controls (touch joysticks + mouse aim/fire) ──
   const toLocal = (e: React.PointerEvent) => {
     const rect = canvasRef.current!.getBoundingClientRect();
+    const cam = camRef.current;
+    const s = scaleRef.current * cam.zoom;
+    const cssX = e.clientX - rect.left;
+    const cssY = e.clientY - rect.top;
     return {
-      cssX: e.clientX - rect.left,
-      cssY: e.clientY - rect.top,
-      wx: (e.clientX - rect.left) / scaleRef.current,
-      wy: (e.clientY - rect.top) / scaleRef.current,
+      cssX,
+      cssY,
+      wx: cam.cx + (cssX - rect.width / 2) / s,
+      wy: cam.cy + (cssY - rect.height / 2) / s,
       half: rect.width / 2,
     };
   };
@@ -931,7 +968,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
                 initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 className="font-display text-4xl font-extrabold text-white drop-shadow-[0_2px_12px_rgba(255,59,107,0.9)]"
               >
-                TAGGED OUT!
+                {t('arena.taggedOut')}
               </motion.p>
             </motion.div>
           )}
@@ -953,7 +990,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       </div>
 
       <p className="mt-2 text-center text-xs font-bold text-ink-faint">
-        📱 Left side = move · right side = aim &amp; shoot &nbsp;|&nbsp; ⌨️ WASD move · mouse aim · click/space shoot
+        {t('arena.controls')}
       </p>
     </div>
   );

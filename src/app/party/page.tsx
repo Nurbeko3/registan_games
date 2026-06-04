@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { TopBar } from '@/components/layout/TopBar';
+import { Icon } from '@/components/ui/Icon';
 import { isCloudEnabled } from '@/lib/supabase/client';
 import { useGame, getAvatar } from '@/store/useGame';
 import { useT } from '@/lib/i18n';
@@ -34,14 +35,14 @@ export default function PartyPage() {
       <TopBar />
       <div className="mx-auto max-w-md px-4 py-6">
         <div className="text-center">
-          <div className="text-5xl">🎉</div>
+          <Icon name="party" className="mx-auto h-12 w-12 text-grape" />
           <h1 className="mt-2 h-section">{t('party.title')}</h1>
           <p className="mt-1 text-ink-soft">{t('party.sub')}</p>
         </div>
 
         {mounted && !isCloudEnabled() && (
           <div className="card mt-6 text-center">
-            <div className="text-4xl">📡</div>
+            <Icon name="signal" className="mx-auto h-10 w-10 text-grape" />
             <p className="mt-2 font-display font-extrabold">{t('party.needNet')}</p>
             <p className="mt-1 text-ink-soft">{t('party.needNetSub')}</p>
             <Link href="/map" className="btn-primary mt-4">{t('party.solo')}</Link>

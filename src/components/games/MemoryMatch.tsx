@@ -57,14 +57,14 @@ export function MemoryMatch({ onWin }: GameProps) {
 
   return (
     <div className="card">
-      <p className="text-center font-bold text-ink-soft">{t('mg.memory.instr')}</p>
-      <div className="mx-auto mt-4 grid w-full max-w-sm grid-cols-4 gap-2">
+      <p className="text-center text-xl font-extrabold text-ink-soft">{t('mg.memory.instr')}</p>
+      <div className="mx-auto mt-5 grid w-full max-w-lg grid-cols-4 gap-3">
         {cards.map((c, i) => (
           <motion.button
             key={c.id}
             onClick={() => flip(i)}
             whileTap={{ scale: 0.92 }}
-            className={`grid aspect-square place-items-center rounded-2xl text-3xl shadow-card transition ${
+            className={`grid aspect-square place-items-center rounded-2xl text-5xl shadow-card transition ${
               c.flipped || c.matched ? 'bg-white' : 'bg-grape text-grape'
             } ${c.matched ? 'opacity-60 ring-2 ring-mint' : ''}`}
           >
@@ -74,7 +74,7 @@ export function MemoryMatch({ onWin }: GameProps) {
           </motion.button>
         ))}
       </div>
-      <p className="mt-3 text-center text-sm font-bold text-ink-faint">{t('mg.memory.moves', { n: moves })}</p>
+      <p className="mt-4 text-center text-lg font-extrabold text-ink-faint">{t('mg.memory.moves', { n: moves })}</p>
     </div>
   );
 }

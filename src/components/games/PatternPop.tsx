@@ -77,14 +77,14 @@ export function PatternPop({ onWin }: GameProps) {
         {phase === 'play' && t('mg.pattern.turn', { n: seq.length })}
       </p>
 
-      <div className="mx-auto mt-4 grid max-w-[260px] grid-cols-2 gap-3">
+      <div className="mx-auto mt-5 grid max-w-sm grid-cols-2 gap-4">
         {PADS.map((pad, i) => (
           <motion.button
             key={i}
             onClick={() => tap(i)}
             whileTap={{ scale: 0.92 }}
             disabled={phase !== 'play'}
-            className={`aspect-square rounded-2xl shadow-card transition-colors ${lit === i ? pad.lit : pad.color} ${lit === i ? 'brightness-125' : ''} ${phase === 'play' ? '' : 'opacity-80'}`}
+            className={`aspect-square min-h-32 rounded-2xl shadow-card transition-colors ${lit === i ? pad.lit : pad.color} ${lit === i ? 'brightness-125' : ''} ${phase === 'play' ? '' : 'opacity-80'}`}
             aria-label={`Pad ${i + 1}`}
           />
         ))}

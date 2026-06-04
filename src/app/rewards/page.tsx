@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { useGame, useHydrated, selectTotalStars } from '@/store/useGame';
@@ -8,6 +8,9 @@ import { ACHIEVEMENTS, RARITY_RING } from '@/data/achievements';
 import { AVATARS, THEMES } from '@/data/cosmetics';
 import { levelForXp, levelState } from '@/lib/leveling';
 import { AccountCard } from '@/components/AccountCard';
+import { isCloudEnabled } from '@/lib/supabase/client';
+import { ACCOUNT_SESSION_EVENT, accountLogout, accountResume, readSession } from '@/lib/supabase/account';
+import { Icon } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
 
 export default function RewardsPage() {
@@ -39,6 +42,30 @@ function RewardsContent() {
   const claimDaily = useGame((s) => s.claimDaily);
   const lastDailyClaim = useGame((s) => s.lastDailyClaim);
   const [claimMsg, setClaimMsg] = useState<string | null>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const sync = () => {
+      if (!readSession()) {
+        setLoggedIn(false);
+        return;
+      }
+      accountResume().then((user) => {
+        if (alive) setLoggedIn(!!user);
+      });
+    };
+    sync();
+    window.addEventListener(ACCOUNT_SESSION_EVENT, sync);
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      alive = false;
+      window.removeEventListener(ACCOUNT_SESSION_EVENT, sync);
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, []);
 
   const today = new Date().toISOString().slice(0, 10);
   const canClaim = lastDailyClaim !== today;
@@ -48,6 +75,16 @@ function RewardsContent() {
     if (r) setClaimMsg(t('rw.claimMsg', { coins: r.coins, xp: r.xp }));
   };
 
+  if (!loggedIn && isCloudEnabled()) {
+    return (
+      <main id="main" className="mx-auto grid min-h-[calc(100vh-12rem)] max-w-md place-items-center px-4 py-8">
+        <div className="w-full">
+          <AccountCard />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main id="main" className="mx-auto max-w-3xl px-4 py-6">
       {/* header stats */}
@@ -55,14 +92,16 @@ function RewardsContent() {
         <h1 className="font-display text-2xl font-extrabold">{t('rw.profile')}</h1>
         <div className="mt-3 flex justify-center gap-6 font-display font-extrabold">
           <div><div className="text-3xl">{ls.level}</div><div className="text-sm text-white/80">{t('rw.level')}</div></div>
-          <div><div className="text-3xl">{totalStars}⭐</div><div className="text-sm text-white/80">{t('rw.stars')}</div></div>
-          <div><div className="text-3xl">{coins}💰</div><div className="text-sm text-white/80">{t('rw.coins')}</div></div>
+          <div><div className="flex items-center justify-center gap-1 text-3xl">{totalStars}<Icon name="star" className="h-7 w-7 text-sun" /></div><div className="text-sm text-white/80">{t('rw.stars')}</div></div>
+          <div><div className="flex items-center justify-center gap-1 text-3xl">{coins}<Icon name="coin" className="h-7 w-7 text-sun" /></div><div className="text-sm text-white/80">{t('rw.coins')}</div></div>
         </div>
       </section>
 
       {/* daily reward */}
       <section className="card mt-5 flex items-center gap-4">
-        <div className="text-4xl">🎁</div>
+        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-grape-50 text-grape">
+          <Icon name="gift" className="h-7 w-7" />
+        </span>
         <div className="flex-1">
           <p className="font-display font-extrabold">{t('rw.daily')}</p>
           <p className="text-sm text-ink-soft">{canClaim ? t('rw.dailyClaim') : claimMsg ?? t('rw.dailyBack')}</p>
@@ -124,7 +163,9 @@ function AvatarShop() {
               <span className="text-3xl">{a.emoji}</span>
               <span className="mt-1 text-xs font-bold leading-tight">{a.name}</span>
               <span className="mt-0.5 text-[11px] font-bold">
-                {active ? t('rw.wearing') : owned ? t('rw.tapWear') : lockedByLevel ? `${t('common.lv')} ${a.unlockLevel}` : `💰 ${a.cost}`}
+                {active ? t('rw.wearing') : owned ? t('rw.tapWear') : lockedByLevel ? `${t('common.lv')} ${a.unlockLevel}` : (
+                  <span className="inline-flex items-center gap-1"><Icon name="coin" className="h-3 w-3" /> {a.cost}</span>
+                )}
               </span>
             </motion.button>
           );
@@ -158,7 +199,7 @@ function ThemeShop() {
             >
               <div className="text-3xl">{th.emoji}</div>
               <p className="mt-1 text-sm font-bold">{th.name}</p>
-              <p className="text-[11px] font-bold">{active ? t('rw.active') : owned ? t('rw.use') : `💰 ${th.cost}`}</p>
+              <p className="text-[11px] font-bold">{active ? t('rw.active') : owned ? t('rw.use') : <span className="inline-flex items-center gap-1"><Icon name="coin" className="h-3 w-3" /> {th.cost}</span>}</p>
             </button>
           );
         })}
@@ -173,6 +214,11 @@ function SettingsPanel() {
   const toggle = useGame((s) => s.toggleSetting);
   const reset = useGame((s) => s.resetProgress);
   const [confirm, setConfirm] = useState(false);
+  const onReset = () => {
+    accountLogout();
+    reset();
+    setConfirm(false);
+  };
 
   return (
     <section className="card mt-6">
@@ -185,7 +231,7 @@ function SettingsPanel() {
         {confirm ? (
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-bubble-600">{t('rw.erase')}</span>
-            <button onClick={() => { reset(); setConfirm(false); }} className="btn-primary px-3 py-1.5 text-sm">{t('rw.yes')}</button>
+            <button onClick={onReset} className="btn-primary px-3 py-1.5 text-sm">{t('rw.yes')}</button>
             <button onClick={() => setConfirm(false)} className="btn-ghost px-3 py-1.5 text-sm">{t('rw.no')}</button>
           </div>
         ) : (

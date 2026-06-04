@@ -1,6 +1,7 @@
 import { supabase, isCloudEnabled } from './client';
 
 export interface LeaderboardRow {
+  username: string;
   display_name: string | null;
   xp: number;
   total_stars: number;
@@ -12,7 +13,10 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
   try {
     const { data, error } = await supabase!
       .from('kcq_leaderboard')
-      .select('display_name, xp, total_stars');
+      .select('username, display_name, xp, total_stars')
+      .order('xp', { ascending: false })
+      .order('total_stars', { ascending: false })
+      .limit(100);
     if (error) return [];
     return data ?? [];
   } catch {

@@ -6,8 +6,9 @@ import { motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { isCloudEnabled } from '@/lib/supabase/client';
 import { fetchLeaderboard, type LeaderboardRow } from '@/lib/supabase/leaderboard';
-import { useGame } from '@/store/useGame';
+import { readSession } from '@/lib/supabase/account';
 import { levelForXp } from '@/lib/leveling';
+import { Icon } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -16,11 +17,12 @@ export default function LeaderboardPage() {
   const t = useT();
   const [rows, setRows] = useState<LeaderboardRow[] | null>(null);
   const [mounted, setMounted] = useState(false);
-  const myName = useGame((s) => s.playerName);
+  const [myUsername, setMyUsername] = useState<string | null>(null);
 
   // gate cloud-dependent UI until after mount → no SSR/client mismatch
   useEffect(() => {
     setMounted(true);
+    setMyUsername(readSession()?.username ?? null);
     fetchLeaderboard().then(setRows);
   }, []);
 
@@ -41,7 +43,7 @@ export default function LeaderboardPage() {
         {/* cloud disabled → friendly fallback (offline build) */}
         {mounted && !isCloudEnabled() && (
           <div className="card mt-6 text-center">
-            <div className="text-4xl">☁️</div>
+            <Icon name="cloud" className="mx-auto h-11 w-11 text-grape" />
             <p className="mt-2 font-display font-extrabold">{t('lb.offline')}</p>
             <p className="mt-1 text-ink-soft">{t('lb.offlineSub')}</p>
             <Link href="/rewards" className="btn-primary mt-4">{t('lb.goCloud')}</Link>
@@ -64,22 +66,24 @@ export default function LeaderboardPage() {
             {rows && rows.length > 0 && (
               <ol className="space-y-2">
                 {rows.map((r, i) => {
-                  const me = r.display_name && r.display_name === myName;
+                  const me = !!myUsername && r.username.toLowerCase() === myUsername.toLowerCase();
                   return (
                     <motion.li
-                      key={`${r.display_name}-${i}`}
+                      key={r.username}
                       initial={{ opacity: 0, x: -16 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: Math.min(i * 0.03, 0.5) }}
                       className={`flex items-center gap-3 rounded-2xl p-3 shadow-card ${me ? 'bg-grape-50 ring-2 ring-grape' : 'bg-white'}`}
                     >
                       <span className="w-8 text-center font-display text-lg font-extrabold text-ink-faint">{MEDALS[i] ?? i + 1}</span>
-                      <span className="grid h-9 w-9 place-items-center rounded-full bg-grape-50 text-lg">🧑‍🚀</span>
+                      <span className="grid h-9 w-9 place-items-center rounded-full bg-grape-50 text-grape">
+                        <Icon name="rocket" className="h-5 w-5" />
+                      </span>
                       <div className="flex-1 truncate">
                         <p className="truncate font-display font-extrabold">{r.display_name ?? t('lb.anon')}{me && ` ${t('common.you')}`}</p>
                         <p className="text-xs font-bold text-ink-faint">{t('common.level')} {levelForXp(r.xp)}</p>
                       </div>
-                      <span className="font-bold text-mango">{r.total_stars}⭐</span>
+                      <span className="inline-flex items-center gap-1 font-bold text-mango">{r.total_stars}<Icon name="star" className="h-4 w-4" /></span>
                       <span className="font-display font-extrabold text-grape">{r.xp} XP</span>
                     </motion.li>
                   );

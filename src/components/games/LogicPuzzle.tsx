@@ -112,37 +112,37 @@ export function LogicPuzzle({ onWin }: GameProps) {
   return (
     <div className="card">
       <div className="mb-3 flex items-center justify-between">
-        <p className="font-display font-extrabold">🧩 {puzzle.title}</p>
-        <span className="chip bg-grape-50 text-grape text-xs">
+        <p className="font-display text-2xl font-extrabold">{puzzle.title}</p>
+        <span className="chip bg-grape-50 text-grape text-sm">
           {step + 1}/{PUZZLE_SETS.length}
         </span>
       </div>
-      <p className="text-center text-sm font-bold text-ink-soft">
+      <p className="text-center text-lg font-extrabold text-ink-soft">
         {t('mg.logic.instr')}
       </p>
       <Reorder.Group
         axis="y"
         values={blocks}
         onReorder={setBlocks}
-        className="mx-auto mt-4 max-w-sm space-y-2"
+        className="mx-auto mt-5 max-w-2xl space-y-3"
       >
         {blocks.map((b, i) => (
           <Reorder.Item
             key={b.id}
             value={b}
-            className="flex cursor-grab items-center gap-3 rounded-2xl bg-cloud p-3 font-bold shadow-card active:cursor-grabbing"
+            className="flex cursor-grab items-center gap-4 rounded-2xl bg-cloud p-5 font-extrabold shadow-card active:cursor-grabbing"
             whileDrag={{ scale: 1.04, boxShadow: '0 12px 24px rgba(124,92,252,0.3)' }}
           >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-grape font-display text-white">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-grape font-display text-lg text-white">
               {i + 1}
             </span>
-            <span className="text-base">{b.text}</span>
+            <span className="text-xl">{b.text}</span>
             <span className="ml-auto text-ink-faint">⠿</span>
           </Reorder.Item>
         ))}
       </Reorder.Group>
       {msg && (
-        <p className={`mt-3 text-center text-sm font-bold ${msg.startsWith('✅') ? 'text-mint-600' : 'text-bubble-600'}`}>
+        <p className={`mt-4 text-center text-lg font-extrabold ${msg.startsWith('✅') ? 'text-mint-600' : 'text-bubble-600'}`}>
           {msg}
         </p>
       )}

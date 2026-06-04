@@ -42,6 +42,9 @@ export function useParty(code: string, opts: PartyOptions) {
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const playerId = useRef(randomId());
+  const hostId = useRef<string | null>(opts.isHost ? playerId.current : null);
+  const hostToken = useRef<string | null>(null);
+  const lastRevision = useRef(-1);
   const score = useRef(0);
   const qStart = useRef(0);
   const meta = useRef(opts);
@@ -61,6 +64,51 @@ export function useParty(code: string, opts: PartyOptions) {
     });
   }, []);
 
+  const applyRoomState = useCallback((raw: unknown) => {
+    const state = raw as {
+      host_id?: unknown;
+      phase?: unknown;
+      order?: unknown;
+      order_indices?: unknown;
+      q_index?: unknown;
+      revision?: unknown;
+    };
+    const revision = Number(state.revision);
+    if (Number.isFinite(revision) && revision <= lastRevision.current) return;
+    if (Number.isFinite(revision)) lastRevision.current = revision;
+    if (typeof state.host_id === 'string') hostId.current = state.host_id;
+
+    const rawOrder = Array.isArray(state.order) ? state.order : state.order_indices;
+    const nextOrder = Array.isArray(rawOrder)
+      ? rawOrder.filter((n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n < PARTY_QUIZ.length).slice(0, QUESTIONS_PER_MATCH)
+      : [];
+    const nextIndex = Number(state.q_index);
+    const nextPhase = state.phase === 'question' || state.phase === 'reveal' || state.phase === 'ended' || state.phase === 'lobby'
+      ? state.phase
+      : null;
+    if (!nextPhase) return;
+
+    setOrder(nextOrder);
+    setQIndex(Number.isInteger(nextIndex) ? nextIndex : -1);
+    if (nextPhase === 'question') {
+      qStart.current = Date.now();
+      setSelected(null);
+    }
+    setPhase(nextPhase);
+  }, []);
+
+  const pushHostState = useCallback(async (phase: 'lobby' | 'question' | 'reveal' | 'ended', index: number, ord?: number[]) => {
+    if (!hostToken.current || !isCloudEnabled()) return false;
+    const { data, error } = await supabase!.rpc('kcq_party_host_state', {
+      p_code: code,
+      p_token: hostToken.current,
+      p_phase: phase,
+      p_q_index: index,
+      p_order: ord ?? null,
+    });
+    return !error && !!data?.ok;
+  }, [code]);
+
   useEffect(() => {
     if (!isCloudEnabled()) {
       setPhase('error');
@@ -71,36 +119,55 @@ export function useParty(code: string, opts: PartyOptions) {
     });
     channelRef.current = channel;
 
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'kcq_party_rooms', filter: `code=eq.${code}` },
+      ({ new: next }) => applyRoomState(next),
+    );
+
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState() as Record<string, Array<Partial<PartyPlayer>>>;
-      const list: PartyPlayer[] = Object.entries(state).map(([id, metas]) => ({
-        id,
-        name: metas[0]?.name ?? 'Player',
-        avatar: metas[0]?.avatar ?? '🐱',
-        score: metas[0]?.score ?? 0,
-        isHost: metas[0]?.isHost ?? false,
-      }));
+      const claimedHosts = Object.entries(state)
+        .filter(([, metas]) => metas.some((m) => m.isHost === true))
+        .map(([id]) => id)
+        .sort();
+      if (!hostId.current && claimedHosts.length) hostId.current = claimedHosts[0];
+      const list: PartyPlayer[] = Object.entries(state).map(([id, metas]) => {
+        const latest = metas[metas.length - 1] ?? {};
+        return {
+          id,
+          name: typeof latest.name === 'string' && latest.name.trim() ? latest.name.slice(0, 20) : 'Player',
+          avatar: typeof latest.avatar === 'string' && latest.avatar ? latest.avatar : '🐱',
+          score: typeof latest.score === 'number' && Number.isFinite(latest.score) ? latest.score : 0,
+          isHost: id === hostId.current,
+        };
+      });
       list.sort((a, b) => b.score - a.score);
       setPlayers(list);
     });
 
-    channel.on('broadcast', { event: 'start' }, ({ payload }) => {
-      setOrder(payload.order as number[]);
-      setSelected(null);
-    });
-    channel.on('broadcast', { event: 'question' }, ({ payload }) => {
-      qStart.current = Date.now();
-      setQIndex(payload.index as number);
-      setSelected(null);
-      setPhase('question');
-    });
-    channel.on('broadcast', { event: 'reveal' }, () => setPhase('reveal'));
-    channel.on('broadcast', { event: 'end' }, () => setPhase('ended'));
-
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         updatePresence();
-        setPhase((p) => (p === 'connecting' ? 'lobby' : p));
+        if (meta.current.isHost) {
+          supabase!.rpc('kcq_party_create', { p_code: code, p_host_id: playerId.current }).then(({ data, error }) => {
+            if (error || !data?.ok) {
+              setPhase('error');
+              return;
+            }
+            hostToken.current = data.token as string;
+            hostId.current = playerId.current;
+            setPhase((p) => (p === 'connecting' ? 'lobby' : p));
+          });
+        } else {
+          supabase!.rpc('kcq_party_state', { p_code: code }).then(({ data, error }) => {
+            if (error || !data?.ok) {
+              setPhase('error');
+              return;
+            }
+            applyRoomState(data.state);
+          });
+        }
       }
     });
 
@@ -109,32 +176,34 @@ export function useParty(code: string, opts: PartyOptions) {
       void channel.unsubscribe();
       void supabase!.removeChannel(channel);
     };
-  }, [code, updatePresence]);
+  }, [applyRoomState, code, updatePresence]);
 
-  // Host drives the match timing; all clients (incl. host) react to broadcasts.
+  // Host drives timing through RPC-validated room state; clients listen to DB changes.
   const hostRunQuestion = useCallback((i: number, ord: number[]) => {
-    channelRef.current?.send({ type: 'broadcast', event: 'question', payload: { index: i } });
+    void pushHostState('question', i, ord);
     timers.current.push(
       setTimeout(() => {
-        channelRef.current?.send({ type: 'broadcast', event: 'reveal', payload: { index: i } });
+        void pushHostState('reveal', i, ord);
         timers.current.push(
           setTimeout(() => {
             if (i + 1 < ord.length) hostRunQuestion(i + 1, ord);
-            else channelRef.current?.send({ type: 'broadcast', event: 'end', payload: {} });
+            else void pushHostState('ended', i, ord);
           }, REVEAL_MS),
         );
       }, QUESTION_MS),
     );
-  }, []);
+  }, [pushHostState]);
 
   const startGame = useCallback(() => {
     if (!meta.current.isHost) return;
     const ord = [...PARTY_QUIZ.keys()].sort(() => Math.random() - 0.5).slice(0, QUESTIONS_PER_MATCH);
     score.current = 0;
     updatePresence();
-    channelRef.current?.send({ type: 'broadcast', event: 'start', payload: { order: ord } });
+    setOrder(ord);
+    setSelected(null);
+    void pushHostState('lobby', -1, ord);
     timers.current.push(setTimeout(() => hostRunQuestion(0, ord), 500));
-  }, [hostRunQuestion, updatePresence]);
+  }, [hostRunQuestion, pushHostState, updatePresence]);
 
   const answer = useCallback(
     (optionIndex: number) => {

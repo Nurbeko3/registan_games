@@ -19,7 +19,7 @@
 import type { TeamId, RosterEntry } from './types';
 import type { Fx } from './effects';
 import type { ArenaSound } from './audio';
-import { getWeapon, DEFAULT_WEAPON, type WeaponId } from './weapons';
+import { getWeapon, DEFAULT_WEAPON, WEAPONS, type WeaponId } from './weapons';
 
 // ── world geometry (logical units; the canvas scales to fit) ──
 export const WORLD_W = 720;
@@ -41,6 +41,8 @@ const MAX_HP = 100;
 const RESPAWN_BOT_MS = 2200;
 const RECOIL_KICK = 38; // backward velocity nudge on firing (units/sec)
 const SHIELD_MS = 2600; // post-respawn invulnerability for the hero
+const REMOTE_MAX_SPEED = HERO_SPEED * 1.35;
+const REMOTE_SHOT_ORIGIN_TOLERANCE = 96;
 
 export interface Rect { x: number; y: number; w: number; h: number }
 
@@ -196,6 +198,8 @@ const BLUE_NAMES = ['Splash', 'Wave', 'Coral', 'Bubbles', 'Marina', 'Finn', 'Tid
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+const finite = (v: number, fallback = 0) => (Number.isFinite(v) ? v : fallback);
+const finiteClamp = (v: number, lo: number, hi: number, fallback = lo) => clamp(finite(v, fallback), lo, hi);
 
 /** Seeded PRNG (mulberry32). Used so every client in a multiplayer match builds
  *  the IDENTICAL world (map + initial spawns + roster) from one shared seed. */
@@ -219,6 +223,19 @@ function spawnPoint(team: TeamId, rand: () => number = Math.random): { x: number
   const x = team === 'red' ? r(40, 150) : r(WORLD_W - 150, WORLD_W - 40);
   const y = r(60, WORLD_H - 60);
   return { x, y };
+}
+
+function validWeaponId(id: unknown): id is WeaponId {
+  return typeof id === 'string' && WEAPONS.some((w) => w.id === id);
+}
+
+function sanitizeRemoteSpawn(team: TeamId, d: { x: number; y: number }): { x: number; y: number } {
+  const minX = team === 'red' ? 40 : WORLD_W - 150;
+  const maxX = team === 'red' ? 150 : WORLD_W - 40;
+  return {
+    x: finiteClamp(d.x, minX, maxX, (minX + maxX) / 2),
+    y: finiteClamp(d.y, 60, WORLD_H - 60, WORLD_H / 2),
+  };
 }
 
 export function createWorld(
@@ -336,23 +353,46 @@ export function applyRemoteMove(
 ) {
   const f = byNet(world, netId);
   if (!f) return;
-  f.x = d.x; f.y = d.y; f.vx = d.vx; f.vy = d.vy; f.aimAngle = d.aim;
+  let vx = finite(d.vx);
+  let vy = finite(d.vy);
+  const speed = Math.hypot(vx, vy);
+  if (speed > REMOTE_MAX_SPEED) {
+    const k = REMOTE_MAX_SPEED / speed;
+    vx *= k; vy *= k;
+  }
+  f.x = finiteClamp(d.x, FIGHTER_R, world.w - FIGHTER_R, f.x);
+  f.y = finiteClamp(d.y, FIGHTER_R, world.h - FIGHTER_R, f.y);
+  f.vx = vx; f.vy = vy;
+  f.aimAngle = finite(d.aim, f.aimAngle);
+  resolveObstacles(f, world.obstacles);
 }
 
 /** Remote SHOOT: spawn the opponent's bolt in our world (it can hit our hero). */
 export function applyRemoteShot(
   world: World, netId: string,
-  d: { x: number; y: number; angle: number; speed: number; dmg: number; life: number }, now: number,
+  d: { x: number; y: number; angle: number; speed?: number; dmg?: number; life?: number; weapon?: string }, now: number,
 ) {
   const f = byNet(world, netId);
-  if (!f) return;
+  if (!f || !f.alive || now < f.cooldownUntil) return;
+  const spec = getWeapon(validWeaponId(d.weapon) ? d.weapon : DEFAULT_WEAPON);
+  const rx = finiteClamp(d.x, FIGHTER_R, world.w - FIGHTER_R, f.x);
+  const ry = finiteClamp(d.y, FIGHTER_R, world.h - FIGHTER_R, f.y);
+  const tooFar = dist(rx, ry, f.x, f.y) > REMOTE_SHOT_ORIGIN_TOLERANCE;
+  const sx = tooFar ? f.x : rx;
+  const sy = tooFar ? f.y : ry;
+  const angle = finite(d.angle, f.aimAngle);
+  const speed = finiteClamp(d.speed ?? spec.bulletSpeed, spec.bulletSpeed * 0.75, spec.bulletSpeed * 1.1, spec.bulletSpeed);
+  const dmg = finiteClamp(d.dmg ?? spec.damage, 1, spec.damage, spec.damage);
+  const life = finiteClamp(d.life ?? spec.rangeMs, 120, spec.rangeMs, spec.rangeMs);
+  f.aimAngle = angle;
+  f.cooldownUntil = now + spec.fireRate * 0.75;
   f.recoil = 1;
   world.bullets.push({
     id: world.bulletSeq++,
-    x: d.x + Math.cos(d.angle) * (FIGHTER_R + BULLET_R + 2),
-    y: d.y + Math.sin(d.angle) * (FIGHTER_R + BULLET_R + 2),
-    vx: Math.cos(d.angle) * d.speed, vy: Math.sin(d.angle) * d.speed,
-    team: f.team, ownerId: f.id, born: now, dmg: d.dmg, life: d.life,
+    x: sx + Math.cos(angle) * (FIGHTER_R + BULLET_R + 2),
+    y: sy + Math.sin(angle) * (FIGHTER_R + BULLET_R + 2),
+    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+    team: f.team, ownerId: f.id, born: now, dmg, life,
   });
 }
 
@@ -366,7 +406,8 @@ export function applyRemoteDown(world: World, netId: string) {
 export function applyRemoteRespawn(world: World, netId: string, d: { x: number; y: number }, now: number) {
   const f = byNet(world, netId);
   if (!f) return;
-  f.alive = true; f.hp = MAX_HP; f.x = d.x; f.y = d.y; f.vx = 0; f.vy = 0;
+  const p = sanitizeRemoteSpawn(f.team, d);
+  f.alive = true; f.hp = MAX_HP; f.x = p.x; f.y = p.y; f.vx = 0; f.vy = 0;
   f.shieldUntil = now + SHIELD_MS;
 }
 

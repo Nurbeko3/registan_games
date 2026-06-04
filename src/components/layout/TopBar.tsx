@@ -1,10 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useGame, useHydrated, getAvatar } from '@/store/useGame';
 import { levelState } from '@/lib/leveling';
+import { ACCOUNT_SESSION_EVENT, accountResume, readSession } from '@/lib/supabase/account';
 import { Stat } from '@/components/ui/Bits';
+import { Icon } from '@/components/ui/Icon';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '@/lib/i18n';
 
@@ -17,6 +20,30 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
   const avatarId = useGame((s) => s.avatarId);
   const xp = useGame((s) => s.xp);
   const ls = levelState(xp);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const sync = () => {
+      if (!readSession()) {
+        setLoggedIn(false);
+        return;
+      }
+      accountResume().then((user) => {
+        if (alive) setLoggedIn(!!user);
+      });
+    };
+    sync();
+    window.addEventListener(ACCOUNT_SESSION_EVENT, sync);
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      alive = false;
+      window.removeEventListener(ACCOUNT_SESSION_EVENT, sync);
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 border-b border-grape-100/60 bg-cloud/85 backdrop-blur-md">
@@ -31,10 +58,10 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
 
         <LanguageSwitcher />
 
-        {hydrated && (
+        {hydrated && loggedIn && (
           <>
-            <Stat icon="🔥" value={streak} label={t('common.dayStreak')} />
-            <Stat icon="💰" value={coins} label={t('common.coins')} />
+            <Stat icon={<Icon name="flame" className="h-4 w-4" />} value={streak} label={t('common.dayStreak')} />
+            <Stat icon={<Icon name="coin" className="h-4 w-4" />} value={coins} label={t('common.coins')} />
             <Link href="/rewards" className="flex items-center gap-2 rounded-full bg-white px-2.5 py-1.5 shadow-card" title={t('topbar.profile')}>
               <span className="grid h-7 w-7 place-items-center rounded-full bg-grape-50 text-lg">{getAvatar(avatarId).emoji}</span>
               <span className="hidden font-display font-extrabold sm:inline">{t('common.lv')} {ls.level}</span>
@@ -45,7 +72,7 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
 
       {/* Profile level-progress — a game XP bar (level → next), not a page loader.
           Tap it to open the profile. */}
-      {hydrated && (
+      {hydrated && loggedIn && (
         <Link
           href="/rewards"
           aria-label={t('topbar.profile')}

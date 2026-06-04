@@ -1,11 +1,12 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { Icon } from './Icon';
 
-export function Stat({ icon, value, label }: { icon: string; value: number | string; label: string }) {
+export function Stat({ icon, value, label }: { icon: React.ReactNode; value: number | string; label: string }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 shadow-card" title={label}>
-      <span aria-hidden>{icon}</span>
+    <div className="flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-ink shadow-card ring-1 ring-grape-100/60" title={label}>
+      <span aria-hidden className="text-grape">{icon}</span>
       <span className="font-display font-extrabold tabular-nums">{value}</span>
       <span className="sr-only">{label}</span>
     </div>
@@ -27,15 +28,16 @@ export function ProgressBar({ pct, className = 'bg-grape', track = 'bg-grape-100
 
 export function Stars({ count, size = 'text-2xl' }: { count: number; size?: string }) {
   return (
-    <div className={`flex gap-1 ${size}`} aria-label={`${count} of 3 stars`}>
+    <div className={`flex gap-1 text-sun ${size}`} aria-label={`${count} of 3 stars`}>
       {[1, 2, 3].map((i) => (
         <motion.span
           key={i}
           initial={{ scale: 0, rotate: -40 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ delay: 0.15 * i, type: 'spring', stiffness: 300 }}
+          className={i <= count ? 'text-sun' : 'text-grape-100'}
         >
-          {i <= count ? '⭐' : '☆'}
+          <Icon name="star" className="h-[1em] w-[1em]" />
         </motion.span>
       ))}
     </div>

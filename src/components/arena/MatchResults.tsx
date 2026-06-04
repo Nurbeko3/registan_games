@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { TEAMS, type MatchResult } from '@/lib/arena/types';
 import { Confetti } from '@/components/ui/Confetti';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
 
 /** Post-match screen. Win or lose, the framing is positive: it celebrates what
@@ -19,7 +20,7 @@ export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onP
       {result.won && <Confetti />}
       <div className="card text-center">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260 }} className="text-6xl">
-          {result.won ? '🏆' : '🎓'}
+          <Icon name={result.won ? 'trophy' : 'brain'} className="mx-auto h-14 w-14 text-grape" />
         </motion.div>
         <p className="mt-2 font-display text-2xl font-extrabold">
           {result.won ? t('arena.res.victory') : t('arena.res.effort')}
@@ -35,14 +36,14 @@ export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onP
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <Stat icon="⚡" label={t('arena.res.tagouts')} value={result.elims} />
-        <Stat icon="🎯" label={t('arena.res.accuracy')} value={`${acc}%`} />
-        <Stat icon="✅" label={t('arena.res.correct')} value={`${result.correct}/${result.answered}`} />
-        <Stat icon="📈" label={t('arena.res.xp')} value={`+${result.xpEarned}`} />
+        <Stat icon="zap" label={t('arena.res.tagouts')} value={result.elims} />
+        <Stat icon="rank" label={t('arena.res.accuracy')} value={`${acc}%`} />
+        <Stat icon="star" label={t('arena.res.correct')} value={`${result.correct}/${result.answered}`} />
+        <Stat icon="spark" label={t('arena.res.xp')} value={`+${result.xpEarned}`} />
       </div>
 
       <div className="mt-3 flex justify-center">
-        <span className="chip bg-mango/20 text-ink">💰 +{result.coinsEarned} {t('arena.res.coins')}</span>
+        <span className="chip bg-mango/20 text-ink"><Icon name="coin" className="h-4 w-4" /> +{result.coinsEarned} {t('arena.res.coins')}</span>
       </div>
 
       <div className="mt-5 flex gap-2">
@@ -53,10 +54,10 @@ export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onP
   );
 }
 
-function Stat({ icon, label, value }: { icon: string; label: string; value: number | string }) {
+function Stat({ icon, label, value }: { icon: IconName; label: string; value: number | string }) {
   return (
     <div className="card flex flex-col items-center gap-0.5 p-3 text-center">
-      <span className="text-xl">{icon}</span>
+      <Icon name={icon} className="h-5 w-5 text-grape" />
       <span className="font-display text-xl font-extrabold">{value}</span>
       <span className="text-[11px] font-bold text-ink-faint">{label}</span>
     </div>

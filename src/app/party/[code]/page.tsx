@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
+import { Icon } from '@/components/ui/Icon';
 import { useGame, getAvatar } from '@/store/useGame';
 import { useParty } from '@/lib/party/useParty';
 import { Confetti } from '@/components/ui/Confetti';
@@ -38,7 +39,7 @@ function Room() {
         {/* ── ERROR ── */}
         {phase === 'error' && (
           <div className="card text-center">
-            <div className="text-4xl">📡</div>
+            <Icon name="signal" className="mx-auto h-10 w-10 text-grape" />
             <p className="mt-2 font-display font-extrabold">{t('party.offline')}</p>
             <Link href="/map" className="btn-primary mt-4">{t('party.solo')}</Link>
           </div>
@@ -67,7 +68,7 @@ function Room() {
                 {t('party.startBattle')}
               </button>
             ) : (
-              <p className="mt-5 text-center font-bold text-ink-soft">⏳ {t('party.waitHost')}</p>
+              <p className="mt-5 inline-flex w-full items-center justify-center gap-2 text-center font-bold text-ink-soft"><Icon name="signal" className="h-4 w-4" /> {t('party.waitHost')}</p>
             )}
             <Link href="/party" className="mt-3 block text-center text-sm font-bold text-ink-faint">{t('party.leaveRoom')}</Link>
           </div>
@@ -108,7 +109,7 @@ function Room() {
                     disabled={phase === 'reveal' || selected !== null}
                     className={`rounded-2xl p-3 text-center font-display font-extrabold shadow-card ${cls}`}
                   >
-                    {opt} {phase === 'reveal' && isCorrect && '✅'}
+                    {opt} {phase === 'reveal' && isCorrect && <Icon name="star" className="ml-1 inline h-4 w-4 text-mint-600" />}
                   </motion.button>
                 );
               })}
@@ -158,9 +159,9 @@ function Results({ players, myId, isHost, onPlayAgain }: { players: { id: string
       <div className="card text-center">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-grape">{t('party.winner')}</p>
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260 }} className="mt-2 text-6xl">
-          {winner?.avatar ?? '🏆'}
+          {winner?.avatar ?? <Icon name="trophy" className="mx-auto h-14 w-14 text-mango" />}
         </motion.div>
-        <p className="mt-2 font-display text-2xl font-extrabold">{winner?.name ?? t('party.champion')} 🏆</p>
+        <p className="mt-2 font-display text-2xl font-extrabold">{winner?.name ?? t('party.champion')}</p>
         <p className="text-ink-soft">{iWon ? t('party.youWon') : t('party.goodGame')}</p>
       </div>
 

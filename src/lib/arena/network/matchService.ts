@@ -17,6 +17,7 @@ import type { NetEvent, NetEventType } from './types';
 const FLUSH_HZ = 12;
 const FLUSH_MS = Math.round(1000 / FLUSH_HZ);
 const NET_EVENT = 'net'; // single broadcast channel-event carrying a NetEvent
+const FROM_KEY = '__from';
 
 export class MatchService {
   private out = new OutboundQueue();
@@ -29,7 +30,12 @@ export class MatchService {
   start() {
     this.transport.on(NET_EVENT, (payload) => {
       const ev = payload as unknown as NetEvent;
-      if (ev && ev.from !== this.myId) this.inbound.accept(ev);
+      const transportFrom = payload[FROM_KEY];
+      if (
+        ev &&
+        ev.from !== this.myId &&
+        (typeof transportFrom !== 'string' || transportFrom === ev.from)
+      ) this.inbound.accept(ev);
     });
     this.flushTimer = setInterval(() => this.flush(), FLUSH_MS);
   }

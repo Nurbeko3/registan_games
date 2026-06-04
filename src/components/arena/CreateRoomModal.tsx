@@ -6,6 +6,7 @@ import { ARENA_MODES, TEAM_SIZES, getMode } from '@/data/arenaModes';
 import { ARENA_MAPS } from '@/data/arenaMaps';
 import { DIFFICULTIES } from './PracticeSetup';
 import { DEFAULT_SETTINGS, type RoomSettings } from '@/lib/arena/network/types';
+import { Icon } from '@/components/ui/Icon';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
 
 /** Host picks starting settings; final tweaks still possible in the lobby. */
@@ -21,7 +22,7 @@ export function CreateRoomModal({ onCreate, onClose }: { onCreate: (s: RoomSetti
 
   return (
     <Overlay onClose={onClose}>
-      <p className="font-display text-xl font-extrabold">🛠️ Create a room</p>
+      <p className="flex items-center gap-2 font-display text-xl font-extrabold"><Icon name="wrench" className="h-5 w-5 text-grape" /> Create a room</p>
       <p className="mt-1 text-sm text-ink-soft">Pick the basics — you can change them in the lobby too.</p>
 
       <Row label="Map">
@@ -45,7 +46,7 @@ export function CreateRoomModal({ onCreate, onClose }: { onCreate: (s: RoomSetti
         </button>
       </Row>
 
-      <button onClick={create} className="btn-primary mt-5 w-full text-lg">🚀 Create room</button>
+      <button onClick={create} className="btn-primary mt-5 w-full text-lg"><Icon name="rocket" className="h-5 w-5" /> Create room</button>
     </Overlay>
   );
 }

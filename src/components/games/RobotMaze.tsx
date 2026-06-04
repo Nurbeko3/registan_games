@@ -147,18 +147,18 @@ export function RobotMaze({ onWin }: GameProps) {
           <button
             key={i}
             onClick={() => switchLevel(i)}
-            className={`rounded-2xl px-3 py-1.5 text-xs font-bold shadow-card transition ${
+            className={`rounded-2xl px-4 py-2 text-base font-extrabold shadow-card transition ${
               i === levelIdx ? 'bg-grape text-white' : 'bg-white text-ink-faint'
             }`}
           >
             {i + 1}
           </button>
         ))}
-        <span className="ml-1 self-center text-xs font-bold text-ink-faint">{level.label}</span>
+        <span className="ml-1 self-center text-base font-extrabold text-ink-faint">{level.label}</span>
       </div>
 
       <div className="card">
-        <div className="mx-auto grid aspect-square w-full max-w-xs grid-cols-5 gap-1.5 rounded-2xl bg-grape-50 p-2">
+        <div className="mx-auto grid aspect-square w-full max-w-md grid-cols-5 gap-2 rounded-2xl bg-grape-50 p-3">
           {level.grid.map((row, y) =>
             row.map((cell, x) => {
               const isRobot = robot.x === x && robot.y === y;
@@ -168,13 +168,13 @@ export function RobotMaze({ onWin }: GameProps) {
                   key={`${x}-${y}`}
                   className={`relative grid place-items-center rounded-xl ${cell === 1 ? 'bg-ink/80' : 'bg-white'}`}
                 >
-                  {cell === 9 && <span className="text-xl">🏁</span>}
-                  {isGem && <span className="text-xl">💎</span>}
+                  {cell === 9 && <span className="text-3xl">🏁</span>}
+                  {isGem && <span className="text-3xl">💎</span>}
                   {isRobot && (
                     <motion.span
                       layout
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="absolute text-2xl"
+                      className="absolute text-4xl"
                     >
                       🤖
                     </motion.span>
@@ -184,11 +184,11 @@ export function RobotMaze({ onWin }: GameProps) {
             }),
           )}
         </div>
-        <p className="mt-2 text-center text-sm font-bold text-ink-soft">
+        <p className="mt-3 text-center text-base font-extrabold text-ink-soft">
           💎 {collected.size}/{totalGems} · par: {level.parMoves} moves
         </p>
         {msg && (
-          <p className="mt-2 rounded-xl bg-bubble/15 p-2 text-center text-sm font-bold text-bubble-600">
+          <p className="mt-3 rounded-xl bg-bubble/15 p-3 text-center text-base font-extrabold text-bubble-600">
             {msg}
           </p>
         )}
@@ -202,15 +202,15 @@ export function RobotMaze({ onWin }: GameProps) {
               key={c}
               onClick={() => setProgram((p) => [...p, c])}
               disabled={running}
-              className="btn-ghost px-3 py-2 text-sm disabled:opacity-40"
+              className="btn-ghost px-5 py-4 text-2xl disabled:opacity-40"
             >
               {MOVES[c].icon}
             </button>
           ))}
         </div>
-        <div className="mt-3 min-h-[70px] flex-1 rounded-2xl bg-cloud p-2">
+        <div className="mt-3 min-h-24 flex-1 rounded-2xl bg-cloud p-3">
           {program.length === 0 ? (
-            <p className="grid h-full place-items-center text-sm text-ink-faint">
+            <p className="grid h-full place-items-center text-base font-bold text-ink-faint">
               {t('mg.robot.addSteps')}
             </p>
           ) : (

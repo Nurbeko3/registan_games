@@ -34,12 +34,12 @@ export function BinaryChallenge({ onWin }: GameProps) {
       <p className="font-bold text-ink-soft">{t('mg.binary.instr')}</p>
       <p className="mt-1 font-display text-5xl font-extrabold text-grape">{target}</p>
 
-      <motion.div animate={shake ? { x: [-8, 8, -6, 6, 0] } : {}} className="mt-5 flex justify-center gap-2">
+      <motion.div animate={shake ? { x: [-8, 8, -6, 6, 0] } : {}} className="mt-6 flex justify-center gap-3">
         {BITS.map((bit, i) => (
           <button
             key={bit}
             onClick={() => toggle(i)}
-            className={`grid h-16 w-14 place-items-center rounded-2xl font-display text-2xl font-extrabold shadow-card transition ${
+            className={`grid h-20 w-16 place-items-center rounded-2xl font-display text-3xl font-extrabold shadow-card transition ${
               bits[i] ? 'bg-grape text-white' : 'bg-white text-ink-faint'
             }`}
           >
@@ -53,7 +53,7 @@ export function BinaryChallenge({ onWin }: GameProps) {
         {t('arena.q.your')} <span className={value === target ? 'text-mint' : 'text-bubble-600'}>{value}</span>
       </p>
       <button onClick={check} className="btn-primary mt-3 w-full">{t('mg.check')}</button>
-      <p className="mt-2 text-sm font-bold text-ink-faint">{t('mg.binary.tries', { n: tries })}</p>
+      <p className="mt-3 text-lg font-extrabold text-ink-faint">{t('mg.binary.tries', { n: tries })}</p>
     </div>
   );
 }

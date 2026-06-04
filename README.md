@@ -11,19 +11,19 @@
 ## ✨ Highlights
 
 - 🌍 **World map** with 5 zones that unlock as you earn stars
-- 🎲 **8 playable mini-games**, each teaching a real coding skill
+- 🎲 **11 playable mini-games**, each teaching a real coding skill
 - ⭐ **Offline gamification** — XP, levels, coins, streaks, achievements, daily rewards
 - 🧑‍🚀 **Unlockable characters & themes** bought with coins
 - 🤖 **Byte**, an offline AI mentor that gives kid-friendly hints
 - 💾 Everything saved to **localStorage** via Zustand Persist — works offline
-- ⚡ No backend, no auth, no database — static & fast (Lighthouse-friendly)
+- ⚡ Core game needs no backend, auth, or database — Supabase features are optional
 
 ## 🧱 Tech Stack
 
-Next.js 15 (App Router) · TypeScript · TailwindCSS · Zustand (+ persist) · Framer Motion.
+Next.js 15 (App Router) · TypeScript · TailwindCSS · Zustand (+ persist) · Framer Motion · optional Supabase.
 
-> Supabase is intentionally **not wired up** — the `getHint()` seam in `src/data/hints.ts`
-> is the single place to add a real AI/cloud later.
+> Supabase is additive: account sync, leaderboard, admin tools, and multiplayer rooms.
+> Without Supabase env vars, the core game continues to work from localStorage.
 
 ## 🚀 Run it
 
@@ -31,6 +31,7 @@ Next.js 15 (App Router) · TypeScript · TailwindCSS · Zustand (+ persist) · F
 npm install
 npm run dev      # http://localhost:3000
 npm run build    # production build
+npm run lint     # non-interactive CI gate (TypeScript)
 ```
 
 ## 🗂️ Structure
@@ -43,7 +44,7 @@ src/
 │   ├── play/[game]/          # Game runner
 │   └── rewards/              # Profile · achievements · shop · settings
 ├── components/
-│   ├── games/                # 8 games + GameShell + registry
+│   ├── games/                # 11 games + GameShell + registry
 │   ├── layout/TopBar.tsx     # player HUD
 │   ├── AIMentor.tsx          # offline "Byte"
 │   ├── Celebrations.tsx      # achievement popups + confetti
@@ -66,5 +67,8 @@ src/
 | 🗺️ Code Adventure | Loops & conditions |
 | 🧩 Logic Puzzle | Algorithms |
 | 💎 Treasure Hunt | Deduction |
+| 🟣 Pattern Pop | Memory |
+| 🔮 Loop Output | Loops |
+| 🧮 Quick Math | Numbers |
 
 Made with 💜 for young coders. **Code. Play. Grow.**
