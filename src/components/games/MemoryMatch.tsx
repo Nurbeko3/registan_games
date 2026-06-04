@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 const ICONS = ['🤖', '💾', '🐍', '⚙️', '🔢', '💡', '🚀', '🧩'];
@@ -16,6 +17,7 @@ function shuffle(): Card[] {
 }
 
 export function MemoryMatch({ onWin }: GameProps) {
+  const t = useT();
   const initial = useMemo(shuffle, []);
   const [cards, setCards] = useState<Card[]>(initial);
   const [picks, setPicks] = useState<number[]>([]);
@@ -55,7 +57,7 @@ export function MemoryMatch({ onWin }: GameProps) {
 
   return (
     <div className="card">
-      <p className="text-center font-bold text-ink-soft">Flip two cards to find a matching pair. Match them all!</p>
+      <p className="text-center font-bold text-ink-soft">{t('mg.memory.instr')}</p>
       <div className="mx-auto mt-4 grid w-full max-w-sm grid-cols-4 gap-2">
         {cards.map((c, i) => (
           <motion.button
@@ -72,7 +74,7 @@ export function MemoryMatch({ onWin }: GameProps) {
           </motion.button>
         ))}
       </div>
-      <p className="mt-3 text-center text-sm font-bold text-ink-faint">Moves: {moves} · fewer = more ⭐</p>
+      <p className="mt-3 text-center text-sm font-bold text-ink-faint">{t('mg.memory.moves', { n: moves })}</p>
     </div>
   );
 }

@@ -4,12 +4,15 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { TEAMS, type MatchResult } from '@/lib/arena/types';
 import { Confetti } from '@/components/ui/Confetti';
+import { useT } from '@/lib/i18n';
 
 /** Post-match screen. Win or lose, the framing is positive: it celebrates what
  *  the child LEARNED (accuracy, questions, XP) as much as the battle result. */
 export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onPlayAgain: () => void }) {
+  const t = useT();
   const acc = result.answered ? Math.round((result.correct / result.answered) * 100) : 0;
   const mine = TEAMS[result.myTeam];
+  const myTeamName = `${mine.emoji} ${t(`team.${result.myTeam}`)}`;
 
   return (
     <div className="relative">
@@ -19,10 +22,10 @@ export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onP
           {result.won ? '🏆' : '🎓'}
         </motion.div>
         <p className="mt-2 font-display text-2xl font-extrabold">
-          {result.won ? 'Victory!' : 'Great effort!'}
+          {result.won ? t('arena.res.victory') : t('arena.res.effort')}
         </p>
         <p className="text-ink-soft">
-          {result.won ? `${mine.emoji} ${mine.name} win!` : 'Every question made you smarter. 🧠'}
+          {result.won ? t('arena.res.win', { team: myTeamName }) : t('arena.res.smarter')}
         </p>
         <p className="mt-2 font-display text-3xl font-extrabold">
           <span className="text-bubble-600">{result.redScore}</span>
@@ -32,19 +35,19 @@ export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onP
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <Stat icon="⚡" label="Your tag-outs" value={result.elims} />
-        <Stat icon="🎯" label="Quiz accuracy" value={`${acc}%`} />
-        <Stat icon="✅" label="Correct answers" value={`${result.correct}/${result.answered}`} />
-        <Stat icon="📈" label="XP earned" value={`+${result.xpEarned}`} />
+        <Stat icon="⚡" label={t('arena.res.tagouts')} value={result.elims} />
+        <Stat icon="🎯" label={t('arena.res.accuracy')} value={`${acc}%`} />
+        <Stat icon="✅" label={t('arena.res.correct')} value={`${result.correct}/${result.answered}`} />
+        <Stat icon="📈" label={t('arena.res.xp')} value={`+${result.xpEarned}`} />
       </div>
 
       <div className="mt-3 flex justify-center">
-        <span className="chip bg-mango/20 text-ink">💰 +{result.coinsEarned} coins</span>
+        <span className="chip bg-mango/20 text-ink">💰 +{result.coinsEarned} {t('arena.res.coins')}</span>
       </div>
 
       <div className="mt-5 flex gap-2">
-        <Link href="/arena" className="btn-ghost flex-1 text-center">⚔️ New match</Link>
-        <button onClick={onPlayAgain} className="btn-primary flex-1">🔁 Rematch</button>
+        <Link href="/arena" className="btn-ghost flex-1 text-center">{t('arena.res.newMatch')}</Link>
+        <button onClick={onPlayAgain} className="btn-primary flex-1">{t('arena.res.rematch')}</button>
       </div>
     </div>
   );

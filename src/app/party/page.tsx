@@ -6,10 +6,12 @@ import { useRouter } from 'next/navigation';
 import { TopBar } from '@/components/layout/TopBar';
 import { isCloudEnabled } from '@/lib/supabase/client';
 import { useGame, getAvatar } from '@/store/useGame';
+import { useT } from '@/lib/i18n';
 
 const makeCode = () => Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
 
 export default function PartyPage() {
+  const t = useT();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [joinCode, setJoinCode] = useState('');
@@ -33,16 +35,16 @@ export default function PartyPage() {
       <div className="mx-auto max-w-md px-4 py-6">
         <div className="text-center">
           <div className="text-5xl">🎉</div>
-          <h1 className="mt-2 h-section">Code Battle</h1>
-          <p className="mt-1 text-ink-soft">Play live with friends! One host creates a room, others join with the code.</p>
+          <h1 className="mt-2 h-section">{t('party.title')}</h1>
+          <p className="mt-1 text-ink-soft">{t('party.sub')}</p>
         </div>
 
         {mounted && !isCloudEnabled() && (
           <div className="card mt-6 text-center">
             <div className="text-4xl">📡</div>
-            <p className="mt-2 font-display font-extrabold">Multiplayer needs the internet</p>
-            <p className="mt-1 text-ink-soft">Cloud isn’t set up, so live games are off. Single-player still works great!</p>
-            <Link href="/map" className="btn-primary mt-4">Play solo</Link>
+            <p className="mt-2 font-display font-extrabold">{t('party.needNet')}</p>
+            <p className="mt-1 text-ink-soft">{t('party.needNetSub')}</p>
+            <Link href="/map" className="btn-primary mt-4">{t('party.solo')}</Link>
           </div>
         )}
 
@@ -50,36 +52,36 @@ export default function PartyPage() {
           <>
             {/* who am I */}
             <section className="card mt-6">
-              <p className="font-display font-extrabold">Your hero</p>
+              <p className="font-display font-extrabold">{t('party.yourHero')}</p>
               <div className="mt-3 flex items-center gap-3">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-grape-50 text-2xl">{getAvatar(avatarId).emoji}</span>
                 <input
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Type your name"
+                  placeholder={t('party.typeName')}
                   maxLength={20}
                   className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape"
                 />
               </div>
-              <p className="mt-2 text-xs text-ink-faint">Change your character in 🎁 Profile.</p>
+              <p className="mt-2 text-xs text-ink-faint">{t('party.changeChar')}</p>
             </section>
 
             {/* create */}
-            <button onClick={createRoom} className="btn-primary mt-5 w-full text-lg">🚀 Create a room</button>
+            <button onClick={createRoom} className="btn-primary mt-5 w-full text-lg">{t('party.create')}</button>
 
             {/* join */}
             <div className="card mt-5">
-              <p className="font-display font-extrabold">Join a friend</p>
+              <p className="font-display font-extrabold">{t('party.joinFriend')}</p>
               <div className="mt-3 flex gap-2">
                 <input
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
-                  placeholder="ROOM CODE"
+                  placeholder={t('party.roomCode')}
                   maxLength={6}
                   className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-3 text-center font-display text-xl font-extrabold uppercase tracking-widest outline-none focus:border-grape"
                 />
-                <button onClick={joinRoom} disabled={joinCode.trim().length < 3} className="btn-sun disabled:opacity-40">Join</button>
+                <button onClick={joinRoom} disabled={joinCode.trim().length < 3} className="btn-sun disabled:opacity-40">{t('party.join')}</button>
               </div>
             </div>
           </>

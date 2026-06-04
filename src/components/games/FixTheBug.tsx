@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 interface Puzzle { lines: string[]; bug: number; fix: string }
@@ -22,6 +23,7 @@ const PUZZLES: Puzzle[] = [
 ];
 
 export function FixTheBug({ onWin }: GameProps) {
+  const t = useT();
   const order = useMemo(
     () => [...Array(PUZZLES.length).keys()].sort(() => Math.random() - 0.5).slice(0, 5),
     [],
@@ -52,7 +54,7 @@ export function FixTheBug({ onWin }: GameProps) {
   return (
     <div className="card">
       <div className="mb-2 flex items-center justify-between">
-        <p className="font-bold text-ink-soft">🔍 Tap the line with the bug!</p>
+        <p className="font-bold text-ink-soft">{t('mg.bug.instr')}</p>
         <span className="chip bg-grape-50 text-grape text-xs">{step + 1}/{order.length}</span>
       </div>
       <div className="mx-auto mt-4 max-w-md overflow-hidden rounded-2xl bg-ink p-1 font-mono text-sm">

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 const SIZE = 5;
@@ -9,6 +10,7 @@ const SIZE = 5;
 /** Deduction game: dig tiles; each reveals its distance to the treasure.
  *  Find it in few digs for more stars. Teaches search & deduction. */
 export function TreasureHunt({ onWin }: GameProps) {
+  const t = useT();
   const treasure = useMemo(() => ({ x: Math.floor(Math.random() * SIZE), y: Math.floor(Math.random() * SIZE) }), []);
   const [dug, setDug] = useState<Record<string, number>>({});
   const [found, setFound] = useState(false);
@@ -37,7 +39,7 @@ export function TreasureHunt({ onWin }: GameProps) {
 
   return (
     <div className="card">
-      <p className="text-center font-bold text-ink-soft">Dig tiles to find 💎. Numbers show how far away it is — <span className="text-mango">0 = found!</span></p>
+      <p className="text-center font-bold text-ink-soft">{t('mg.treasure.instr')} <span className="text-mango">{t('mg.treasure.found')}</span></p>
       <div className="mx-auto mt-4 grid w-full max-w-xs grid-cols-5 gap-2">
         {Array.from({ length: SIZE * SIZE }, (_, i) => {
           const x = i % SIZE;

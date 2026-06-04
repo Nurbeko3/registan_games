@@ -10,9 +10,11 @@ import { TopBar } from '@/components/layout/TopBar';
 import { AIMentor } from '@/components/AIMentor';
 import { Stars } from '@/components/ui/Bits';
 import { Confetti } from '@/components/ui/Confetti';
+import { useT } from '@/lib/i18n';
 import { GAME_REGISTRY } from './registry';
 
 export function GameShell({ slug }: { slug: string }) {
+  const t = useT();
   const meta = getGame(slug);
   const GameComponent = GAME_REGISTRY[slug];
   const completeGame = useGame((s) => s.completeGame);
@@ -23,8 +25,8 @@ export function GameShell({ slug }: { slug: string }) {
     return (
       <div className="mx-auto max-w-md p-10 text-center">
         <p className="text-5xl">🚧</p>
-        <p className="mt-3 font-display text-xl font-extrabold">Game not found</p>
-        <Link href="/map" className="btn-primary mt-4">← Back to map</Link>
+        <p className="mt-3 font-display text-xl font-extrabold">{t('gs.notFound')}</p>
+        <Link href="/map" className="btn-primary mt-4">{t('common.map')}</Link>
       </div>
     );
   }
@@ -47,8 +49,8 @@ export function GameShell({ slug }: { slug: string }) {
         <div className="mb-4 flex items-center gap-3">
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-2xl shadow-card">{meta.emoji}</span>
           <div>
-            <h1 className="font-display text-xl font-extrabold leading-tight">{meta.title}</h1>
-            <p className="text-sm text-ink-soft">{meta.blurb}</p>
+            <h1 className="font-display text-xl font-extrabold leading-tight">{t(`game.${slug}.title`)}</h1>
+            <p className="text-sm text-ink-soft">{t(`game.${slug}.blurb`)}</p>
           </div>
         </div>
 
@@ -73,7 +75,7 @@ export function GameShell({ slug }: { slug: string }) {
               className="card w-full max-w-sm text-center"
             >
               <p className="font-display text-sm font-bold uppercase tracking-wide text-grape">
-                {result.stars >= 3 ? 'Perfect!' : result.stars >= 1 ? 'Level cleared!' : 'Good try!'}
+                {result.stars >= 3 ? t('gs.perfect') : result.stars >= 1 ? t('gs.cleared') : t('gs.goodTry')}
               </p>
               <div className="mt-3 flex justify-center"><Stars count={result.stars} size="text-4xl" /></div>
 
@@ -84,7 +86,7 @@ export function GameShell({ slug }: { slug: string }) {
 
               {result.leveledUp && (
                 <motion.p initial={{ scale: 0 }} animate={{ scale: 1 }} className="mt-3 font-display text-lg font-extrabold text-bubble-600">
-                  ⬆️ Level {result.newLevel}!
+                  {t('gs.levelUp', { n: result.newLevel })}
                 </motion.p>
               )}
               {result.newAchievements.length > 0 && (
@@ -94,10 +96,10 @@ export function GameShell({ slug }: { slug: string }) {
               )}
 
               <div className="mt-5 grid gap-2">
-                <button onClick={playAgain} className="btn-primary w-full">🔁 Play again</button>
+                <button onClick={playAgain} className="btn-primary w-full">{t('gs.playAgain')}</button>
                 <div className="flex gap-2">
-                  <Link href="/map" className="btn-ghost flex-1">🗺️ Map</Link>
-                  {nextSlug && <Link href={`/play/${nextSlug}`} className="btn-sun flex-1">Next →</Link>}
+                  <Link href="/map" className="btn-ghost flex-1">{t('gs.map')}</Link>
+                  {nextSlug && <Link href={`/play/${nextSlug}`} className="btn-sun flex-1">{t('gs.next')}</Link>}
                 </div>
               </div>
             </motion.div>

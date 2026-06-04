@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 const PADS = [
@@ -14,6 +15,7 @@ const TARGET = 6; // sequence length to win
 
 /** Simon-style memory game: watch the sequence light up, then repeat it. */
 export function PatternPop({ onWin }: GameProps) {
+  const t = useT();
   const [seq, setSeq] = useState<number[]>([]);
   const [lit, setLit] = useState<number | null>(null);
   const [phase, setPhase] = useState<'idle' | 'watch' | 'play'>('idle');
@@ -47,7 +49,7 @@ export function PatternPop({ onWin }: GameProps) {
         // mistake → reward by how far they got
         const len = seq.length;
         const stars = len >= 5 ? 3 : len >= 3 ? 2 : 1;
-        setMsg('Oops! Nice memory though 🧠');
+        setMsg(t('mg.pattern.oops'));
         setPhase('idle');
         setTimeout(() => onWin(stars), 800);
         return;
@@ -70,9 +72,9 @@ export function PatternPop({ onWin }: GameProps) {
   return (
     <div className="card text-center">
       <p className="font-bold text-ink-soft">
-        {phase === 'idle' && 'Watch the colors, then tap them in the same order!'}
-        {phase === 'watch' && '👀 Watch closely…'}
-        {phase === 'play' && `🎯 Your turn! (${seq.length} in the pattern)`}
+        {phase === 'idle' && t('mg.pattern.idle')}
+        {phase === 'watch' && t('mg.pattern.watch')}
+        {phase === 'play' && t('mg.pattern.turn', { n: seq.length })}
       </p>
 
       <div className="mx-auto mt-4 grid max-w-[260px] grid-cols-2 gap-3">
@@ -89,8 +91,8 @@ export function PatternPop({ onWin }: GameProps) {
       </div>
 
       {msg && <p className="mt-3 text-sm font-bold text-bubble-600">{msg}</p>}
-      {phase === 'idle' && !msg && <button onClick={begin} className="btn-primary mt-4">▶ Start</button>}
-      {phase === 'idle' && msg && <button onClick={begin} className="btn-ghost mt-3">↺ Try again</button>}
+      {phase === 'idle' && !msg && <button onClick={begin} className="btn-primary mt-4">{t('mg.start')}</button>}
+      {phase === 'idle' && msg && <button onClick={begin} className="btn-ghost mt-3">{t('mg.tryAgain')}</button>}
     </div>
   );
 }

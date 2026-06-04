@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { CATEGORY_META, type LearnState, type PreparedQuestion } from '@/lib/arena/types';
 import { Confetti } from '@/components/ui/Confetti';
+import { useT } from '@/lib/i18n';
 import { QuestionRenderer } from './QuestionRenderer';
 
 const DIFF_STYLE: Record<string, string> = {
@@ -27,6 +28,7 @@ export function LearningPanel({
   cooldownMs: number;
   onAnswer: (response: number | string[]) => void;
 }) {
+  const t = useT();
   const { q } = prepared;
   const cat = CATEGORY_META[q.category];
 
@@ -45,7 +47,7 @@ export function LearningPanel({
       >
         {/* playful pod header */}
         <div className="-mx-6 -mt-6 mb-4 flex items-center justify-between bg-gradient-to-r from-grape to-bubble px-5 py-3 text-white">
-          <span className="font-display text-sm font-extrabold uppercase tracking-wide">🛟 Learning Pod</span>
+          <span className="font-display text-sm font-extrabold uppercase tracking-wide">{t('arena.learn.pod')}</span>
           <span className="chip bg-white/20 text-white">{cat.emoji} {cat.label}</span>
         </div>
 
@@ -54,8 +56,8 @@ export function LearningPanel({
           {learnState === 'answering' && (
             <motion.div key="ask" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <div className="mb-3 flex items-center justify-between">
-                <span className={`chip ${DIFF_STYLE[q.difficulty]}`}>{q.difficulty}</span>
-                <span className="text-sm font-bold text-ink-faint">Answer to respawn ⚡</span>
+                <span className={`chip ${DIFF_STYLE[q.difficulty]}`}>{t(`diff.${q.difficulty}`)}</span>
+                <span className="text-sm font-bold text-ink-faint">{t('arena.learn.answer')}</span>
               </div>
               <div className="mb-4 text-center">
                 <div className="text-4xl">{q.emoji}</div>
@@ -72,8 +74,8 @@ export function LearningPanel({
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300 }} className="text-6xl">
                 🎉
               </motion.div>
-              <p className="mt-2 font-display text-2xl font-extrabold text-mint-600">Correct!</p>
-              <p className="text-ink-soft">Respawning you now…</p>
+              <p className="mt-2 font-display text-2xl font-extrabold text-mint-600">{t('arena.learn.correct')}</p>
+              <p className="text-ink-soft">{t('arena.learn.respawning')}</p>
               {lastReward && (
                 <div className="mt-3 flex justify-center gap-2">
                   <span className="chip bg-sun/30 text-ink">⚡ +{lastReward.xp} XP</span>
@@ -87,9 +89,9 @@ export function LearningPanel({
           {learnState === 'wrong-cooldown' && (
             <motion.div key="learn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-2 text-center">
               <div className="text-5xl">💡</div>
-              <p className="mt-2 font-display text-lg font-extrabold text-grape">Almost — here's the trick!</p>
+              <p className="mt-2 font-display text-lg font-extrabold text-grape">{t('arena.learn.almost')}</p>
               <p className="mt-2 rounded-2xl bg-grape-50 p-3 text-sm font-semibold text-ink-soft">{q.explain}</p>
-              <p className="mt-4 text-sm font-bold text-ink-faint">Charging your respawn pod…</p>
+              <p className="mt-4 text-sm font-bold text-ink-faint">{t('arena.learn.charging')}</p>
               <div className="mt-2 h-3 overflow-hidden rounded-full bg-grape-100">
                 <motion.div
                   initial={{ width: '0%' }}
@@ -98,7 +100,7 @@ export function LearningPanel({
                   className="h-full bg-gradient-to-r from-grape to-bubble"
                 />
               </div>
-              <p className="mt-2 text-xs text-ink-faint">A fresh question is on the way — you've got this! 💪</p>
+              <p className="mt-2 text-xs text-ink-faint">{t('arena.learn.fresh')}</p>
             </motion.div>
           )}
         </AnimatePresence>

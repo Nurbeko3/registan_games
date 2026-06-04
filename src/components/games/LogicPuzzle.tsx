@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Reorder } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 interface Block { id: number; text: string }
@@ -61,6 +62,7 @@ const PUZZLE_SETS: PuzzleSet[] = [
 ];
 
 export function LogicPuzzle({ onWin }: GameProps) {
+  const t = useT();
   const order = useMemo(
     () => [...Array(PUZZLE_SETS.length).keys()].sort(() => Math.random() - 0.5),
     [],
@@ -91,7 +93,7 @@ export function LogicPuzzle({ onWin }: GameProps) {
         const stars = totalWrong === 0 ? 3 : totalWrong <= 2 ? 2 : 1;
         onWin(stars);
       } else {
-        setMsg(`✅ Correct! Next puzzle…`);
+        setMsg(t('mg.logic.correct'));
         setTimeout(() => {
           setStep((s) => {
             const next = s + 1;
@@ -102,7 +104,7 @@ export function LogicPuzzle({ onWin }: GameProps) {
       }
     } else {
       setTotalWrong((w) => w + 1);
-      setMsg('Not quite — drag the steps into the right order!');
+      setMsg(t('mg.logic.wrong'));
       setTimeout(() => setMsg(null), 1600);
     }
   };
@@ -116,7 +118,7 @@ export function LogicPuzzle({ onWin }: GameProps) {
         </span>
       </div>
       <p className="text-center text-sm font-bold text-ink-soft">
-        Drag the steps into the correct order, then check!
+        {t('mg.logic.instr')}
       </p>
       <Reorder.Group
         axis="y"
@@ -145,7 +147,7 @@ export function LogicPuzzle({ onWin }: GameProps) {
         </p>
       )}
       <button onClick={check} className="btn-primary mt-4 w-full">
-        Check order ✓
+        {t('mg.logic.check')}
       </button>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 interface Round { code: string[]; options: string[]; answer: number }
@@ -20,6 +21,7 @@ const ALL_ROUNDS: Round[] = [
 ];
 
 export function LoopOutput({ onWin }: GameProps) {
+  const t = useT();
   const rounds = useMemo(
     () => [...ALL_ROUNDS].sort(() => Math.random() - 0.5).slice(0, 5),
     [],
@@ -49,7 +51,7 @@ export function LoopOutput({ onWin }: GameProps) {
   return (
     <div className="card">
       <div className="mb-2 flex items-center justify-between">
-        <p className="font-bold text-ink-soft">🔮 What will this print?</p>
+        <p className="font-bold text-ink-soft">{t('mg.loop.instr')}</p>
         <span className="chip bg-grape-50 text-grape text-xs">{step + 1}/{rounds.length}</span>
       </div>
       <div className="mx-auto mt-3 max-w-sm rounded-2xl bg-ink p-4 font-mono text-sm text-mint">

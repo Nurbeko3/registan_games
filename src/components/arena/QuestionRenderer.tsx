@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { PreparedQuestion } from '@/lib/arena/types';
 
 /** Renders any of the six BATTLE LEARN ARENA question types and reports the
@@ -14,6 +15,7 @@ export function QuestionRenderer({
   prepared: PreparedQuestion;
   onAnswer: (response: number | string[]) => void;
 }) {
+  const t = useT();
   const { q } = prepared;
 
   // reset any internal assembly state whenever a fresh question appears
@@ -75,7 +77,7 @@ export function QuestionRenderer({
       <div>
         <div className="min-h-[3rem] rounded-2xl border-2 border-dashed border-grape-100 p-2">
           {order.length === 0 ? (
-            <p className="py-2 text-sm font-bold text-ink-faint">Tap the steps in order…</p>
+            <p className="py-2 text-sm font-bold text-ink-faint">{t('arena.q.tap')}</p>
           ) : (
             <ol className="flex flex-wrap gap-2">
               {order.map((b, i) => (
@@ -99,13 +101,13 @@ export function QuestionRenderer({
           ))}
         </div>
         <div className="mt-3 flex gap-2">
-          <button onClick={() => setOrder([])} className="btn-ghost flex-1 py-2 text-sm">↺ Reset</button>
+          <button onClick={() => setOrder([])} className="btn-ghost flex-1 py-2 text-sm">{t('arena.q.reset')}</button>
           <button
             onClick={() => onAnswer(order)}
             disabled={remaining.length > 0}
             className="btn-primary flex-1 py-2 text-sm disabled:opacity-40"
           >
-            Check ✓
+            {t('arena.q.check')}
           </button>
         </div>
       </div>
@@ -133,8 +135,8 @@ export function QuestionRenderer({
             </button>
           ))}
         </div>
-        <p className="mt-2 font-bold">Your number: <span className={value === q.target ? 'text-mint-600' : 'text-bubble-600'}>{value}</span></p>
-        <button onClick={() => onAnswer(value)} className="btn-primary mt-3 w-full py-2 text-sm">Check ✓</button>
+        <p className="mt-2 font-bold">{t('arena.q.your')} <span className={value === q.target ? 'text-mint-600' : 'text-bubble-600'}>{value}</span></p>
+        <button onClick={() => onAnswer(value)} className="btn-primary mt-3 w-full py-2 text-sm">{t('arena.q.check')}</button>
       </div>
     );
   }

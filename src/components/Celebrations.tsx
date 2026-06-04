@@ -3,9 +3,11 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { Confetti } from '@/components/ui/Confetti';
+import { useT } from '@/lib/i18n';
 
 /** Global overlay that pops whenever a new achievement is unlocked anywhere. */
 export function Celebrations() {
+  const t = useT();
   const celebrations = useGame((s) => s.celebrations);
   const dismiss = useGame((s) => s.dismissCelebration);
   const current = celebrations[0];
@@ -32,11 +34,11 @@ export function Celebrations() {
             <motion.div className="text-6xl" animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 0.8, repeat: Infinity }}>
               {current.emoji}
             </motion.div>
-            <p className="mt-2 font-display text-sm font-bold uppercase tracking-wide text-grape">Achievement unlocked!</p>
+            <p className="mt-2 font-display text-sm font-bold uppercase tracking-wide text-grape">{t('ach.unlocked')}</p>
             <h2 className="mt-1 font-display text-2xl font-extrabold">{current.title}</h2>
             <p className="mt-1 text-ink-soft">{current.description}</p>
-            <p className="mt-2 font-bold text-mango">+25 XP · +15 💰</p>
-            <button className="btn-primary mt-4 w-full" onClick={() => dismiss(current.code)}>Awesome! 🎉</button>
+            <p className="mt-2 font-bold text-mango">{t('ach.reward')}</p>
+            <button className="btn-primary mt-4 w-full" onClick={() => dismiss(current.code)}>{t('ach.awesome')}</button>
           </motion.div>
         </motion.div>
       )}

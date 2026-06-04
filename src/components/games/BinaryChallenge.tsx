@@ -2,11 +2,13 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 const BITS = [16, 8, 4, 2, 1]; // 5-bit → 0..31
 
 export function BinaryChallenge({ onWin }: GameProps) {
+  const t = useT();
   const target = useMemo(() => 1 + Math.floor(Math.random() * 31), []);
   const [bits, setBits] = useState<boolean[]>([false, false, false, false, false]);
   const [tries, setTries] = useState(0);
@@ -29,7 +31,7 @@ export function BinaryChallenge({ onWin }: GameProps) {
 
   return (
     <div className="card text-center">
-      <p className="font-bold text-ink-soft">Flip the bits so they add up to:</p>
+      <p className="font-bold text-ink-soft">{t('mg.binary.instr')}</p>
       <p className="mt-1 font-display text-5xl font-extrabold text-grape">{target}</p>
 
       <motion.div animate={shake ? { x: [-8, 8, -6, 6, 0] } : {}} className="mt-5 flex justify-center gap-2">
@@ -48,10 +50,10 @@ export function BinaryChallenge({ onWin }: GameProps) {
       </motion.div>
 
       <p className="mt-4 font-display text-lg font-extrabold">
-        Your number: <span className={value === target ? 'text-mint' : 'text-bubble-600'}>{value}</span>
+        {t('arena.q.your')} <span className={value === target ? 'text-mint' : 'text-bubble-600'}>{value}</span>
       </p>
-      <button onClick={check} className="btn-primary mt-3 w-full">Check ✓</button>
-      <p className="mt-2 text-sm font-bold text-ink-faint">Tries: {tries} · first try = ⭐⭐⭐</p>
+      <button onClick={check} className="btn-primary mt-3 w-full">{t('mg.check')}</button>
+      <p className="mt-2 text-sm font-bold text-ink-faint">{t('mg.binary.tries', { n: tries })}</p>
     </div>
   );
 }

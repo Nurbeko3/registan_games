@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 type Cmd = 'up' | 'down' | 'left' | 'right';
@@ -66,6 +67,7 @@ const LEVELS: LevelDef[] = [
 ];
 
 export function RobotMaze({ onWin }: GameProps) {
+  const t = useT();
   const [levelIdx, setLevelIdx] = useState(0);
   const [program, setProgram] = useState<Cmd[]>([]);
   const [robot, setRobot] = useState(LEVELS[0].start);
@@ -193,7 +195,7 @@ export function RobotMaze({ onWin }: GameProps) {
       </div>
 
       <div className="card flex flex-col">
-        <p className="font-display font-extrabold">🧱 Build your program</p>
+        <p className="font-display font-extrabold">{t('mg.robot.build')}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {(Object.keys(MOVES) as Cmd[]).map((c) => (
             <button
@@ -209,7 +211,7 @@ export function RobotMaze({ onWin }: GameProps) {
         <div className="mt-3 min-h-[70px] flex-1 rounded-2xl bg-cloud p-2">
           {program.length === 0 ? (
             <p className="grid h-full place-items-center text-sm text-ink-faint">
-              Tap arrows to add steps →
+              {t('mg.robot.addSteps')}
             </p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
@@ -231,10 +233,10 @@ export function RobotMaze({ onWin }: GameProps) {
             disabled={running || !program.length}
             className="btn-primary flex-1 disabled:opacity-40"
           >
-            {running ? 'Running…' : '▶ Run'}
+            {running ? t('mg.robot.running') : t('mg.robot.run')}
           </button>
           <button onClick={() => reset()} disabled={running} className="btn-ghost">
-            Clear
+            {t('mg.robot.clear')}
           </button>
         </div>
       </div>

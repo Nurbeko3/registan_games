@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getHint, MENTOR_GREETINGS, ENCOURAGEMENTS } from '@/data/hints';
+import { useT } from '@/lib/i18n';
 
 interface Msg { from: 'byte' | 'me'; text: string }
 
@@ -11,6 +12,7 @@ interface Msg { from: 'byte' | 'me'; text: string }
  * current game. The getHint() seam is async so a real model can drop in later.
  */
 export function AIMentor({ game }: { game: string }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [messages, setMessages] = useState<Msg[]>([
@@ -20,7 +22,7 @@ export function AIMentor({ game }: { game: string }) {
   const askHint = async () => {
     const hint = await getHint({ game, attempt });
     setAttempt((a) => a + 1);
-    setMessages((m) => [...m, { from: 'me', text: 'Give me a hint!' }, { from: 'byte', text: hint }]);
+    setMessages((m) => [...m, { from: 'me', text: t('mentor.askHint') }, { from: 'byte', text: hint }]);
   };
 
   const cheer = () => {
@@ -32,7 +34,7 @@ export function AIMentor({ game }: { game: string }) {
     <>
       <motion.button
         onClick={() => setOpen((o) => !o)}
-        aria-label="Open Byte, your AI mentor"
+        aria-label={t('mentor.open')}
         className="fixed bottom-5 right-5 z-40 grid h-16 w-16 place-items-center rounded-full bg-grape text-3xl text-white shadow-toy"
         animate={{ y: [0, -8, 0] }}
         transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
@@ -53,7 +55,7 @@ export function AIMentor({ game }: { game: string }) {
               <span className="text-2xl">🤖</span>
               <div>
                 <p className="font-display font-extrabold leading-tight">Byte</p>
-                <p className="text-xs text-white/80">Your coding buddy</p>
+                <p className="text-xs text-white/80">{t('mentor.sub')}</p>
               </div>
             </div>
 
@@ -66,8 +68,8 @@ export function AIMentor({ game }: { game: string }) {
             </div>
 
             <div className="flex gap-2 border-t border-cloud p-3">
-              <button onClick={askHint} className="btn-primary flex-1 py-2 text-sm">💡 Hint</button>
-              <button onClick={cheer} className="btn-ghost py-2 text-sm">Cheer me on!</button>
+              <button onClick={askHint} className="btn-primary flex-1 py-2 text-sm">{t('mentor.hint')}</button>
+              <button onClick={cheer} className="btn-ghost py-2 text-sm">{t('mentor.cheer')}</button>
             </div>
           </motion.div>
         )}

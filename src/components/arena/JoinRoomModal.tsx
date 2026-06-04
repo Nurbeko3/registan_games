@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import { Overlay } from './CreateRoomModal';
+import { useT } from '@/lib/i18n';
 
 /** Enter a 6-digit room code to join a friend's room. */
 export function JoinRoomModal({ onJoin, onClose }: { onJoin: (code: string) => void; onClose: () => void }) {
+  const t = useT();
   const [code, setCode] = useState('');
   const valid = code.length >= 4;
   const join = () => { if (valid) onJoin(code); };
 
   return (
     <Overlay onClose={onClose}>
-      <p className="font-display text-xl font-extrabold">🔑 Join a room</p>
-      <p className="mt-1 text-sm text-ink-soft">Type the code your friend shared.</p>
+      <p className="font-display text-xl font-extrabold">{t('arena.join.t')}</p>
+      <p className="mt-1 text-sm text-ink-soft">{t('arena.join.sub')}</p>
 
       <input
         value={code}
@@ -25,7 +27,7 @@ export function JoinRoomModal({ onJoin, onClose }: { onJoin: (code: string) => v
       />
 
       <button onClick={join} disabled={!valid} className="btn-primary mt-5 w-full text-lg disabled:opacity-40">
-        Join →
+        {t('arena.join.btn')}
       </button>
     </Overlay>
   );

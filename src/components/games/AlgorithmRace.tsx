@@ -2,10 +2,12 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 /** Tap the numbers from smallest to largest as fast as you can. Teaches sorting. */
 export function AlgorithmRace({ onWin }: GameProps) {
+  const tr = useT();
   const numbers = useMemo(() => {
     const set = new Set<number>();
     while (set.size < 8) set.add(1 + Math.floor(Math.random() * 99));
@@ -47,13 +49,13 @@ export function AlgorithmRace({ onWin }: GameProps) {
     <div className="card text-center">
       {!started ? (
         <div className="py-6">
-          <p className="font-bold text-ink-soft">Tap the numbers from smallest to biggest — as fast as you can!</p>
-          <button onClick={start} className="btn-primary mt-4 text-lg">🏁 Start race!</button>
+          <p className="font-bold text-ink-soft">{tr('mg.race.instr')}</p>
+          <button onClick={start} className="btn-primary mt-4 text-lg">{tr('mg.race.start')}</button>
         </div>
       ) : (
         <>
-          <p className="font-display text-lg font-extrabold">⏱️ {time.toFixed(1)}s · Next: <span className="text-grape">{sorted[next] ?? '🎉'}</span></p>
-          {wrong && <p className="text-sm font-bold text-bubble-600">Oops! Find the smallest one left. (+1s)</p>}
+          <p className="font-display text-lg font-extrabold">⏱️ {time.toFixed(1)}s · {tr('mg.race.next')} <span className="text-grape">{sorted[next] ?? '🎉'}</span></p>
+          {wrong && <p className="text-sm font-bold text-bubble-600">{tr('mg.race.oops')}</p>}
           <div className="mx-auto mt-4 grid max-w-xs grid-cols-4 gap-2">
             {numbers.map((n) => {
               const done = sorted.indexOf(n) < next;
