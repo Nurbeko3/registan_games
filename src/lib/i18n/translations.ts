@@ -20,6 +20,7 @@ const en: Dict = {
   'loadout.title': 'Choose your blaster', 'loadout.hint': 'before battle',
   'loadout.selected': 'Selected', 'loadout.sub': 'Pick the style that feels best.',
   'loadout.power': 'Power', 'loadout.speed': 'Speed', 'loadout.control': 'Control',
+  'loadout.prev': 'Previous blaster', 'loadout.next': 'Next blaster',
   // arena menu + lobby
   'arena.create': 'Create Room', 'arena.createSub': 'Host a game with a code',
   'arena.join': 'Join Room', 'arena.joinSub': 'Enter a 6-digit code',
@@ -294,6 +295,7 @@ const ru: Dict = {
   'loadout.title': 'Выбери бластер', 'loadout.hint': 'перед боем',
   'loadout.selected': 'Выбран', 'loadout.sub': 'Выбери стиль, который удобнее.',
   'loadout.power': 'Сила', 'loadout.speed': 'Скорость', 'loadout.control': 'Контроль',
+  'loadout.prev': 'Предыдущий бластер', 'loadout.next': 'Следующий бластер',
   // arena menu + lobby
   'arena.create': 'Создать комнату', 'arena.createSub': 'Игра с кодом',
   'arena.join': 'Войти в комнату', 'arena.joinSub': 'Введите 6-значный код',
@@ -541,6 +543,7 @@ const uz: Dict = {
   'loadout.title': 'Qurolni tanlang', 'loadout.hint': 'jangdan oldin',
   'loadout.selected': 'Tanlandi', 'loadout.sub': 'O‘zingizga qulay uslubni tanlang.',
   'loadout.power': 'Kuch', 'loadout.speed': 'Tezlik', 'loadout.control': 'Nazorat',
+  'loadout.prev': 'Oldingi qurol', 'loadout.next': 'Keyingi qurol',
   // arena menu + lobby
   'arena.create': 'Xona yaratish', 'arena.createSub': 'Kod bilan o‘yin',
   'arena.join': 'Xonaga kirish', 'arena.joinSub': '6 xonali kodni kiriting',
