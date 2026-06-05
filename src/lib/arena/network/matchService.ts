@@ -42,6 +42,8 @@ function safeEvent(ev: NetEvent): boolean {
         bounded(d.angle, -Math.PI * 2, Math.PI * 2) && bounded(d.speed, 0, MAX_BULLET_SPEED) &&
         bounded(d.dmg, 0, MAX_DAMAGE) && bounded(d.life, 0, MAX_LIFE) &&
         (typeof d.weapon === 'string' && d.weapon.length <= 32);
+    case 'hit':
+      return bounded(d.hp, 0, 100) && shortId(d.by);
     case 'down':
       return shortId(d.by);
     case 'respawn':

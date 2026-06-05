@@ -48,6 +48,7 @@ export interface RoomPlayer {
 export type NetEventType =
   | 'move'      // {x,y,aim,vx,vy} — throttled, latest-wins
   | 'shoot'     // {x,y,angle,speed,dmg,life}
+  | 'hit'       // {hp,by} — victim-reported current HP after taking damage
   | 'down'      // {by} — "my hero was tagged out by <netId>" (victim-reported)
   | 'respawn'   // {x,y}
   | 'leave'     // {name} — player intentionally left the match

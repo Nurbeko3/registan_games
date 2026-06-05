@@ -190,6 +190,8 @@ export interface StepResult {
   heroHit?: { crit: boolean; killed: boolean };
   /** M2: the hero fired this frame → broadcast so opponents see/spawn the bolt. */
   heroShot?: { x: number; y: number; angle: number; speed: number; dmg: number; life: number };
+  /** M2: my hero took damage from this netId → broadcast current HP to opponents. */
+  heroDamaged?: { hp: number; by: string | null };
   /** M2: my hero was tagged out by this netId → broadcast a 'down' for scoring. */
   heroDownedBy?: string | null;
 }
@@ -635,6 +637,7 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
   let heroDeath: { x: number; y: number } | undefined;
   let heroHit: StepResult['heroHit'];
   let heroShot: StepResult['heroShot'];
+  let heroDamaged: StepResult['heroDamaged'];
   let heroDownedBy: string | null | undefined;
   dt = Math.min(dt, 0.05); // clamp big frame gaps
 
@@ -813,6 +816,8 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
         const dmg = Math.round(bullet.dmg * mult);
         f.hp -= dmg;
         f.flash = 1;
+        const killer = world.fighters.find((k) => k.id === bullet.ownerId);
+        if (world.multiplayer && f.isHero) heroDamaged = { hp: Math.max(0, f.hp), by: killer?.netId ?? null };
         fx?.impact(bullet.x, bullet.y, ang, 'player');
         fx?.damage(f.x, f.y - FIGHTER_R, dmg, crit);
         sounds.push(crit ? 'crit' : 'hit');
@@ -821,7 +826,6 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
 
         if (f.hp <= 0) {
           f.alive = false;
-          const killer = world.fighters.find((k) => k.id === bullet.ownerId);
           if (world.multiplayer) {
             // f is MY hero. Don't score locally — report who downed me; the host
             // tallies it from my broadcast 'down'. I return via the Learning Pod.
@@ -856,5 +860,5 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
   }
   world.bullets = live;
 
-  return { kills, heroDied, heroDeath, sounds, heroHit, heroShot, heroDownedBy };
+  return { kills, heroDied, heroDeath, sounds, heroHit, heroShot, heroDamaged, heroDownedBy };
 }

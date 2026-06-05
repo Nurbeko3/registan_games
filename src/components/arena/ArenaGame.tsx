@@ -582,6 +582,13 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       crit: false,
     }], ts);
   };
+  const applyRemoteHit = (victimNetId: string, byNetId: string, hp: number) => {
+    if (!validOpposingPlayers(byNetId, victimNetId)) return;
+    const victim = remoteFighter(victimNetId);
+    if (!victim || !victim.alive || scoredVictims.current.has(victimNetId)) return;
+    victim.hp = clampN(Math.round(hp), 0, 100);
+    victim.flash = 1;
+  };
   // host only: a tag-out scores for the killer's team (authoritative + broadcast)
   const hostScore = (killerNetId: string, victimNetId: string) => {
     const w = worldRef.current;
@@ -622,6 +629,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
           if (!victim || victim.alive) continue;
           applyRemoteRespawn(w, ev.from, { x: Number(d.x), y: Number(d.y) }, ts);
           scoredVictims.current.delete(ev.from);
+        }
+        else if (ev.t === 'hit') {
+          applyRemoteHit(ev.from, String(d.by ?? ''), Number(d.hp));
         }
         else if (ev.t === 'leave') {
           const name = typeof d.name === 'string' && d.name.trim() ? d.name.slice(0, 30) : rosterName(ev.from);
@@ -683,6 +693,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
             x: Math.round(res.heroShot.x), y: Math.round(res.heroShot.y), angle: +res.heroShot.angle.toFixed(3),
             speed: res.heroShot.speed, dmg: res.heroShot.dmg, life: res.heroShot.life, weapon: w.weapon.id,
           });
+        }
+        if (res.heroDamaged?.by) {
+          net.sendNet('hit', { hp: Math.max(0, Math.round(res.heroDamaged.hp)), by: res.heroDamaged.by });
         }
         if (res.heroDied) {
           const by = res.heroDownedBy ?? '';
