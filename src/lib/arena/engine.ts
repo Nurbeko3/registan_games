@@ -257,6 +257,8 @@ export function createWorld(
   initialWeapon: WeaponId = DEFAULT_WEAPON,
   /** the team the hero chose in the lobby (solo vs bots honours this too). */
   heroTeam: TeamId = 'red',
+  /** Host/teacher view: render the roster as remote fighters and do not spawn a playable hero. */
+  spectator = false,
 ): World {
   const rand = seed === undefined ? Math.random : makeRng(seed);
   const skill = DIFFICULTY_SKILL[difficulty];
@@ -305,9 +307,14 @@ export function createWorld(
     const sorted = [...roster!].sort((a, b) => (a.netId < b.netId ? -1 : 1));
     const spawns = new Map<string, { x: number; y: number }>();
     for (const e of sorted) spawns.set(e.netId, spawnPoint(e.team, rand));
-    const me = roster!.find((r) => r.netId === myNetId) ?? roster![0];
-    fighters.push(makeHuman(me, true, spawns.get(me.netId)!));
-    for (const e of roster!) if (e.netId !== me.netId) fighters.push(makeHuman(e, false, spawns.get(e.netId)!));
+    if (spectator) {
+      fighters.push(makeSpectator(hero));
+      for (const e of roster!) fighters.push(makeHuman(e, false, spawns.get(e.netId)!));
+    } else {
+      const me = roster!.find((r) => r.netId === myNetId) ?? roster![0];
+      fighters.push(makeHuman(me, true, spawns.get(me.netId)!));
+      for (const e of roster!) if (e.netId !== me.netId) fighters.push(makeHuman(e, false, spawns.get(e.netId)!));
+    }
   } else {
     const enemyTeam = otherTeam(heroTeam);
     fighters.push(make(heroTeam, true, 0)); // the hero leads their chosen team
@@ -327,6 +334,23 @@ export function createWorld(
     weapon: { id: startWeaponId, mag: startWeapon.magSize, reserve: startWeapon.reserve, reloadUntil: 0, reloadStart: 0 },
     multiplayer,
     myNetId: multiplayer ? myNetId! : null,
+  };
+}
+
+function makeSpectator(hero: { name: string; avatar: string }): Fighter {
+  return {
+    id: 'spectator',
+    team: 'red',
+    isHero: true,
+    name: hero.name || 'Host',
+    emoji: '👁️',
+    x: WORLD_W / 2, y: WORLD_H / 2, vx: 0, vy: 0,
+    hp: 0, alive: false, respawnAt: 0,
+    aimAngle: 0,
+    cooldownUntil: 0, score: 0, wander: 0,
+    personality: null, skill: 1,
+    recoil: 0, flash: 0, shieldUntil: 0,
+    remote: false, local: false, netId: null, weaponId: DEFAULT_WEAPON,
   };
 }
 

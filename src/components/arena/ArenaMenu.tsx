@@ -29,6 +29,7 @@ export function ArenaMenu({
   const setPlayerName = useGame((s) => s.setPlayerName);
   const arenaAvatar = useGame((s) => s.arenaAvatar);
   const setArenaAvatar = useGame((s) => s.setArenaAvatar);
+  const hasName = playerName.trim().length > 0;
 
   return (
     <div className="mx-auto max-w-md px-4 py-5">
@@ -50,10 +51,15 @@ export function ArenaMenu({
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             placeholder={t('arena.namePlaceholder')}
+            required
             maxLength={20}
-            className="flex-1 rounded-xl border-2 border-grape-100 bg-white px-3 py-2 font-extrabold outline-none focus:border-grape"
+            aria-invalid={!hasName}
+            className={`flex-1 rounded-xl border-2 bg-white px-3 py-2 font-extrabold outline-none focus:border-grape ${
+              hasName ? 'border-grape-100' : 'border-bubble/60'
+            }`}
           />
         </div>
+        {!hasName && <p className="mt-2 text-xs font-extrabold text-bubble-600">{t('arena.nameRequired')}</p>}
 
         {/* avatar grid */}
         <p className="mb-1.5 mt-3 text-xs font-extrabold text-ink-soft">{t('arena.pickAvatar')}</p>
@@ -81,10 +87,10 @@ export function ArenaMenu({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
             whileTap={{ scale: 0.98 }}
-            disabled={(!authorityChecked || !multiplayerEnabled) && o.id !== 'practice'}
+            disabled={!hasName || (((!authorityChecked || !multiplayerEnabled) && o.id !== 'practice'))}
             onClick={() => onSelect(o.id)}
             className={`group flex items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-card ring-1 ring-grape-100/70 transition hover:scale-[1.01] ${
-              (!authorityChecked || !multiplayerEnabled) && o.id !== 'practice' ? 'cursor-not-allowed opacity-50 grayscale hover:scale-100' : ''
+              !hasName || (((!authorityChecked || !multiplayerEnabled) && o.id !== 'practice')) ? 'cursor-not-allowed opacity-50 grayscale hover:scale-100' : ''
             }`}
           >
             <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${o.color} text-white shadow-card`}>
@@ -93,7 +99,9 @@ export function ArenaMenu({
             <span className="flex-1">
               <span className="block font-display font-extrabold leading-tight">{t(o.titleKey)}</span>
               <span className="block text-xs font-bold text-ink-soft">
-                {!authorityChecked && o.id !== 'practice'
+                {!hasName
+                  ? t('arena.nameRequiredShort')
+                  : !authorityChecked && o.id !== 'practice'
                   ? t('arena.authorityChecking')
                   : !multiplayerEnabled && o.id !== 'practice'
                     ? t('arena.authorityOff')

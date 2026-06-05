@@ -14,6 +14,13 @@ import { getMode } from '@/data/arenaModes';
 import { createTransport, type PresenceMeta, type Transport } from './realtime';
 import { MatchService } from './matchService';
 import {
+  arenaRoomCreate,
+  arenaRoomEnd,
+  arenaRoomStart,
+  arenaRoomState,
+  type PersistentRoomState,
+} from './roomPersistence';
+import {
   DEFAULT_SETTINGS,
   makeMatchId,
   makeSeed,
@@ -93,6 +100,10 @@ export class RoomService {
   private match: MatchService;
   private listeners = new Set<(s: RoomState) => void>();
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private persistenceTimer: ReturnType<typeof setInterval> | null = null;
+  private persistenceBusy = false;
+  private persistenceRevision = -1;
+  private hostToken: string | null = null;
   // join validation: a code-joiner must see a host or the room is "not found"
   private validated = false;
   private validateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -180,6 +191,95 @@ export class RoomService {
 
   private note(name: string) { this.lastEvent = { name, at: Date.now() }; }
 
+  private startCountdown(startAt: number) {
+    if (this.timer) clearTimeout(this.timer);
+    const delay = Math.max(0, startAt - Date.now());
+    if (delay <= 80) {
+      this.phase = 'playing';
+      this.emit();
+      return;
+    }
+    this.phase = 'countdown';
+    this.emit();
+    this.timer = setTimeout(() => {
+      this.phase = 'playing';
+      this.emit();
+    }, delay);
+  }
+
+  private adoptStart(payload: {
+    matchId: string;
+    seed: number;
+    roster: RosterEntry[];
+    startAt?: number;
+  }) {
+    this.matchId = payload.matchId || makeMatchId();
+    this.seed = Number(payload.seed) || 0;
+    this.roster = Array.isArray(payload.roster) ? payload.roster : [];
+    this.startAt = payload.startAt ?? Date.now() + COUNTDOWN_MS;
+    this.liveScores = { red: 0, blue: 0 };
+    this.matchEnd = null;
+    this.startCountdown(this.startAt);
+  }
+
+  private adoptPersistentState(state: PersistentRoomState) {
+    if (state.revision <= this.persistenceRevision) return;
+    this.persistenceRevision = state.revision;
+    if (state.host_client_id) this.trustedHostId = state.host_client_id;
+    if (state.settings) this.settings = { ...this.settings, ...state.settings };
+
+    if (!this.forcedHost && !this.quick && !this.validated) {
+      this.validated = true;
+      if (this.validateTimer) { clearTimeout(this.validateTimer); this.validateTimer = null; }
+      if (this.phase === 'connecting') this.phase = 'lobby';
+    }
+
+    if (state.status === 'playing' && state.match_id && typeof state.seed === 'number') {
+      const parsedStart = state.started_at ? Date.parse(state.started_at) : NaN;
+      this.adoptStart({
+        matchId: state.match_id,
+        seed: state.seed,
+        roster: state.roster,
+        startAt: Number.isFinite(parsedStart) ? parsedStart : Date.now() + COUNTDOWN_MS,
+      });
+      return;
+    }
+
+    if (state.status === 'ended') {
+      this.phase = 'ended';
+    }
+    this.emit();
+  }
+
+  private async ensurePersistentRoom(): Promise<string | null> {
+    if (!this.forcedHost || this.quick) return this.hostToken;
+    if (this.hostToken) return this.hostToken;
+    const res = await arenaRoomCreate(this.code, this.transport.id, this.settings);
+    if (res.ok) {
+      this.hostToken = res.token ?? null;
+      if (res.state) this.adoptPersistentState(res.state);
+    }
+    return this.hostToken;
+  }
+
+  private async pullPersistentState() {
+    if (this.persistenceBusy) return;
+    this.persistenceBusy = true;
+    const res = await arenaRoomState(this.code);
+    this.persistenceBusy = false;
+    if (!res.ok || !res.state) return;
+    this.adoptPersistentState(res.state);
+  }
+
+  private startPersistencePolling() {
+    if (this.persistenceTimer) return;
+    void this.pullPersistentState();
+    this.persistenceTimer = setInterval(() => {
+      if (this.phase === 'playing' || this.phase === 'ended' || this.phase === 'error') return;
+      void this.pullPersistentState();
+    }, 1400);
+  }
+
   private hostId(): string | null {
     if (!this.quick && this.trustedHostId) return this.trustedHostId;
     const hosts = Object.entries(this.presence)
@@ -234,6 +334,8 @@ export class RoomService {
         // host goes straight to the lobby; a code-joiner stays 'connecting'
         // (shown as "looking for room…") until a host is confirmed present.
         if (this.phase === 'connecting' && (this.forcedHost || this.quick)) this.phase = 'lobby';
+        if (this.forcedHost && !this.quick) void this.ensurePersistentRoom();
+        if (!this.quick) this.startPersistencePolling();
         this.startJoinValidation();
       }
       if (s === 'error') { this.errorReason = 'cloud'; this.phase = 'error'; }
@@ -283,20 +385,13 @@ export class RoomService {
     t.on('start', (payload) => {
       this.note('start');
       if (!this.fromHost(payload)) return;
-      // adopt the host's match identity so EVERY client loads the same arena
-      this.matchId = (payload.matchId as string) ?? makeMatchId();
-      this.seed = Number(payload.seed) || 0;
-      this.roster = Array.isArray(payload.roster) ? (payload.roster as RosterEntry[]) : [];
-      // FIXED relative countdown from when WE receive 'start'. Never use the host's
-      // absolute epoch — cross-device clock skew would leave a client stuck in
-      // 'countdown' (it would "never enter" the match).
-      this.startAt = Date.now() + COUNTDOWN_MS;
-      this.liveScores = { red: 0, blue: 0 };
-      this.matchEnd = null;
-      this.phase = 'countdown';
-      this.emit();
-      if (this.timer) clearTimeout(this.timer);
-      this.timer = setTimeout(() => { this.phase = 'playing'; this.emit(); }, COUNTDOWN_MS);
+      this.adoptStart({
+        matchId: (payload.matchId as string) ?? makeMatchId(),
+        seed: Number(payload.seed) || 0,
+        roster: Array.isArray(payload.roster) ? (payload.roster as RosterEntry[]) : [],
+        // Broadcast remains a relative countdown because client clocks can differ.
+        startAt: Date.now() + COUNTDOWN_MS,
+      });
     });
     // host-authoritative score mirror (host also receives its own via broadcast:self)
     t.on('score', (payload) => {
@@ -341,21 +436,38 @@ export class RoomService {
     if (!this.isHost()) return;
     // guard: never start until every joined player has readied up
     const players = this.toPlayers();
-    if (!players.length || players.some((p) => !p.ready)) return;
-    const at = Date.now() + COUNTDOWN_MS;
-    this.transport.broadcast('start', { at, matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster() });
+    const contenders = players.filter((p) => !p.isHost);
+    if (contenders.length < 2 || contenders.some((p) => !p.ready)) return;
+    const payload = { matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster() };
+    void this.persistStart(payload);
+    this.transport.broadcast('start', payload);
+    this.adoptStart({ ...payload, startAt: Date.now() + COUNTDOWN_MS });
+  }
+
+  private async persistStart(payload: { matchId: string; seed: number; roster: RosterEntry[] }) {
+    const token = await this.ensurePersistentRoom();
+    if (!token) return;
+    const res = await arenaRoomStart(this.code, token, {
+      ...payload,
+      settings: this.settings,
+      countdownMs: COUNTDOWN_MS,
+    });
+    if (res.ok && res.state) this.adoptPersistentState(res.state);
   }
 
   /** Host builds the match roster from lobby presence (netId + chosen team). */
   private buildRoster(): RosterEntry[] {
     const map: Record<string, RosterEntry> = {};
     for (const [netId, m] of Object.entries(this.presence)) {
+      if (m.isHost) continue;
       map[netId] = { netId, name: m.name, avatar: m.avatar, team: m.team };
     }
     // make sure I'm in it with my latest team/avatar (presence can lag a beat)
-    map[this.transport.id] = {
-      netId: this.transport.id, name: this.me.name, avatar: this.me.avatar, team: this.me.team,
-    };
+    if (!this.me.isHost) {
+      map[this.transport.id] = {
+        netId: this.transport.id, name: this.me.name, avatar: this.me.avatar, team: this.me.team,
+      };
+    }
     const entries = Object.values(map);
     // Safety: if everyone ended up on one team there'd be no opponent — auto-split
     // (deterministically by netId) so a 1v1 always has someone to play against.
@@ -387,11 +499,13 @@ export class RoomService {
     if (!this.isHost()) return;
     this.matchEnd = { red, blue };
     this.transport.broadcast('match_end', { red, blue });
+    if (this.hostToken) void arenaRoomEnd(this.code, this.hostToken);
   }
 
   leave() {
     if (this.timer) clearTimeout(this.timer);
     if (this.validateTimer) clearTimeout(this.validateTimer);
+    if (this.persistenceTimer) clearInterval(this.persistenceTimer);
     this.match.stop();
     this.transport.disconnect();
     this.listeners.clear();

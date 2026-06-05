@@ -42,6 +42,7 @@ export function RoomLobby({
   const arenaAvatar = useGame((s) => s.arenaAvatar);
   const hero = { name: playerName || 'You', avatar: arenaAvatar };
   const [weapon, setWeapon] = useState<WeaponId>(DEFAULT_WEAPON);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, clientId, quick, settings });
   const s = room.state;
@@ -65,6 +66,19 @@ export function RoomLobby({
   // Every client builds the identical arena from the host's seed, and the host
   // drives the authoritative score/end. This is what makes one room = one match.
   if (s.phase === 'playing') {
+    const joinedBeforeStart = s.roster.length === 0 || s.roster.some((p) => p.netId === s.myId);
+    if (!joinedBeforeStart && !s.isHost) {
+      return (
+        <div className="mx-auto max-w-md px-4 py-8">
+          <div className="rounded-[28px] border border-grape-100 bg-white p-6 text-center shadow-soft">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-grape-50 text-3xl">⏱</div>
+            <p className="mt-3 font-display text-xl font-extrabold">{t('arena.matchAlreadyStarted')}</p>
+            <p className="mt-2 text-sm font-bold text-ink-soft">{t('arena.matchAlreadyStartedBody')}</p>
+            <button onClick={onLeave} className="btn-primary mt-5 w-full">← {t('hud.leave')}</button>
+          </div>
+        </div>
+      );
+    }
     const cfg = {
       mode: getMode(s.settings.modeId),
       perTeam: s.settings.perTeam,
@@ -86,6 +100,7 @@ export function RoomLobby({
       onExit: onLeave,
       myNetId: s.myId,
       roster: s.roster,
+      spectator: s.isHost && !s.roster.some((p) => p.netId === s.myId),
       sendNet: room.sendNet,
       drainNet: room.drainNet,
       debug: {
@@ -122,6 +137,15 @@ export function RoomLobby({
 
   const counting = s.phase === 'countdown';
   const set = (patch: Partial<RoomSettings>) => room.updateSettings(patch);
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard?.writeText(code);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 1400);
+    } catch {
+      setCopiedCode(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-md px-4 py-5">
@@ -130,11 +154,18 @@ export function RoomLobby({
         <ConnectionStatus connection={s.connection} kind={s.kind} />
       </div>
 
-      {/* room code */}
-      <div className="card text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-ink-faint">{t('lobby.roomCode')}</p>
-        <p className="mt-1 font-display text-4xl font-extrabold tracking-[0.3em] text-grape">{code}</p>
-        <p className="mt-1 text-xs text-ink-soft">{t('lobby.shareCode')}</p>
+      <div className="rounded-[28px] border border-grape-100 bg-white p-5 text-center shadow-soft">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-grape-50 text-2xl">#</div>
+        <p className="mt-3 text-xs font-bold uppercase tracking-widest text-ink-faint">{t('lobby.roomCode')}</p>
+        <button
+          type="button"
+          onClick={copyCode}
+          className="mt-2 w-full rounded-3xl bg-grape-50 px-4 py-4 font-display text-5xl font-extrabold tracking-[0.22em] text-grape shadow-inner transition hover:bg-grape-100"
+          aria-label={t('lobby.roomCode')}
+        >
+          {code}
+        </button>
+        <p className="mt-2 text-sm font-bold text-ink-soft">{copiedCode ? t('lobby.codeCopied') : t('lobby.shareCode')}</p>
       </div>
 
       <div className="mt-4">

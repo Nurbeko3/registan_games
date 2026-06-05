@@ -100,6 +100,8 @@ export interface ArenaNet {
   myNetId: string;
   /** everyone in the match + their teams (drives the shared world build). */
   roster: RosterEntry[];
+  /** true for the host/teacher view: watch the match, do not control a fighter. */
+  spectator?: boolean;
   /** send an in-match event (move/shoot/down/respawn). */
   sendNet: (t: NetEventType, data: NetEvent['data']) => void;
   /** drain remote in-match events to apply this frame. */
@@ -135,6 +137,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   // In multiplayer the HOST owns score/end; non-hosts mirror the host. Offline
   // Practice has no `net`, so `authoritative` is false and everything stays local.
   const authoritative = !!net && !net.isHost;
+  const spectator = net?.spectator === true;
   // M2: embodied play needs ≥2 humans in the roster; otherwise fall back to bots.
   const mp = !!(net && net.roster && net.roster.length >= 2);
   // The lobby team choice is honoured in BOTH modes — even solo-vs-bots, so picking
@@ -445,6 +448,13 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
 
   // ── combine all input sources into world.input each frame ──
   const applyInput = (w: World) => {
+    if (spectator) {
+      w.input.moveX = 0;
+      w.input.moveY = 0;
+      w.input.firing = false;
+      w.input.aim = { type: 'none' };
+      return;
+    }
     const c = ctl.current;
     if (c.moveId !== null) {
       const dx = c.moveKnob.x - c.moveBase.x;
@@ -620,11 +630,18 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
           announce(t('arena.playerLeft', { name }));
         }
         else if (ev.t === 'down') {
-          // Host never trusts victim-reported DOWN events for scoring. The host
-          // simulates received move/shoot events locally and scores only from
-          // that authoritative simulation, which blocks forged score bumps.
-          if (net.isHost) continue;
           const by = String(d.by ?? '');
+          if (net.isHost) {
+            // Spectator host has no local fighter, so it validates victim-
+            // reported downs instead of controlling/scoring as a player.
+            if (!spectator) continue;
+            const victim = remoteFighter(ev.from);
+            if (!victim || !victim.alive || !validOpposingPlayers(by, ev.from) || scoredVictims.current.has(ev.from)) continue;
+            applyRemoteDown(w, ev.from);
+            pushDown(by, ev.from, ts);
+            hostScore(by, ev.from);
+            continue;
+          }
           const victim = remoteFighter(ev.from);
           if (!victim || !victim.alive || !validOpposingPlayers(by, ev.from) || scoredVictims.current.has(ev.from)) continue;
           applyRemoteDown(w, ev.from);
@@ -653,7 +670,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       if (res.heroDied && res.heroDeath) startDying(res.heroDeath);
 
       // ── M2: broadcast MY hero so opponents see me (move coalesced @12Hz) ──
-      if (net && w.multiplayer) {
+      if (net && w.multiplayer && !spectator) {
         const hero = w.fighters[0];
         if (hero.alive) {
           net.sendNet('move', {
@@ -715,6 +732,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     worldRef.current = createWorld(
       perTeam, config.hero, config.obstacles, config.difficulty, config.seed, config.botFill ?? true,
       mp ? net!.roster : undefined, mp ? net!.myNetId : undefined, config.initialWeapon, myTeam,
+      spectator,
     );
     stats.current = { correct: 0, answered: 0, xp: 0, coins: 0 };
     usedIds.current.clear();

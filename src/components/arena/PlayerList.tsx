@@ -8,11 +8,12 @@ import { useT } from '@/lib/i18n';
 /** Live lobby roster from channel presence — team colour, host crown, ready tick. */
 export function PlayerList({ players, myId }: { players: RoomPlayer[]; myId: string }) {
   const t = useT();
-  const count = (tm: TeamId) => players.filter((p) => p.team === tm).length;
+  const contenders = players.filter((p) => !p.isHost);
+  const count = (tm: TeamId) => contenders.filter((p) => p.team === tm).length;
   return (
     <div className="card">
       <div className="flex items-center justify-between">
-        <p className="font-display font-extrabold">{t('arena.players')} ({players.length})</p>
+        <p className="font-display font-extrabold">{t('arena.players')} ({contenders.length})</p>
         <span className="text-xs font-bold text-ink-faint">
           {TEAMS.red.emoji} {count('red')} · {TEAMS.blue.emoji} {count('blue')}
         </span>
@@ -27,14 +28,14 @@ export function PlayerList({ players, myId }: { players: RoomPlayer[]; myId: str
               exit={{ opacity: 0, x: 12 }}
               className="flex items-center gap-2 rounded-2xl bg-grape-50/60 px-3 py-2"
             >
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${p.team === 'red' ? 'bg-bubble' : 'bg-sky'}`} />
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${p.isHost ? 'bg-sun' : p.team === 'red' ? 'bg-bubble' : 'bg-sky'}`} />
               <span className="text-xl">{p.avatar}</span>
               <span className="flex-1 truncate font-bold">
                 {p.name}
                 {p.id === myId && <span className="ml-1 text-xs text-ink-faint">{t('common.you')}</span>}
               </span>
-              {p.isHost && <span title="Host" className="text-sm">👑</span>}
-              <span className={`text-sm ${p.ready ? 'text-mint-600' : 'text-ink-faint'}`}>{p.ready ? '✓' : '…'}</span>
+              {p.isHost && <span className="rounded-full bg-sun/20 px-2 py-0.5 text-[11px] font-extrabold text-mango">{t('lobby.hostObserver')}</span>}
+              {!p.isHost && <span className={`text-sm ${p.ready ? 'text-mint-600' : 'text-ink-faint'}`}>{p.ready ? '✓' : '…'}</span>}
             </motion.li>
           ))}
         </AnimatePresence>

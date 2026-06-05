@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n';
 export function JoinRoomModal({ onJoin, onClose }: { onJoin: (code: string) => void; onClose: () => void }) {
   const t = useT();
   const [code, setCode] = useState('');
-  const valid = code.length >= 4;
+  const valid = code.length === 6;
   const join = () => { if (valid) onJoin(code); };
 
   return (
