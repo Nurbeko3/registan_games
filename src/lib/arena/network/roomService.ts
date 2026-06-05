@@ -454,7 +454,7 @@ export class RoomService {
     const players = this.toPlayers();
     const contenders = players.filter((p) => !(p.isHost && p.role === 'observer'));
     if (contenders.length < 2 || contenders.some((p) => !p.ready)) return;
-    const payload = { matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster() };
+    const payload = { matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster(contenders) };
     void this.persistStart(payload);
     this.transport.broadcast('start', payload);
     this.adoptStart({ ...payload, startAt: Date.now() + COUNTDOWN_MS });
@@ -471,18 +471,14 @@ export class RoomService {
     if (res.ok && res.state) this.adoptPersistentState(res.state);
   }
 
-  /** Host builds the match roster from lobby presence (netId + chosen team). */
-  private buildRoster(): RosterEntry[] {
+  /** Host builds the match roster from the SAME lobby snapshot used by start().
+   *  This avoids a race where optimistic player metadata is visible/ready in the
+   *  host UI, but raw presence lags and would omit that non-host from roster. */
+  private buildRoster(players: RoomPlayer[]): RosterEntry[] {
     const map: Record<string, RosterEntry> = {};
-    for (const [netId, m] of Object.entries(this.presence)) {
-      if (m.isHost && m.role === 'observer') continue;
-      map[netId] = { netId, name: m.name, avatar: m.avatar, team: m.team };
-    }
-    // make sure I'm in it with my latest team/avatar (presence can lag a beat)
-    if (!(this.me.isHost && this.me.role === 'observer')) {
-      map[this.transport.id] = {
-        netId: this.transport.id, name: this.me.name, avatar: this.me.avatar, team: this.me.team,
-      };
+    for (const p of players) {
+      if (p.isHost && p.role === 'observer') continue;
+      map[p.id] = { netId: p.id, name: p.name, avatar: p.avatar, team: p.team };
     }
     const entries = Object.values(map);
     // Safety: if everyone ended up on one team there'd be no opponent — auto-split
