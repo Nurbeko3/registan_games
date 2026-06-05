@@ -394,12 +394,14 @@ export class RoomService {
     t.on('start', (payload) => {
       this.note('start');
       if (!this.fromHost(payload)) return;
+      const broadcastStartAt = Number(payload.startAt);
       this.adoptStart({
         matchId: (payload.matchId as string) ?? makeMatchId(),
         seed: Number(payload.seed) || 0,
         roster: Array.isArray(payload.roster) ? (payload.roster as RosterEntry[]) : [],
-        // Broadcast remains a relative countdown because client clocks can differ.
-        startAt: Date.now() + COUNTDOWN_MS,
+        // Host sends one shared deadline so all clients enter the match together.
+        // If an old/invalid client omits it, fall back to the previous behavior.
+        startAt: Number.isFinite(broadcastStartAt) ? broadcastStartAt : Date.now() + COUNTDOWN_MS,
       });
     });
     // host-authoritative score mirror (host also receives its own via broadcast:self)
@@ -454,10 +456,11 @@ export class RoomService {
     const players = this.toPlayers();
     const contenders = players.filter((p) => !(p.isHost && p.role === 'observer'));
     if (contenders.length < 2 || contenders.some((p) => !p.ready)) return;
-    const payload = { matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster(contenders) };
+    const startAt = Date.now() + COUNTDOWN_MS;
+    const payload = { matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster(contenders), startAt };
     void this.persistStart(payload);
     this.transport.broadcast('start', payload);
-    this.adoptStart({ ...payload, startAt: Date.now() + COUNTDOWN_MS });
+    this.adoptStart(payload);
   }
 
   private async persistStart(payload: { matchId: string; seed: number; roster: RosterEntry[] }) {
