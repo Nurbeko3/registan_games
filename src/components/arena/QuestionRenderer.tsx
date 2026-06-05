@@ -31,17 +31,17 @@ export function QuestionRenderer({
     return (
       <div>
         {q.type === 'code-fill' && (
-          <pre className="mb-3 overflow-x-auto rounded-2xl bg-ink p-3 text-left font-mono text-sm leading-relaxed text-mint">
+          <pre className="mb-4 overflow-x-auto rounded-2xl bg-ink p-4 text-left font-mono text-lg leading-relaxed text-mint">
             {q.code.replace('___', '⬜')}
           </pre>
         )}
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           {prepared.options.map((opt, i) => (
             <motion.button
               key={i}
               whileTap={{ scale: 0.97 }}
               onClick={() => onAnswer(i)}
-              className="rounded-2xl bg-white p-3 text-center font-display font-extrabold shadow-card hover:bg-grape-50"
+              className="min-h-[64px] rounded-2xl bg-white px-4 py-4 text-center font-display text-xl font-extrabold shadow-card hover:bg-grape-50"
             >
               {opt}
             </motion.button>
@@ -60,7 +60,7 @@ export function QuestionRenderer({
             key={i}
             whileTap={{ scale: 0.98 }}
             onClick={() => onAnswer(i)}
-            className="flex items-center gap-2 rounded-2xl bg-ink p-3 font-mono text-sm text-cloud hover:ring-2 hover:ring-bubble"
+            className="flex items-center gap-2 rounded-2xl bg-ink p-4 font-mono text-lg text-cloud hover:ring-2 hover:ring-bubble"
           >
             <span className="text-ink-faint">{i + 1}</span>
             <span>{line}</span>

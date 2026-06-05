@@ -25,7 +25,7 @@ import {
 } from '@/lib/arena/engine';
 import type { NetEvent, NetEventType } from '@/lib/arena/network/types';
 import { WEAPONS, type WeaponId } from '@/lib/arena/weapons';
-import { useT } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n';
 import { ArenaHud, type HudData } from './hud/ArenaHud';
 import { drawWorld } from '@/lib/arena/render';
 import { Fx } from '@/lib/arena/effects';
@@ -46,7 +46,7 @@ import { LearningPanel } from './LearningPanel';
 import { MatchResults } from './MatchResults';
 import { ArenaDebugPanel, type ArenaDebugInfo } from './ArenaDebugPanel';
 
-const WRONG_COOLDOWN_MS = 8000;
+const WRONG_COOLDOWN_MS = 2000;
 const CELEBRATE_MS = 1300;
 const MAX_REWARDED_LEARNING_PODS = 8;
 const JOY_R = 56; // joystick radius (css px)
@@ -146,6 +146,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const soundOn = useGame((s) => s.settings.sound);
   const reducedMotion = useGame((s) => s.settings.reducedMotion);
   const t = useT();
+  const locale = useLocale();
 
   const [phase, setPhase] = useState<ArenaPhase>('intro');
   const [count, setCount] = useState(3);
@@ -278,7 +279,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   // ── question loading ──
   const loadQuestion = () => {
     const level = levelForXp(useGame.getState().xp);
-    const q = pickQuestion({ level, exclude: usedIds.current, categories: config.categories });
+    const q = pickQuestion({ level, exclude: usedIds.current, categories: config.categories, locale });
     usedIds.current.add(q.q.id);
     if (usedIds.current.size > 24) usedIds.current.clear();
     setPrepared(q);
@@ -847,7 +848,13 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     };
   };
 
+  const isUiControlEvent = (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement | null;
+    return !!target?.closest('button, a, input, [data-arena-control="true"]');
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
+    if (isUiControlEvent(e)) return;
     resumeAudio();
     if (phaseRef.current !== 'playing') return;
     const c = ctl.current;
@@ -865,6 +872,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (isUiControlEvent(e)) return;
     const c = ctl.current;
     const { cssX, cssY, wx, wy } = toLocal(e);
     if (e.pointerType === 'mouse') {
@@ -914,15 +922,15 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
 
       <div
         ref={wrapRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
         className={`select-none ${isFullscreen ? 'fixed inset-0 z-50 grid place-items-center bg-ink' : 'relative mt-3'}`}
       >
         <canvas
           ref={canvasRef}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onPointerLeave={onPointerUp}
           className={`touch-none transition ${
             isFullscreen ? '' : 'w-full rounded-xl2 shadow-card ring-1 ring-grape-100'
           } ${phase === 'learning' ? 'blur-sm brightness-90' : ''}`}
