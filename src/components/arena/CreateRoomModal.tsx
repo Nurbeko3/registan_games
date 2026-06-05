@@ -26,7 +26,7 @@ export function CreateRoomModal({ onCreate, onClose }: { onCreate: (s: RoomSetti
       <p className="mt-1 text-sm text-ink-soft">Pick the basics — you can change them in the lobby too.</p>
 
       <Row label="Map">
-        <Pills items={ARENA_MAPS.map((m) => ({ id: m.id, label: `${m.emoji} ${m.name}` }))} value={mapId} onPick={setMapId} />
+        <Pills items={ARENA_MAPS.map((m) => ({ id: m.id, label: `${m.emoji} ${m.name} · ${m.size} · ${m.challenge}` }))} value={mapId} onPick={setMapId} />
       </Row>
       <Row label="Mode">
         <Pills items={ARENA_MODES.map((m) => ({ id: m.id, label: `${m.emoji} ${m.name}` }))} value={modeId} onPick={(id) => setModeId(id as RoomSettings['modeId'])} />

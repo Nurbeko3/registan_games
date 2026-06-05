@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { useArenaRoom } from '@/lib/arena/network/useArenaRoom';
 import { TEAM_SIZES, getMode } from '@/data/arenaModes';
-import { getMap } from '@/data/arenaMaps';
+import { ARENA_MAPS, getMap } from '@/data/arenaMaps';
 import { DIFFICULTIES } from './PracticeSetup';
 import type { RoomSettings } from '@/lib/arena/network/types';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
@@ -193,6 +193,15 @@ export function RoomLobby({
         <p className="font-display font-extrabold">
           {t('lobby.settings')} {s.isHost && <span className="text-xs text-grape">{t('lobby.youreHost')}</span>}
         </p>
+
+        <SettingRow label="Map">
+          <Pills
+            items={ARENA_MAPS.map((m) => ({ id: m.id, label: `${m.emoji} ${m.name} · ${m.size} · ${m.challenge}` }))}
+            value={s.settings.mapId}
+            disabled={!s.isHost}
+            onPick={(id) => set({ mapId: id })}
+          />
+        </SettingRow>
 
         <SettingRow label={t('lobby.teamSize')}>
           <Pills

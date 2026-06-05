@@ -11,9 +11,12 @@
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+    /* Gentle comfort scale: slightly larger everything for young readers.
+       rem-based text + spacing grow together, so the whole site breathes more. */
+    font-size: 17px;
   }
   body {
-    @apply bg-cloud text-ink font-sans antialiased;
+    @apply bg-cloud text-ink font-sans antialiased leading-relaxed;
     text-rendering: optimizeLegibility;
     background:
       linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,246,254,0.96) 34rem),
@@ -38,8 +41,10 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 font-display font-bold
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 font-display font-extrabold
            transition-[transform,background-color,box-shadow] duration-200 active:translate-y-0.5 active:shadow-none select-none;
+    /* comfortable, finger-sized tap target for kids */
+    min-height: 2.875rem;
   }
   .btn-primary {
     @apply btn bg-grape text-white shadow-card ring-1 ring-grape-600/20 hover:bg-grape-600;
@@ -51,7 +56,7 @@
     @apply btn bg-white/95 text-ink shadow-card ring-1 ring-grape-100/70 hover:bg-grape-50;
   }
   .card {
-    @apply rounded-2xl bg-white/95 p-6 shadow-card ring-1 ring-grape-100/60 backdrop-blur-sm;
+    @apply rounded-3xl bg-white/95 p-6 shadow-card ring-1 ring-grape-100/60 backdrop-blur-sm;
   }
   .game-surface {
     @apply text-lg;
@@ -70,7 +75,13 @@
     @apply transition-transform duration-200 hover:-translate-y-1 active:translate-y-0 active:scale-[0.98];
   }
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold ring-1 ring-black/[0.04];
+    @apply inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-bold ring-1 ring-black/[0.04];
+  }
+  /* drop-in comfortable tap target for icon-only buttons (≥44px) */
+  .tap {
+    @apply grid place-items-center;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
   /* animated gradient text */
   .text-rainbow {
