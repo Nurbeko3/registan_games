@@ -68,6 +68,7 @@ class SupabaseTransport implements Transport {
         map[id] = {
           name: m.name ?? 'Player', avatar: m.avatar ?? '🐱',
           team: m.team ?? 'red', ready: m.ready ?? false, isHost: m.isHost ?? false,
+          role: m.role === 'observer' ? 'observer' : 'player',
         };
       }
       this.presenceCb?.(map);

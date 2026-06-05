@@ -11,7 +11,8 @@ import { makeRoomCode, DEFAULT_SETTINGS, type RoomSettings } from '@/lib/arena/n
 import { loadArenaAuthorityStatus } from '@/lib/arena/authority';
 
 type View = 'menu' | 'practice' | 'room';
-interface RoomEntry { code: string; isHost: boolean; quick: boolean; clientId: string; settings?: RoomSettings }
+type HostRole = 'observer' | 'player';
+interface RoomEntry { code: string; isHost: boolean; quick: boolean; clientId: string; settings?: RoomSettings; hostRole?: HostRole }
 
 const ROOM_SESSION_KEY = 'kcq.arena.room.v1';
 const makeClientId = () => Math.random().toString(36).slice(2, 10);
@@ -29,6 +30,7 @@ function readSavedRoom(): RoomEntry | null {
       quick: parsed.quick === true,
       clientId: typeof parsed.clientId === 'string' && parsed.clientId ? parsed.clientId : makeClientId(),
       settings: parsed.settings,
+      hostRole: parsed.hostRole === 'player' ? 'player' : 'observer',
     };
   } catch {
     return null;
@@ -46,7 +48,7 @@ function saveRoom(room: RoomEntry | null) {
  *  configured, and a same-device local transport otherwise. */
 export default function ArenaPage() {
   const [view, setView] = useState<View>('menu');
-  const [modal, setModal] = useState<null | 'create' | 'join'>(null);
+  const [modal, setModal] = useState<null | 'hostRole' | 'join'>(null);
   const [room, setRoom] = useState<RoomEntry | null>(null);
   const [multiplayerEnabled, setMultiplayerEnabled] = useState(false);
   const [authorityChecked, setAuthorityChecked] = useState(false);
@@ -78,12 +80,14 @@ export default function ArenaPage() {
   const choose = (c: MenuChoice) => {
     if (c === 'practice') setView('practice');
     else if (!multiplayerEnabled) return;
-    // Create goes straight to the lobby with defaults — tune length/teams/bots there
-    else if (c === 'create') {
-      setRoom({ code: makeRoomCode(), isHost: true, quick: false, clientId: makeClientId(), settings: { ...DEFAULT_SETTINGS } });
-      setView('room');
-    }
+    else if (c === 'create') setModal('hostRole');
     else if (c === 'join') setModal('join');
+  };
+
+  const onCreate = (hostRole: HostRole) => {
+    setModal(null);
+    setRoom({ code: makeRoomCode(), isHost: true, quick: false, clientId: makeClientId(), settings: { ...DEFAULT_SETTINGS }, hostRole });
+    setView('room');
   };
 
   const onJoin = (code: string) => {
@@ -110,6 +114,7 @@ export default function ArenaPage() {
           isHost={room.isHost}
           clientId={room.clientId}
           quick={room.quick}
+          hostRole={room.hostRole}
           settings={room.settings}
           onSettingsChange={updateRoomSettings}
           onLeave={toMenu}
@@ -117,8 +122,30 @@ export default function ArenaPage() {
       )}
 
       <AnimatePresence>
+        {modal === 'hostRole' && <HostRoleModal onPick={onCreate} onClose={() => setModal(null)} />}
         {modal === 'join' && <JoinRoomModal onJoin={onJoin} onClose={() => setModal(null)} />}
       </AnimatePresence>
     </main>
+  );
+}
+
+function HostRoleModal({ onPick, onClose }: { onPick: (role: HostRole) => void; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-soft" onClick={(e) => e.stopPropagation()}>
+        <p className="font-display text-xl font-extrabold">Host roli</p>
+        <p className="mt-1 text-sm font-bold text-ink-soft">Xonani qanday boshqarasiz?</p>
+        <div className="mt-4 grid gap-3">
+          <button onClick={() => onPick('observer')} className="rounded-2xl bg-grape-50 p-4 text-left shadow-card ring-2 ring-grape">
+            <span className="block font-display text-lg font-extrabold text-grape">👁 Kuzatuvchi</span>
+            <span className="mt-1 block text-sm font-bold text-ink-soft">Siz o‘ynamaysiz. O‘quvchilar o‘ynaydi, siz kuzatasiz.</span>
+          </button>
+          <button onClick={() => onPick('player')} className="rounded-2xl bg-white p-4 text-left shadow-card ring-1 ring-grape-100">
+            <span className="block font-display text-lg font-extrabold">⚔️ O‘yinchi</span>
+            <span className="mt-1 block text-sm font-bold text-ink-soft">Siz ham jamoaga qo‘shilib o‘ynaysiz.</span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

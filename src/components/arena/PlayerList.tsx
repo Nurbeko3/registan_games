@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n';
 /** Live lobby roster from channel presence — team colour, host crown, ready tick. */
 export function PlayerList({ players, myId }: { players: RoomPlayer[]; myId: string }) {
   const t = useT();
-  const contenders = players.filter((p) => !p.isHost);
+  const contenders = players.filter((p) => !(p.isHost && p.role === 'observer'));
   const count = (tm: TeamId) => contenders.filter((p) => p.team === tm).length;
   return (
     <div className="card">
@@ -28,14 +28,15 @@ export function PlayerList({ players, myId }: { players: RoomPlayer[]; myId: str
               exit={{ opacity: 0, x: 12 }}
               className="flex items-center gap-2 rounded-2xl bg-grape-50/60 px-3 py-2"
             >
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${p.isHost ? 'bg-sun' : p.team === 'red' ? 'bg-bubble' : 'bg-sky'}`} />
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${p.isHost && p.role === 'observer' ? 'bg-sun' : p.team === 'red' ? 'bg-bubble' : 'bg-sky'}`} />
               <span className="text-xl">{p.avatar}</span>
               <span className="flex-1 truncate font-bold">
                 {p.name}
                 {p.id === myId && <span className="ml-1 text-xs text-ink-faint">{t('common.you')}</span>}
               </span>
-              {p.isHost && <span className="rounded-full bg-sun/20 px-2 py-0.5 text-[11px] font-extrabold text-mango">{t('lobby.hostObserver')}</span>}
-              {!p.isHost && <span className={`text-sm ${p.ready ? 'text-mint-600' : 'text-ink-faint'}`}>{p.ready ? '✓' : '…'}</span>}
+              {p.isHost && p.role === 'observer' && <span className="rounded-full bg-sun/20 px-2 py-0.5 text-[11px] font-extrabold text-mango">{t('lobby.hostObserver')}</span>}
+              {p.isHost && p.role === 'player' && <span className="rounded-full bg-grape-50 px-2 py-0.5 text-[11px] font-extrabold text-grape">Host</span>}
+              {!(p.isHost && p.role === 'observer') && <span className={`text-sm ${p.ready ? 'text-mint-600' : 'text-ink-faint'}`}>{p.ready ? '✓' : '…'}</span>}
             </motion.li>
           ))}
         </AnimatePresence>

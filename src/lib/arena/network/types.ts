@@ -41,6 +41,7 @@ export interface RoomPlayer {
   team: TeamId;
   ready: boolean;
   isHost: boolean;
+  role: 'player' | 'observer';
 }
 
 /** In-match events — the ONLY things sent during play (never full state). */

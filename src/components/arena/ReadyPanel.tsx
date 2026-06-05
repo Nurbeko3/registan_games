@@ -24,8 +24,8 @@ export function ReadyPanel({
 }) {
   const t = useT();
   const me = players.find((p) => p.id === myId);
-  const activePlayers = players.filter((p) => !p.isHost);
-  const isObserverHost = isHost && me?.isHost;
+  const activePlayers = players.filter((p) => !(p.isHost && p.role === 'observer'));
+  const isObserverHost = isHost && me?.isHost && me.role === 'observer';
   const myTeam = me?.team ?? 'red';
   const ready = me?.ready ?? false;
   const unready = activePlayers.filter((p) => !p.ready);

@@ -66,7 +66,7 @@ export interface RoomState {
   roster: RosterEntry[];
   /** why we're in the 'error' phase: 'cloud' = no connection; 'notfound' = the
    *  joined code has no host (invalid / non-existent room). */
-  errorReason: 'cloud' | 'notfound' | null;
+  errorReason: 'cloud' | 'notfound' | 'hostleft' | null;
 }
 
 export interface RoomOptions {
@@ -78,6 +78,7 @@ export interface RoomOptions {
   /** quick match → host is elected rather than fixed */
   quick?: boolean;
   settings?: RoomSettings;
+  hostRole?: 'player' | 'observer';
 }
 
 export class RoomService {
@@ -107,7 +108,7 @@ export class RoomService {
   // join validation: a code-joiner must see a host or the room is "not found"
   private validated = false;
   private validateTimer: ReturnType<typeof setTimeout> | null = null;
-  private errorReason: 'cloud' | 'notfound' | null = null;
+  private errorReason: 'cloud' | 'notfound' | 'hostleft' | null = null;
   private trustedHostId: string | null = null;
 
   constructor(public readonly code: string, opts: RoomOptions) {
@@ -117,12 +118,14 @@ export class RoomService {
     this.transport = createTransport(code, opts.clientId);
     this.trustedHostId = opts.isHost ? this.transport.id : null;
     this.match = new MatchService(this.transport, this.transport.id);
+    const role = opts.isHost ? opts.hostRole ?? 'observer' : 'player';
     this.me = {
       name: opts.name || 'Player',
       avatar: opts.avatar,
       team: 'red',
-      ready: opts.isHost,
+      ready: opts.isHost ? role === 'observer' : false,
       isHost: opts.isHost,
+      role,
     };
   }
 
@@ -246,7 +249,12 @@ export class RoomService {
     }
 
     if (state.status === 'ended') {
-      this.phase = 'ended';
+      if (!this.forcedHost) {
+        this.errorReason = 'hostleft';
+        this.phase = 'error';
+      } else {
+        this.phase = 'ended';
+      }
     }
     this.emit();
   }
@@ -304,6 +312,7 @@ export class RoomService {
       team,
       ready: payload.ready === true,
       isHost: this.quick ? payload.isHost === true : fixedHost,
+      role: payload.role === 'observer' ? 'observer' : 'player',
     };
   }
 
@@ -409,6 +418,13 @@ export class RoomService {
       // ArenaGame owns the results screen and the exit back to the menu.
       this.emit();
     });
+    t.on('host_left', (payload) => {
+      this.note('host_left');
+      if (!this.fromHost(payload)) return;
+      this.errorReason = 'hostleft';
+      this.phase = 'error';
+      this.emit();
+    });
     // M2: in-match event relay (move/shoot/down/respawn). Register the 'net'
     // handler BEFORE connect so the transport attaches it to the channel.
     this.match.start();
@@ -436,7 +452,7 @@ export class RoomService {
     if (!this.isHost()) return;
     // guard: never start until every joined player has readied up
     const players = this.toPlayers();
-    const contenders = players.filter((p) => !p.isHost);
+    const contenders = players.filter((p) => !(p.isHost && p.role === 'observer'));
     if (contenders.length < 2 || contenders.some((p) => !p.ready)) return;
     const payload = { matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster() };
     void this.persistStart(payload);
@@ -459,11 +475,11 @@ export class RoomService {
   private buildRoster(): RosterEntry[] {
     const map: Record<string, RosterEntry> = {};
     for (const [netId, m] of Object.entries(this.presence)) {
-      if (m.isHost) continue;
+      if (m.isHost && m.role === 'observer') continue;
       map[netId] = { netId, name: m.name, avatar: m.avatar, team: m.team };
     }
     // make sure I'm in it with my latest team/avatar (presence can lag a beat)
-    if (!this.me.isHost) {
+    if (!(this.me.isHost && this.me.role === 'observer')) {
       map[this.transport.id] = {
         netId: this.transport.id, name: this.me.name, avatar: this.me.avatar, team: this.me.team,
       };
@@ -500,6 +516,14 @@ export class RoomService {
     this.matchEnd = { red, blue };
     this.transport.broadcast('match_end', { red, blue });
     if (this.hostToken) void arenaRoomEnd(this.code, this.hostToken);
+  }
+
+  closeRoom() {
+    if (this.isHost()) {
+      this.transport.broadcast('host_left', { reason: 'closed' });
+      if (this.hostToken) void arenaRoomEnd(this.code, this.hostToken);
+    }
+    this.leave();
   }
 
   leave() {

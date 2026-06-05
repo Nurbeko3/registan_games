@@ -25,6 +25,7 @@ export function RoomLobby({
   isHost,
   clientId,
   quick,
+  hostRole,
   settings,
   onSettingsChange,
   onLeave,
@@ -33,6 +34,7 @@ export function RoomLobby({
   isHost: boolean;
   clientId: string;
   quick?: boolean;
+  hostRole?: 'player' | 'observer';
   settings?: RoomSettings;
   onSettingsChange?: (settings: RoomSettings) => void;
   onLeave: () => void;
@@ -44,12 +46,25 @@ export function RoomLobby({
   const [weapon, setWeapon] = useState<WeaponId>(DEFAULT_WEAPON);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, clientId, quick, settings });
+  const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, clientId, quick, settings, hostRole });
   const s = room.state;
 
   useEffect(() => {
     if (s?.settings) onSettingsChange?.(s.settings);
   }, [onSettingsChange, s?.settings]);
+
+  useEffect(() => {
+    if (s?.phase === 'error' && s.errorReason === 'hostleft') {
+      const id = window.setTimeout(onLeave, 900);
+      return () => window.clearTimeout(id);
+    }
+    return undefined;
+  }, [onLeave, s?.errorReason, s?.phase]);
+
+  const leaveRoom = () => {
+    if (s?.isHost) room.closeRoom();
+    onLeave();
+  };
 
   // joiner stays here until the host is confirmed (or it times out → error)
   if (!s || s.phase === 'connecting') {
@@ -57,7 +72,7 @@ export function RoomLobby({
       <div className="mx-auto max-w-md px-4 py-12 text-center">
         <motion.div animate={{ rotate: [0, 12, -12, 0] }} transition={{ duration: 1.6, repeat: Infinity }} className="text-4xl">🔍</motion.div>
         <p className="mt-3 font-display font-extrabold text-ink-soft">{t('lobby.lookingForRoom')}</p>
-        <button onClick={onLeave} className="btn-ghost mt-5 px-4 py-2 text-sm">← {t('hud.leave')}</button>
+        <button onClick={leaveRoom} className="btn-ghost mt-5 px-4 py-2 text-sm">← {t('hud.leave')}</button>
       </div>
     );
   }
@@ -74,7 +89,7 @@ export function RoomLobby({
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-grape-50 text-3xl">⏱</div>
             <p className="mt-3 font-display text-xl font-extrabold">{t('arena.matchAlreadyStarted')}</p>
             <p className="mt-2 text-sm font-bold text-ink-soft">{t('arena.matchAlreadyStartedBody')}</p>
-            <button onClick={onLeave} className="btn-primary mt-5 w-full">← {t('hud.leave')}</button>
+            <button onClick={leaveRoom} className="btn-primary mt-5 w-full">← {t('hud.leave')}</button>
           </div>
         </div>
       );
@@ -89,7 +104,7 @@ export function RoomLobby({
       botFill: s.settings.botFill,
       seed: s.seed ?? undefined,
       initialWeapon: weapon,
-      onExit: onLeave,
+      onExit: leaveRoom,
     };
     const net: ArenaNet = {
       isHost: s.isHost,
@@ -97,7 +112,7 @@ export function RoomLobby({
       ended: s.matchEnd,
       onScores: room.reportScores,
       onEnd: room.reportEnd,
-      onExit: onLeave,
+      onExit: leaveRoom,
       myNetId: s.myId,
       roster: s.roster,
       spectator: s.isHost && !s.roster.some((p) => p.netId === s.myId),
@@ -123,13 +138,14 @@ export function RoomLobby({
 
   if (s.phase === 'error') {
     const notFound = s.errorReason === 'notfound';
+    const hostLeft = s.errorReason === 'hostleft';
     return (
       <div className="mx-auto max-w-md px-4 py-8">
         <div className="card text-center">
-          <div className="text-4xl">{notFound ? '🚫' : '📡'}</div>
-          <p className="mt-2 font-display font-extrabold">{notFound ? t('arena.invalidTitle') : t('arena.cloudTitle')}</p>
-          <p className="mt-1 text-ink-soft">{notFound ? t('arena.invalidBody') : t('arena.cloudBody')}</p>
-          <button onClick={onLeave} className="btn-primary mt-4">← {t('hud.leave')}</button>
+          <div className="text-4xl">{hostLeft ? '👋' : notFound ? '🚫' : '📡'}</div>
+          <p className="mt-2 font-display font-extrabold">{hostLeft ? t('arena.hostLeftTitle') : notFound ? t('arena.invalidTitle') : t('arena.cloudTitle')}</p>
+          <p className="mt-1 text-ink-soft">{hostLeft ? t('arena.hostLeftBody') : notFound ? t('arena.invalidBody') : t('arena.cloudBody')}</p>
+          <button onClick={leaveRoom} className="btn-primary mt-4">← {t('hud.leave')}</button>
         </div>
       </div>
     );
@@ -150,7 +166,7 @@ export function RoomLobby({
   return (
     <div className="mx-auto max-w-md px-4 py-5">
       <div className="mb-3 flex items-center justify-between">
-        <button onClick={onLeave} className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</button>
+        <button onClick={leaveRoom} className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</button>
         <ConnectionStatus connection={s.connection} kind={s.kind} />
       </div>
 
