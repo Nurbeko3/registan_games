@@ -240,6 +240,17 @@ export class RoomService {
     }
 
     if (state.status === 'playing' && state.match_id && typeof state.seed === 'number') {
+      // Realtime already started this exact match. The persistence RPC/poll can
+      // arrive later with a server-derived started_at; adopting it again would
+      // restart the countdown and make the host or some clients enter late.
+      if (
+        state.match_id === this.matchId &&
+        this.seed === state.seed &&
+        (this.phase === 'countdown' || this.phase === 'playing')
+      ) {
+        this.emit();
+        return;
+      }
       const parsedStart = state.started_at ? Date.parse(state.started_at) : NaN;
       this.adoptStart({
         matchId: state.match_id,
