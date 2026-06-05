@@ -110,6 +110,8 @@ export class RoomService {
   private validateTimer: ReturnType<typeof setTimeout> | null = null;
   private errorReason: 'cloud' | 'notfound' | 'hostleft' | null = null;
   private trustedHostId: string | null = null;
+  private metaSeq = 0;
+  private seenMetaSeq = new Map<string, number>();
 
   constructor(public readonly code: string, opts: RoomOptions) {
     this.quick = opts.quick ?? false;
@@ -330,8 +332,9 @@ export class RoomService {
   }
 
   private publishMe() {
+    this.metaSeq += 1;
     this.transport.track(this.me);
-    this.transport.broadcast(PLAYER_META_EVENT, this.me as unknown as Record<string, unknown>);
+    this.transport.broadcast(PLAYER_META_EVENT, { ...(this.me as unknown as Record<string, unknown>), metaSeq: this.metaSeq });
     this.emit();
   }
 
@@ -386,6 +389,12 @@ export class RoomService {
       this.note(PLAYER_META_EVENT);
       const from = payload[FROM_KEY];
       if (typeof from !== 'string') return;
+      const seq = Number(payload.metaSeq);
+      if (Number.isFinite(seq)) {
+        const last = this.seenMetaSeq.get(from) ?? 0;
+        if (seq <= last) return;
+        this.seenMetaSeq.set(from, seq);
+      }
       const meta = this.sanitizeMeta(from, payload, this.presence[from]);
       this.optimisticPresence[from] = { meta, until: Date.now() + OPTIMISTIC_META_MS };
       this.presence = { ...this.presence, [from]: meta };
