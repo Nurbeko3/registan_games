@@ -18,6 +18,7 @@ export function AccountCard() {
   const t = useT();
   const playerName = useGame((s) => s.playerName);
   const setPlayerName = useGame((s) => s.setPlayerName);
+  const resetProgress = useGame((s) => s.resetProgress);
 
   const [phase, setPhase] = useState<Phase>(isCloudEnabled() ? 'loading' : 'off');
   const [username, setUsername] = useState('');
@@ -54,6 +55,7 @@ export function AccountCard() {
 
   const onLogout = () => {
     accountLogout();
+    resetProgress();
     setSignedName(''); setUsername(''); setPassword(''); setErr(null);
     setPhase('logged-out');
   };

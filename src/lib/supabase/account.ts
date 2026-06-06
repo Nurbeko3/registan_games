@@ -45,8 +45,6 @@ function clearSession() {
 export function isLoggedIn(): boolean { return readSession() !== null; }
 
 // ── store ↔ account mapping ──────────────────────────────────────────
-const progressScore = (xp: number, stars: number) => xp + stars * 10;
-
 /** Load an account's saved progress into the game store (cloud is authoritative). */
 function applyToStore(u: AccountUser) {
   const st = (u.state ?? {}) as Record<string, unknown>;
@@ -64,6 +62,11 @@ function applyToStore(u: AccountUser) {
     unlockedAchievements: (st.unlockedAchievements as string[]) ?? [],
     unlockedAvatars: (st.unlockedAvatars as string[]) ?? ['kid', 'boy', 'girl'],
     unlockedThemes: (st.unlockedThemes as string[]) ?? ['cloud'],
+    arenaAvatar: (st.arenaAvatar as string) ?? '🦊',
+    arenaMatches: (st.arenaMatches as number) ?? 0,
+    arenaWins: (st.arenaWins as number) ?? 0,
+    arenaCorrect: (st.arenaCorrect as number) ?? 0,
+    arenaBestElims: (st.arenaBestElims as number) ?? 0,
   });
 }
 
@@ -84,6 +87,9 @@ function collectFromStore(token: string): SaveArgs {
       lastPlayedDay: s.lastPlayedDay, lastDailyClaim: s.lastDailyClaim,
       completed: s.completed, unlockedAchievements: s.unlockedAchievements,
       unlockedAvatars: s.unlockedAvatars, unlockedThemes: s.unlockedThemes,
+      arenaAvatar: s.arenaAvatar,
+      arenaMatches: s.arenaMatches, arenaWins: s.arenaWins,
+      arenaCorrect: s.arenaCorrect, arenaBestElims: s.arenaBestElims,
     },
   };
 }
@@ -97,15 +103,9 @@ export async function accountLogin(username: string, password: string): Promise<
 
   const u = data.user as AccountUser;
   writeSession(data.token as string, u.username);
-
-  // adopt whichever side has more progress (so offline play isn't lost on first login)
-  const local = useGame.getState();
-  const localStars = Object.values(local.completed).reduce((n, r) => n + r.stars, 0);
-  if (progressScore(local.xp, localStars) > progressScore(u.xp, u.total_stars)) {
-    await accountSave(); // local is ahead → push it up
-  } else {
-    applyToStore(u); // cloud is ahead → adopt it
-  }
+  // Classroom devices may be shared. On login, the account is authoritative so
+  // a previous student's local progress can never be pushed into this account.
+  applyToStore(u);
   return { ok: true, user: u };
 }
 

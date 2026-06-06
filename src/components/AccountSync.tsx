@@ -35,11 +35,9 @@ export function AccountSync() {
     (async () => {
       const u = await accountResume();
       if (u) {
-        const s = useGame.getState();
-        const localStars = Object.values(s.completed).reduce((n, r) => n + r.stars, 0);
-        // keep whichever side is further along, then sync
-        if (s.xp + localStars * 10 > u.xp + u.total_stars * 10) await accountSave();
-        else applyAccountToStore(u);
+        // Account progress is authoritative on shared classroom devices. Never
+        // push anonymous/previous-student local progress into the resumed account.
+        applyAccountToStore(u);
       }
       lastSig = signature();
     })();
