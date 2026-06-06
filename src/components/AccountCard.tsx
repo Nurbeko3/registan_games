@@ -54,6 +54,7 @@ export function AccountCard() {
   };
 
   const onLogout = () => {
+    if (!window.confirm(t('auth.logoutConfirm'))) return;
     accountLogout();
     resetProgress();
     setSignedName(''); setUsername(''); setPassword(''); setErr(null);
@@ -154,6 +155,7 @@ export function AccountCard() {
           <button onClick={onLogin} disabled={phase === 'busy'} className="btn-primary mt-4 w-full text-lg disabled:opacity-60">
             {phase === 'busy' ? t('auth.working') : t('auth.loginBtn')}
           </button>
+          <p className="mt-2 text-center text-[11px] font-bold text-ink-faint">{t('auth.switchHint')}</p>
           <p className="mt-3 text-center text-[11px] text-ink-faint">{t('auth.askTeacher')}</p>
         </div>
       )}

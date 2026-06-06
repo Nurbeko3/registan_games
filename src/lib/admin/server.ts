@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  ADMIN_COOKIE,
+  ADMIN_LOGIN_LIMIT,
+  ADMIN_LOGIN_WINDOW_MS,
+} from './constants';
 
 /**
  * Server-only admin helpers. Admin auth lives in Supabase (kcq_admins, bcrypt);
@@ -7,7 +12,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  * by the kcq_admin_* RPCs. Nothing secret ships to the client bundle.
  */
 
-export const ADMIN_COOKIE = 'kcq_admin';
+export { ADMIN_COOKIE, ADMIN_SESSION_MAX_AGE } from './constants';
+
+interface LoginBucket { count: number; resetAt: number }
+
+const loginAttempts = new Map<string, LoginBucket>();
 
 /** Server-side Supabase client (anon key — RPC security is the admin token + role). */
 export function supabaseServer(): SupabaseClient | null {
@@ -20,6 +29,31 @@ export function supabaseServer(): SupabaseClient | null {
 /** The current admin's session token from the cookie, or null. */
 export async function adminToken(): Promise<string | null> {
   return (await cookies()).get(ADMIN_COOKIE)?.value ?? null;
+}
+
+export function adminRateLimitKey(req: Request, email: string): string {
+  const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const ip = forwarded || req.headers.get('x-real-ip') || 'local';
+  return `${ip}:${email.toLowerCase()}`;
+}
+
+export function checkAdminLoginRateLimit(key: string, now = Date.now()): { ok: true } | { ok: false; retryAfter: number } {
+  const current = loginAttempts.get(key);
+  if (!current || current.resetAt <= now) {
+    loginAttempts.set(key, { count: 1, resetAt: now + ADMIN_LOGIN_WINDOW_MS });
+    return { ok: true };
+  }
+
+  if (current.count >= ADMIN_LOGIN_LIMIT) {
+    return { ok: false, retryAfter: Math.max(1, Math.ceil((current.resetAt - now) / 1000)) };
+  }
+
+  current.count += 1;
+  return { ok: true };
+}
+
+export function clearAdminLoginRateLimit(key: string) {
+  loginAttempts.delete(key);
 }
 
 export interface AdminInfo { id: string; email: string; name: string; role: 'super' | 'admin' }

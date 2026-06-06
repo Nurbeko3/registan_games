@@ -1,38 +1,37 @@
-# 📋 KidsCode Quest — Status Report (v2: Game Platform)
+# KidsCode Quest — Status Report
 
-> Generated for external AI review. Describes the **actual, verified** state of the
-> codebase after the pivot from full-stack SaaS → **frontend-only kids' game platform**,
-> plus a complete, copy-pasteable **Supabase integration guide**.
-> Date: 2026-06-01 · Version: 2.0.0
+> Current repository state. The core product is still offline-first, but Supabase
+> integrations now exist for student accounts, cloud save, leaderboard, admin tools,
+> Party, and Battle Learn Arena rooms.
+> Date: 2026-06-07 · Version: 2.0.0
 
 ---
 
 ## 1. ✅ What this project IS now
 
-A **fun, offline-first educational game** for kids aged **7–14**. No backend, no login,
-no database. A child opens the app → explores a world map → plays coding mini-games →
-earns XP, stars, coins, achievements. All progress saves to **localStorage**.
+A **fun, offline-first educational game** for kids aged **7–14**. A child opens the
+app, explores a world map, plays coding mini-games, earns XP/stars/coins, and unlocks
+achievements. Core progress saves to `localStorage`; cloud sync is optional.
 
 | | |
 | --- | --- |
 | Framework | Next.js 15 (App Router) + TypeScript |
 | Styling | TailwindCSS + Framer Motion |
 | State | Zustand + `persist` middleware (localStorage) |
-| Backend | **none** (fully static / client-side) |
-| Auth | **none** |
+| Backend | Optional Supabase RPC/Realtime for cloud features |
+| Auth | Optional custom student/admin sessions |
 | AI | offline "Byte" mentor (`getHint()` seam, ready for real AI) |
 
-## 2. ✅ Verification results (run in this environment)
+## 2. Verification
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Production build | `npm run build` | ✅ **PASS** — 5 routes, 0 errors |
-| First-load JS | — | ~146 kB (light, static) |
-| Orphaned imports | `grep` for old api/auth/hooks | ✅ none |
-| Type safety | `next build` typecheck | ✅ PASS |
+| Type safety | `npm run lint` / `npm run typecheck` | Project gate: `tsc --noEmit` |
+| Production build | `npm run build` | Manual only; do not run automatically during dev cache issues |
+| Tests | `npm test` | Added minimal Vitest suite when configured |
 
-> Routes: `/` (Home), `/map` (World Map), `/play/[game]` (game runner), `/rewards`
-> (profile/shop/achievements), `/_not-found`.
+Primary routes: `/`, `/map`, `/play/[game]`, `/rewards`, `/arena`, `/leaderboard`,
+`/party`, `/party/[code]`, `/admin`, plus `/api/admin/*` and `/api/arena/authority`.
 
 ## 3. 🗂️ Architecture (current)
 
@@ -42,9 +41,14 @@ src/
 │   ├── page.tsx              # Home — animated landing
 │   ├── map/page.tsx          # World map — 5 zones, star-gated
 │   ├── play/[game]/page.tsx  # Game runner (GameShell)
-│   └── rewards/page.tsx      # Profile · achievements · shop · settings
+│   ├── rewards/page.tsx      # Profile · achievements · shop · settings · account
+│   ├── arena/page.tsx        # Battle Learn Arena
+│   ├── party/                # Cloud party mode
+│   ├── leaderboard/page.tsx  # Cloud leaderboard
+│   └── admin/page.tsx        # Admin UI
 ├── components/
-│   ├── games/                # 8 games + GameShell + registry + GameProps
+│   ├── games/                # 16 games + GameShell + registry + GameProps
+│   ├── arena/                # Arena menu/lobby/game UI
 │   ├── layout/TopBar.tsx     # HUD (avatar, level, XP, coins, streak)
 │   ├── AIMentor.tsx          # offline "Byte"
 │   ├── Celebrations.tsx      # achievement popups
@@ -61,163 +65,36 @@ src/
 
 ## 4. 🎮 Game systems (all offline)
 
-- **8 games:** Robot Maze, Memory Match, Binary Challenge, Algorithm Race, Fix the Bug,
-  Code Adventure, Logic Puzzle, Treasure Hunt
+- **16 games:** Robot Maze, Memory Match, Binary Challenge, Algorithm Race, Fix the Bug,
+  Code Adventure, Logic Puzzle, Treasure Hunt, Pattern Pop, Loop Output, Quick Math,
+  Forest Trail, Train Robot, Build Page, Output Oracle, Summit Sort
 - **XP/levels** (quadratic curve) · **coins** · **stars (1–3)** · **streaks** (UTC day)
-- **9 data-driven achievements** (pure predicates) · **daily reward**
+- **Data-driven achievements** (pure predicates) · **daily reward**
 - **Unlockables:** 8 characters + 4 themes (coins / level-gated)
-- **Settings:** sound, reduce-motion, reset progress
+- **Settings:** sound, reduce-motion, locale, reset progress
 
-## 5. 🚧 Known limitations (honest)
+## 5. Cloud systems
 
-| Item | Note |
-| --- | --- |
-| No cloud save | Progress is per-device (localStorage only). Clearing browser data = reset. |
-| No accounts | Can't continue on another device. |
-| No real leaderboard | No server to compare players. |
-| AI mentor is canned | Predefined hints, not a real model. |
-| No tests | No unit/e2e tests yet. |
-| Sound toggle | State exists; actual sound effects not wired. |
-| Lighthouse | Not measured here; app is static/light so 95+ is expected. |
+- **Student accounts:** `src/lib/supabase/account.ts`, backed by `kcq_*` RPCs.
+- **Cloud save:** debounced account sync via `AccountSync`.
+- **Admin:** `/admin` + `/api/admin/*`, DB-issued token in `kcq_admin` HTTP-only cookie.
+- **Leaderboard:** public ranking data from Supabase.
+- **Party:** cloud-authoritative quiz party.
+- **Arena:** Realtime presence/broadcast rooms with local practice always available.
 
----
+## 6. Known limitations
 
-# 6. 🟢 SUPABASE INTEGRATION GUIDE (future-ready, currently disabled)
+- Supabase is optional; cloud-only features need env vars and migrations.
+- Party currently has no local fallback.
+- Arena multiplayer is friendly client-event netcode; not a competitive anti-cheat design.
+- A real AI mentor is not connected yet; Byte uses offline hints.
+- Production build should be run deliberately because `.next` cache issues have appeared in local dev.
 
-Supabase can add **cloud save, accounts, real leaderboards, and a real AI mentor**
-*without* abandoning the offline-first design. The app stays usable with zero config;
-Supabase activates only when env vars are present.
+## 7. Supabase setup
 
-## 6.1 What Supabase can power here
-
-| Feature | Supabase service | Priority |
-| --- | --- | --- |
-| ☁️ Cloud save / cross-device sync | Postgres + Auth | ⭐⭐⭐ highest value |
-| 🔐 Accounts (kid-safe) | Auth (anonymous → email link) | ⭐⭐ |
-| 🏆 Global / friends leaderboard | Postgres + RLS + (optional) RPC | ⭐⭐ |
-| 🤖 Real AI mentor | Edge Function → LLM | ⭐ |
-| 📦 Remote content (games/worlds) | Postgres tables | optional |
-| 🖼️ Avatars / assets | Storage | optional |
-
-## 6.2 Design principle — OFFLINE-FIRST, CLOUD-OPTIONAL
-
-```
-localStorage (instant, always works)  ←→  Supabase (sync when online + logged in)
-```
-
-- Keep `useGame` + `persist` as the source of truth on-device.
-- On login: **pull** cloud row → merge (take the higher xp/stars) → **push** back.
-- Debounced **push** on every meaningful change.
-- If env vars missing → everything no-ops; the game works exactly as today.
-
-## 6.3 Step-by-step setup
-
-**1) Create project & install SDK**
-```bash
-npm install @supabase/supabase-js
-```
-
-**2) Env vars** (`.env.local`)
-```
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-KEY
-```
-
-**3) Guarded client** — `src/lib/supabase/client.ts`
-```ts
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-// Disabled by default: returns null until env vars are set.
-export const supabase: SupabaseClient | null =
-  url && key ? createClient(url, key, { auth: { persistSession: true } }) : null;
-
-export const isCloudEnabled = () => supabase !== null;
-```
-
-## 6.4 Database schema (SQL — run in Supabase SQL editor)
-
-```sql
--- One progress row per player (mirrors the Zustand persisted state as JSONB).
-create table public.progress (
-  user_id     uuid primary key references auth.users(id) on delete cascade,
-  display_name text,
-  xp          int  not null default 0,
-  coins       int  not null default 0,
-  total_stars int  not null default 0,
-  state       jsonb not null default '{}',   -- full useGame snapshot
-  updated_at  timestamptz not null default now()
-);
-
-alter table public.progress enable row level security;
-
--- A player may only read/write their OWN row.
-create policy "own row read"  on public.progress for select using (auth.uid() = user_id);
-create policy "own row write" on public.progress for insert with check (auth.uid() = user_id);
-create policy "own row update" on public.progress for update using (auth.uid() = user_id);
-
--- Public leaderboard view (read-only, no PII beyond chosen display name).
-create view public.leaderboard as
-  select display_name, xp, total_stars
-  from public.progress
-  order by xp desc
-  limit 100;
-```
-> RLS = Row Level Security. It guarantees a child can never read another child's data.
-> The `leaderboard` view only exposes `display_name + xp + stars`.
-
-## 6.5 Kid-safe authentication
-
-For 7–14 year-olds, avoid passwords. Two good options:
-
-- **Anonymous sign-in** (recommended start): one tap, instant cloud save, no email.
-  ```ts
-  await supabase!.auth.signInAnonymously();
-  ```
-  Later, link a **parent email** (magic link) to recover the account across devices.
-- **Magic link to a parent's email** (COPPA-friendly): no password, parent in the loop.
-  ```ts
-  await supabase!.auth.signInWithOtp({ email: parentEmail });
-  ```
-
-## 6.6 Sync layer — `src/lib/supabase/sync.ts`
-
-```ts
-import { supabase, isCloudEnabled } from './client';
-import { useGame } from '@/store/useGame';
-
-// PULL on login: merge cloud → local, keeping the best progress.
-export async function pullProgress() {
-  if (!isCloudEnabled()) return;
-  const { data: { user } } = await supabase!.auth.getUser();
-  if (!user) return;
-  const { data } = await supabase!.from('progress').select('state, xp').eq('user_id', user.id).single();
-  if (data?.state && data.xp >= useGame.getState().xp) {
-    useGame.setState(data.state);           // cloud is ahead → adopt it
-  } else {
-    await pushProgress();                    // local is ahead → upload
-  }
-}
-
-// PUSH (debounced) whenever progress changes.
-let timer: ReturnType<typeof setTimeout> | null = null;
-export function schedulePush() {
-  if (!isCloudEnabled()) return;
-  if (timer) clearTimeout(timer);
-  timer = setTimeout(pushProgress, 1500);
-}
-
-export async function pushProgress() {
-  if (!isCloudEnabled()) return;
-  const { data: { user } } = await supabase!.auth.getUser();
-  if (!user) return;
-  const s = useGame.getState();
-  const totalStars = Object.values(s.completed).reduce((n, r) => n + r.stars, 0);
-  await supabase!.from('progress').upsert({
-    user_id: user.id,
-    xp: s.xp, coins: s.coins, total_stars: totalStars,
+Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, then apply
+`supabase/migrations/0001_*` through the latest migration. The project must keep
+working when these variables are absent.
     state: { xp: s.xp, coins: s.coins, gems: s.gems, streak: s.streak,
              completed: s.completed, unlockedAchievements: s.unlockedAchievements,
              avatarId: s.avatarId, unlockedAvatars: s.unlockedAvatars,

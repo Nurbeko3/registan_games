@@ -21,16 +21,22 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
   const xp = useGame((s) => s.xp);
   const ls = levelState(xp);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [student, setStudent] = useState('');
 
   useEffect(() => {
     let alive = true;
     const sync = () => {
       if (!readSession()) {
         setLoggedIn(false);
+        setStudent('');
         return;
       }
+      const session = readSession();
+      if (session?.username) setStudent(`@${session.username}`);
       accountResume().then((user) => {
-        if (alive) setLoggedIn(!!user);
+        if (!alive) return;
+        setLoggedIn(!!user);
+        setStudent(user ? (user.display_name || `@${user.username}`) : '');
       });
     };
     sync();
@@ -60,6 +66,15 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
 
         {hydrated && loggedIn && (
           <>
+            {student && (
+              <Link
+                href="/rewards"
+                className="hidden max-w-[150px] truncate rounded-full bg-mint/15 px-3 py-1.5 text-xs font-extrabold text-mint-700 ring-1 ring-mint/30 sm:block"
+                title={t('topbar.currentStudent')}
+              >
+                {student}
+              </Link>
+            )}
             <Stat icon={<Icon name="flame" className="h-4 w-4" />} value={streak} label={t('common.dayStreak')} />
             <Stat icon={<Icon name="coin" className="h-4 w-4" />} value={coins} label={t('common.coins')} />
             <Link href="/rewards" className="flex items-center gap-2 rounded-full bg-white px-2.5 py-1.5 shadow-card" title={t('topbar.profile')}>

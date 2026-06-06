@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import { TEAMS, type TeamId } from '@/lib/arena/types';
 import type { HeroWeaponHud } from '@/lib/arena/engine';
-import { WEAPONS, type WeaponId } from '@/lib/arena/weapons';
 import { useT } from '@/lib/i18n';
 import { WeaponIcon } from '../WeaponIcon';
 
@@ -31,7 +30,6 @@ export interface HudData {
 
 export interface HudActions {
   onReload: () => void;
-  onSwitch: (id: WeaponId) => void;
 }
 
 const TEAM_TEXT: Record<TeamId, string> = { red: 'text-bubble-600', blue: 'text-sky-600' };
@@ -177,30 +175,12 @@ function Vitals({ d, t }: { d: HudData; t: T }) {
   );
 }
 
-// ── BOTTOM CENTER: weapon · ammo · reload · weapon strip ──
+// ── BOTTOM CENTER: locked weapon · ammo · reload ──
 function WeaponPanel({ d, actions, t }: { d: HudData; actions: HudActions; t: T }) {
   const wpn = d.weapon;
   const low = !wpn.reloading && wpn.mag <= Math.max(1, Math.ceil(wpn.magSize * 0.25));
   return (
     <div className="absolute inset-x-0 bottom-2 z-20 flex flex-col items-center gap-1">
-      <div className="pointer-events-auto flex max-w-[70vw] gap-1 overflow-x-auto rounded-2xl bg-ink/35 px-1.5 py-1 shadow-card backdrop-blur [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {WEAPONS.map((w, i) => (
-          <button
-            key={w.id}
-            onClick={() => actions.onSwitch(w.id)}
-            aria-label={t(w.nameKey)}
-            className={`grid h-7 w-9 shrink-0 place-items-center rounded-xl shadow transition ${
-              w.id === wpn.id ? 'scale-105 bg-sun text-ink ring-2 ring-white' : 'bg-white/10 text-white/80 hover:bg-white/20'
-            }`}
-          >
-            <span className="relative grid place-items-center">
-              <WeaponIcon id={w.id} className="h-5 w-8" />
-              <span className={`absolute -bottom-1.5 -right-1 text-[7px] font-extrabold ${w.id === wpn.id ? 'text-ink/60' : 'text-white/60'}`}>{i + 1}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-
       <div className="flex items-center gap-2 rounded-2xl bg-ink/78 px-3 py-1.5 text-white shadow-card ring-1 ring-white/10 backdrop-blur">
         <WeaponIcon id={wpn.id} className="h-9 w-16 shrink-0" />
         <div className="min-w-[84px]">

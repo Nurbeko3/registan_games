@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { useGame, useHydrated, selectTotalStars } from '@/store/useGame';
-import { ACHIEVEMENTS, RARITY_RING } from '@/data/achievements';
+import { ACHIEVEMENT_GROUPS, ACHIEVEMENTS, RARITY_RING, type Achievement } from '@/data/achievements';
 import { AVATARS, THEMES } from '@/data/cosmetics';
 import { levelForXp, levelState } from '@/lib/leveling';
 import { AccountCard } from '@/components/AccountCard';
@@ -114,14 +114,31 @@ function RewardsContent() {
       {/* achievements */}
       <section className="mt-6">
         <h2 className="font-display text-xl font-extrabold">{t('rw.achievements')} ({unlockedAch.length}/{ACHIEVEMENTS.length})</h2>
-        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {ACHIEVEMENTS.map((a) => {
-            const got = unlockedAch.includes(a.code);
+
+        <div className="mt-3 space-y-3">
+          {ACHIEVEMENT_GROUPS.map((group) => {
+            const items = ACHIEVEMENTS.filter((a) => a.group === group.id);
+            const groupDone = items.filter((a) => unlockedAch.includes(a.code)).length;
             return (
-              <div key={a.code} title={a.description}
-                className={`grid place-items-center rounded-2xl p-3 text-center ring-2 ${got ? `bg-white ${RARITY_RING[a.rarity]}` : 'bg-cloud opacity-50 grayscale ring-transparent'}`}>
-                <span className="text-3xl">{a.emoji}</span>
-                <span className="mt-1 text-xs font-bold leading-tight">{a.title}</span>
+              <div key={group.id} className="overflow-hidden rounded-2xl border border-grape-100 bg-white shadow-card">
+                <div className="flex items-center justify-between gap-3 bg-grape-50/70 px-3 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="text-xl">{group.emoji}</span>
+                    <div className="min-w-0">
+                      <h3 className="truncate font-display text-sm font-extrabold">{t(group.titleKey)}</h3>
+                      <p className="truncate text-[11px] font-bold text-ink-faint">{t(group.subtitleKey)}</p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-mint-700 ring-1 ring-mint/20">
+                    {groupDone}/{items.length}
+                  </span>
+                </div>
+
+                <div className="divide-y divide-grape-100/70">
+                  {items.map((a) => (
+                    <AchievementCard key={a.code} achievement={a} unlocked={unlockedAch.includes(a.code)} />
+                  ))}
+                </div>
               </div>
             );
           })}
@@ -133,6 +150,31 @@ function RewardsContent() {
       <ThemeShop />
       <SettingsPanel />
     </main>
+  );
+}
+
+function AchievementCard({ achievement, unlocked }: { achievement: Achievement; unlocked: boolean }) {
+  const t = useT();
+  return (
+    <div
+      title={t(achievement.descriptionKey)}
+      className={`flex items-center gap-2.5 px-3 py-2.5 transition ${
+        unlocked ? 'bg-white' : 'bg-cloud/55 grayscale'
+      }`}
+    >
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xl ring-1 ${unlocked ? `${RARITY_RING[achievement.rarity]} bg-sun/15` : 'bg-white/70 ring-transparent'}`}>
+        {achievement.emoji}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <p className="truncate font-display text-sm font-extrabold">{t(achievement.titleKey)}</p>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${unlocked ? 'bg-mint/15 text-mint-700' : 'bg-ink/10 text-ink-soft'}`}>
+            {unlocked ? t('ach.unlockedShort') : t('ach.lockedShort')}
+          </span>
+        </div>
+        <p className="mt-0.5 truncate text-[11px] font-bold text-ink-faint">{t(achievement.hintKey)}</p>
+      </div>
+    </div>
   );
 }
 

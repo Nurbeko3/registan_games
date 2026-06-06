@@ -11,18 +11,25 @@ The core game is **frontend-only**: no backend, no auth, no database required. P
 ## Commands
 
 ```bash
-npm run dev      # dev server on http://localhost:3000
-npm run build    # production build
-npm run start    # serve production build on :3000
-npm run lint     # next lint
-npx tsc --noEmit # typecheck (tsconfig has noEmit; this is the test/CI gate)
+npm run dev       # dev server on http://localhost:3000
+npm run build     # production build
+npm run start     # serve production build on :3000
+npm run lint      # ALIAS for tsc --noEmit (NOT next lint, despite the name)
+npm run typecheck # tsc --noEmit (identical to lint)
 ```
 
-There is **no test runner** configured. `npx tsc --noEmit` + `npm run lint` are the only correctness gates — run both after non-trivial changes. The `@/*` import alias maps to `src/*`.
+There is **no test runner** and **no ESLint** configured. Both `npm run lint` and `npm run typecheck` just run `tsc --noEmit` — that single typecheck is the only correctness gate; run it after non-trivial changes. The `@/*` import alias maps to `src/*`. The one runnable check beyond typecheck is `node scripts/qa-party-rpc.mjs`, a live integration probe of the Party Postgres RPCs (needs Supabase env in `.env.local`).
 
 ### Supabase (optional)
 
-Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local` to enable cloud. Migrations live in `supabase/migrations/` (`0001` = cloud save + leaderboard, namespaced `kcq_*`; `0002` = arena rooms, namespaced `arena_*`). Apply with `supabase link --project-ref <ref> && supabase db push`. Note: live arena gameplay runs over Realtime presence/broadcast and needs **no tables** — the `arena_*` tables are only for room persistence/analytics.
+Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local` to enable cloud. Migrations live in `supabase/migrations/`, applied in order with `supabase link --project-ref <ref> && supabase db push`:
+
+- `0001` cloud save + leaderboard (`kcq_*`) · `0002` arena rooms (`arena_*`)
+- `0003` student username/password accounts · `0004` admin (teacher) accounts, bcrypt — see Classroom/admin below
+- `0005`–`0007` authoritative **Party** room state: match flow, host-refresh resume, and answers scored server-side in Postgres via RPC (clients can't score as another player)
+- `0008`–`0009` authoritative **Arena** "match started" handshake + host-refresh resume, so joiners who miss a Realtime broadcast recover from Postgres
+
+Note: live arena/party *gameplay* still runs over Realtime presence/broadcast; the tables are the canonical-state/recovery fallback, not the fast path.
 
 ## Architecture
 
@@ -57,10 +64,18 @@ The presence+broadcast pattern originated in `src/lib/party/useParty.ts` (a simp
 
 `src/lib/supabase/client.ts` returns `null` when env vars are missing or on the server, and **never throws**. All of `src/lib/supabase/*` (auth, leaderboard, sync) and the arena cloud transport must degrade silently to offline/local behavior. Never make a core game path depend on `supabase` being non-null.
 
+### Classroom / admin (`src/lib/admin/`, `src/app/admin`, `src/app/api/admin/*`)
+
+The only **server-side** part of the app — a teacher-facing classroom layer that's also strictly additive (dead without Supabase env). `src/lib/admin/server.ts` is server-only (imports `next/headers`): admins (`kcq_admins`, bcrypt) and student accounts (migrations 0003/0004) live in Supabase; the `kcq_admin` cookie carries a DB-issued session token validated on **every** request by `kcq_admin_*` RPCs through the anon-key client — no secrets reach the client bundle. `requireAdmin()` is the gate for the API route handlers (`login`/`logout`/`me`/`admins`/`students` + `students/import` and `students/reset`). Student roster import/export uses `xlsx`. Keep all `requireAdmin()`-gated logic and secrets in `server.ts`/route handlers, never in client components.
+
+### Server API routes (`src/app/api/`)
+
+Two groups, both no-op without their env: the admin routes above, and `api/arena/authority` — a health probe (gated by `ARENA_AUTHORITY_ENABLED`/`ARENA_AUTHORITY_STATUS_URL`) for an **optional** external authoritative arena server. When disabled (the default), arena stays peer/host-authoritative over Realtime as described above.
+
 ### i18n (`src/lib/i18n/`)
 
 Default locale is **`uz` (Uzbek)**; `en` is the fallback dictionary. Translate via the `useT()` hook → `t(key, vars?)`. Before hydration it forces `DEFAULT_LOCALE` so SSR and first paint match, then switches to the persisted locale. Add strings to `translations.ts`.
 
 ### Routing (`src/app/`)
 
-App Router. Notable routes: `/` (landing), `/map` (world map), `/play/[game]` (delegates to `GameShell`), `/rewards` (profile/achievements/shop/settings), `/arena`, `/leaderboard`, `/party` + `/party/[code]`. Dynamic route params are React 19 `Promise`s — unwrap with `use(params)`. App-wide chrome (theme, reduced-motion) is in `AppChrome.tsx`; HUD in `layout/TopBar.tsx`.
+App Router. Notable routes: `/` (landing), `/map` (world map), `/play/[game]` (delegates to `GameShell`), `/rewards` (profile/achievements/shop/settings), `/arena`, `/leaderboard`, `/party` + `/party/[code]`, `/admin` (teacher classroom UI, gated by the admin cookie). Dynamic route params are React 19 `Promise`s — unwrap with `use(params)`. App-wide chrome (theme, reduced-motion) is in `AppChrome.tsx`; HUD in `layout/TopBar.tsx`.

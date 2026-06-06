@@ -17,6 +17,11 @@ export interface ArenaDebugInfo {
   connection: ConnectionState;
   kind: 'cloud' | 'local';
   version: number;
+  phase?: string;
+  mapId?: string;
+  difficulty?: string;
+  durationSec?: number;
+  roster?: { id: string; team: string }[];
   scores: { red: number; blue: number } | null;
   lastEvent: { name: string; at: number } | null;
 }
@@ -35,7 +40,7 @@ export function ArenaDebugPanel({ info }: { info: ArenaDebugInfo }) {
   const ago = info.lastEvent ? `${Math.max(0, Math.round((Date.now() - info.lastEvent.at) / 100) / 10)}s` : '—';
 
   return (
-    <div className="pointer-events-auto absolute left-2 top-2 z-30 font-mono text-[10px] leading-tight">
+    <div className="pointer-events-auto absolute bottom-2 left-2 z-30 font-mono text-[10px] leading-tight">
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1.5 rounded-full bg-ink/80 px-2.5 py-1 font-bold text-white shadow"
@@ -45,7 +50,7 @@ export function ArenaDebugPanel({ info }: { info: ArenaDebugInfo }) {
       </button>
 
       {open && (
-        <div className="mt-1 w-[208px] space-y-0.5 rounded-lg bg-ink/85 p-2 text-white shadow-card">
+        <div className="mb-1 w-[232px] space-y-0.5 rounded-lg bg-ink/85 p-2 text-white shadow-card">
           <Row k="Room" v={info.roomCode} />
           <Row k="Match" v={info.matchId ?? '—'} highlight />
           <Row k="Seed" v={info.seed == null ? '—' : String(info.seed)} highlight />
@@ -53,8 +58,12 @@ export function ArenaDebugPanel({ info }: { info: ArenaDebugInfo }) {
           <Row k="Me" v={short(info.myId)} />
           <Row k="Players" v={String(info.playerCount)} />
           <Row k="Transport" v={`${info.kind} · ${info.connection}`} />
+          <Row k="Phase" v={info.phase ?? '—'} />
+          <Row k="Map" v={info.mapId ?? '—'} />
+          <Row k="Difficulty" v={info.difficulty ?? '—'} />
+          <Row k="Duration" v={info.durationSec ? `${info.durationSec}s` : '—'} />
           <Row k="Score" v={info.scores ? `🔴${info.scores.red} 🔵${info.scores.blue}` : '—'} />
-          <Row k="Ping" v="— (M2)" />
+          <Row k="Roster" v={formatRoster(info.roster)} />
           <Row k="Version" v={String(info.version)} />
           <Row k="Last evt" v={info.lastEvent ? `${info.lastEvent.name} · ${ago}` : '—'} />
         </div>
@@ -73,3 +82,8 @@ function Row({ k, v, highlight }: { k: string; v: string; highlight?: boolean })
 }
 
 const short = (id: string | null) => (id ? id.slice(0, 6) : '—');
+
+function formatRoster(roster: ArenaDebugInfo['roster']) {
+  if (!roster?.length) return '—';
+  return roster.map((p) => `${short(p.id)}:${p.team}`).join(' ');
+}

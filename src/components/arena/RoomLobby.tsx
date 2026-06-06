@@ -27,7 +27,9 @@ export function RoomLobby({
   quick,
   hostRole,
   settings,
+  initialWeapon,
   onSettingsChange,
+  onWeaponChange,
   onLeave,
 }: {
   code: string;
@@ -36,14 +38,16 @@ export function RoomLobby({
   quick?: boolean;
   hostRole?: 'player' | 'observer';
   settings?: RoomSettings;
+  initialWeapon?: WeaponId;
   onSettingsChange?: (settings: RoomSettings) => void;
+  onWeaponChange?: (weapon: WeaponId) => void;
   onLeave: () => void;
 }) {
   const t = useT();
   const playerName = useGame((s) => s.playerName);
   const arenaAvatar = useGame((s) => s.arenaAvatar);
   const hero = { name: playerName || 'You', avatar: arenaAvatar };
-  const [weapon, setWeapon] = useState<WeaponId>(DEFAULT_WEAPON);
+  const [weapon, setWeapon] = useState<WeaponId>(initialWeapon ?? DEFAULT_WEAPON);
   const [copiedCode, setCopiedCode] = useState(false);
 
   const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, clientId, quick, settings, hostRole });
@@ -52,6 +56,10 @@ export function RoomLobby({
   useEffect(() => {
     if (s?.settings) onSettingsChange?.(s.settings);
   }, [onSettingsChange, s?.settings]);
+
+  useEffect(() => {
+    onWeaponChange?.(weapon);
+  }, [onWeaponChange, weapon]);
 
   useEffect(() => {
     if (s?.phase === 'error' && s.errorReason === 'hostleft') {
@@ -129,6 +137,11 @@ export function RoomLobby({
         connection: s.connection,
         kind: s.kind,
         version: s.settings.v,
+        phase: s.phase,
+        mapId: s.settings.mapId,
+        difficulty: s.settings.difficulty,
+        durationSec: s.settings.durationSec,
+        roster: s.roster.map((p) => ({ id: p.netId, team: p.team })),
         scores: s.liveScores,
         lastEvent: s.lastEvent,
       },

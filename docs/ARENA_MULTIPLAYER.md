@@ -74,23 +74,39 @@ Migration shipped (not applied): `supabase/migrations/0002_arena_rooms.sql`.
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **M1** | **ArenaMenu** (Practice / Online / Create / Join) + **Practice upgrade** (difficulty + map + team size). 5 maps. Engine difficulty seam. | **THIS PASS** ✅ verifiable offline |
-| **M2** | **Network foundation** — `network/{types,eventQueue,realtime,roomService,matchService}.ts` + `useArenaRoom` hook (Supabase + Local transports). **Room lobby UI** — CreateRoom, JoinRoom, RoomLobby, PlayerList, ReadyPanel, ConnectionStatus. DB migration. | **THIS PASS** ✅ compiles; lobby works vs Supabase / cross-tab |
-| **M3** | **In-match netcode** — drive remote fighters from `move/shoot/respawn` events, host bot authority + score reconciliation, bot-fill seating, interpolation. Persist `arena_matches`/`arena_match_events`. | **NEXT** — needs a provisioned Supabase project + 2 clients to verify |
-| **M4** | **Matchmaking** (quick match into open rooms), host migration, anti-cheat score validation. | next |
+| **M1** | **ArenaMenu** (Practice / Online / Create / Join) + **Practice upgrade** (difficulty + map + team size). 13 maps. Engine difficulty seam. | ✅ shipped |
+| **M2** | **Network foundation** — `network/{types,eventQueue,realtime,roomService,matchService}.ts` + `useArenaRoom` hook (Supabase + Local transports). **Room lobby UI** — CreateRoom, JoinRoom, RoomLobby, PlayerList, ReadyPanel, ConnectionStatus. DB migration. | ✅ shipped |
+| **M3** | **In-match netcode** — drive remote fighters from `move/shoot/hit/respawn/score/match_end` events, bot-fill seating, match persistence seam. | ✅ shipped; needs repeated real-device QA |
+| **M4** | **Reliability hardening** — host migration, latency diagnostics, score validation, smoke tests. | active hardening |
 
-**This pass = M1 + M2.** It delivers the menu, a fully-playable upgraded Practice mode, and the complete room/lobby system on the proven realtime pattern. The in-engine cross-client fighter sync (M3) is wired as a clean seam but deliberately **not claimed as verified** — it can't be, without provisioning + two devices.
+Current state: Practice is fully playable offline. Online rooms use Realtime
+presence/broadcast, local cross-tab fallback, shared match settings/countdown, and
+event-based in-match sync. This is friendly client-event multiplayer, not a fully
+server-authoritative competitive design.
 
 ---
 
 ## PART C — WHAT SHIPPED THIS PASS
 
-- `data/arenaMaps.ts` — 5 maps: Training Facility, Tech Lab, Cyber City, AI Factory, Algorithm Temple (cover / chokepoints / flank routes).
+- `data/arenaMaps.ts` — 13 maps across small/medium/large and easy/medium/hard/expert layouts.
 - `engine.ts` — `Fighter.skill` + `ArenaDifficulty` seam (Easy/Medium/Hard/Expert) scaling bot cooldown / spread / speed; `createWorld(perTeam, hero, obstacles?, difficulty?)`.
 - `lib/arena/network/` — `types.ts`, `eventQueue.ts`, `realtime.ts` (`SupabaseTransport` + `LocalTransport` + `createTransport`), `roomService.ts`, `matchService.ts`.
-- `lib/arena/network/useArenaRoom.ts` — React hook (presence-backed lobby, host settings, ready, countdown).
+- `lib/arena/network/useArenaRoom.ts` — React hook (presence-backed lobby, host settings, ready, countdown/start metadata).
 - UI: `ArenaMenu`, `PracticeSetup`, `CreateRoomModal`, `JoinRoomModal`, `RoomLobby`, `PlayerList`, `ReadyPanel`, `ConnectionStatus`.
 - `app/arena/page.tsx` — rewired to the menu → Practice / room flows.
 - `supabase/migrations/0002_arena_rooms.sql` (not applied).
 
-**Existing Practice gameplay, party system, XP and achievements are untouched.**
+## Multiplayer smoke checklist
+
+Run this manually when changing Arena networking:
+
+1. Open two browsers/tabs with Supabase enabled and confirm both join the same custom room.
+2. Toggle ready/team from non-host clients; all clients should update within one second.
+3. Start from host and verify every client enters the match on the same countdown.
+4. Repeat quick match with 3-4 non-host clients; the elected host must also enter the game.
+5. Shoot another human client; HP loss must be visible on both shooter and target screens.
+6. Die, answer a Learning Pod question, and confirm respawn is visible to all clients.
+7. End the match; scores/results must match on every client.
+8. Repeat once with host leaving the lobby and once with a slow/reloaded client.
+
+Existing Practice gameplay, party system, XP and achievements remain independent.

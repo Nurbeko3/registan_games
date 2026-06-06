@@ -8,7 +8,6 @@ import {
   createWorld,
   respawn,
   step,
-  switchWeapon,
   requestReload,
   heroWeaponHud,
   aliveCounts,
@@ -20,11 +19,14 @@ import {
   WORLD_W,
   WORLD_H,
   type World,
+  type Fighter,
+  type Bullet,
+  type HeroWeaponState,
   type Rect,
   type ArenaDifficulty,
 } from '@/lib/arena/engine';
 import type { NetEvent, NetEventType } from '@/lib/arena/network/types';
-import { WEAPONS, type WeaponId } from '@/lib/arena/weapons';
+import type { WeaponId } from '@/lib/arena/weapons';
 import { useLocale, useT } from '@/lib/i18n';
 import { ArenaHud, type HudData } from './hud/ArenaHud';
 import { drawWorld } from '@/lib/arena/render';
@@ -74,6 +76,9 @@ export interface ArenaGameConfig {
   botFill?: boolean;
   /** hero's starting blaster selected in the pre-match loadout carousel. */
   initialWeapon?: WeaponId;
+  /** offline Practice refresh restore. Multiplayer keeps its own room/session flow. */
+  initialSnapshot?: ArenaPracticeSnapshot;
+  onSnapshot?: (snapshot: ArenaPracticeSnapshot | null) => void;
   /** leave the match and return to the previous Arena screen. */
   onExit?: () => void;
 }
@@ -129,6 +134,84 @@ interface Controls {
 interface FeedEntry { id: number; killerName: string; victimName: string; team: TeamId; crit: boolean }
 interface Banner { text: string; key: number }
 
+type SnapshotFighter = Omit<Fighter, 'cooldownUntil' | 'respawnAt' | 'shieldUntil'> & {
+  cooldownIn: number;
+  respawnIn: number;
+  shieldIn: number;
+};
+type SnapshotBullet = Omit<Bullet, 'born'> & { ageMs: number };
+type SnapshotWeapon = Omit<HeroWeaponState, 'reloadUntil' | 'reloadStart'> & {
+  reloadRemaining: number;
+  reloadElapsed: number;
+};
+
+export interface ArenaPracticeSnapshot {
+  v: 1;
+  savedAt: number;
+  phase: ArenaPhase;
+  count: number;
+  scores: { red: number; blue: number };
+  prepared: PreparedQuestion | null;
+  learnState: LearnState;
+  lastReward: { xp: number; coins: number } | null;
+  result: MatchResult | null;
+  stats: { correct: number; answered: number; xp: number; coins: number };
+  usedIds: string[];
+  matchRemainingMs: number;
+  dying: { active: boolean; t: number; x: number; y: number };
+  heroKills: number[];
+  lastScores: { red: number; blue: number };
+  scoredVictims: string[];
+  hitSeq: number;
+  world: Omit<World, 'fighters' | 'bullets' | 'weapon' | 'input'> & {
+    fighters: SnapshotFighter[];
+    bullets: SnapshotBullet[];
+    weapon: SnapshotWeapon;
+  };
+}
+
+const remaining = (deadline: number, now: number) => (deadline > now ? deadline - now : 0);
+
+function snapshotWorld(world: World, now: number): ArenaPracticeSnapshot['world'] {
+  const { input: _input, fighters, bullets, weapon, ...rest } = world;
+  return {
+    ...rest,
+    fighters: fighters.map((f) => ({
+      ...f,
+      cooldownIn: remaining(f.cooldownUntil, now),
+      respawnIn: remaining(f.respawnAt, now),
+      shieldIn: remaining(f.shieldUntil, now),
+    })),
+    bullets: bullets.map((b) => ({ ...b, ageMs: Math.max(0, now - b.born) })),
+    weapon: {
+      ...weapon,
+      reloadRemaining: remaining(weapon.reloadUntil, now),
+      reloadElapsed: weapon.reloadUntil > 0 ? Math.max(0, now - weapon.reloadStart) : 0,
+    },
+  };
+}
+
+function restoreWorld(snapshot: ArenaPracticeSnapshot['world'], now: number): World {
+  return {
+    ...snapshot,
+    input: { moveX: 0, moveY: 0, firing: false, aim: { type: 'none' } },
+    fighters: snapshot.fighters.map(({ cooldownIn, respawnIn, shieldIn, ...f }) => ({
+      ...f,
+      cooldownUntil: cooldownIn > 0 ? now + cooldownIn : 0,
+      respawnAt: respawnIn > 0 ? now + respawnIn : 0,
+      shieldUntil: shieldIn > 0 ? now + shieldIn : 0,
+    })),
+    bullets: snapshot.bullets.map(({ ageMs, ...b }) => ({ ...b, born: now - Math.max(0, ageMs) })),
+    weapon: {
+      id: snapshot.weapon.id,
+      mag: snapshot.weapon.mag,
+      reserve: snapshot.weapon.reserve,
+      reloadUntil: snapshot.weapon.reloadRemaining > 0 ? now + snapshot.weapon.reloadRemaining : 0,
+      reloadStart: snapshot.weapon.reloadRemaining > 0 ? now - snapshot.weapon.reloadElapsed : 0,
+    },
+  };
+}
+
 export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: ArenaNet }) {
   const { mode, perTeam } = config;
   const target = mode.targetScore;
@@ -163,6 +246,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const [hud, setHud] = useState<HudData | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const isFullscreenRef = useRef(false); // read inside resize() (kept deps-free)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -190,6 +274,10 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const matchPointRef = useRef(false);
   const behindRef = useRef(false);
   const scoredVictims = useRef<Set<string>>(new Set());
+  const restoredSnapshotRef = useRef(false);
+  /** netIds we've already processed a 'leave' for, so a player's own 'leave'
+   *  broadcast and the presence-derived fallback don't double-remove/announce. */
+  const leftPlayers = useRef<Set<string>>(new Set());
   const frameRef = useRef<(ts: number) => boolean | void>(() => {});
   // HUD: throttle the overlay snapshot, track match clock + hit-marker pulses
   const hudAccum = useRef(0);
@@ -329,6 +417,17 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     };
     window.setTimeout(finish, net ? 140 : 0);
   }, [config, leaving, net]);
+
+  // Leaving is destructive (in multiplayer it removes your character for
+  // everyone else), so ALWAYS confirm first — a stray tap or reflex must never
+  // drop you out of the match. Only an explicit "Yes" runs leaveMatch().
+  // A refresh / tab reload is deliberately NOT treated as leaving here: peers
+  // hold a reconnect grace window, so reloading resumes you into the same match
+  // instead of removing your character.
+  const requestLeave = useCallback(() => {
+    if (leaving) return;
+    setConfirmLeave(true);
+  }, [leaving]);
 
   // `override` carries the host's authoritative final score (non-host path);
   // otherwise the local world's score is canonical (host / offline practice).
@@ -559,8 +658,43 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
 
   const hudActions = {
     onReload: () => { const w = worldRef.current; if (w) { requestReload(w, performance.now()); setHud(buildHud(performance.now())); } },
-    onSwitch: (id: WeaponId) => { const w = worldRef.current; if (w) { switchWeapon(w, id); setHud(buildHud(performance.now())); } },
   };
+
+  const makePracticeSnapshot = useCallback((): ArenaPracticeSnapshot | null => {
+    const w = worldRef.current;
+    if (!w || net) return null;
+    return {
+      v: 1,
+      savedAt: Date.now(),
+      phase: phaseRef.current,
+      count,
+      scores,
+      prepared,
+      learnState,
+      lastReward,
+      result,
+      stats: { ...stats.current },
+      usedIds: Array.from(usedIds.current),
+      matchRemainingMs: matchEndsAtRef.current ? Math.max(0, matchEndsAtRef.current - Date.now()) : durationMs,
+      dying: { ...dyingRef.current },
+      heroKills: [...heroKills.current],
+      lastScores: { ...lastScores.current },
+      scoredVictims: Array.from(scoredVictims.current),
+      hitSeq: hitSeq.current,
+      world: snapshotWorld(w, performance.now()),
+    };
+  }, [count, durationMs, learnState, lastReward, net, prepared, result, scores]);
+
+  useEffect(() => {
+    if (net || !config.onSnapshot) return;
+    const save = () => config.onSnapshot?.(makePracticeSnapshot());
+    const id = window.setInterval(save, 500);
+    window.addEventListener('pagehide', save);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('pagehide', save);
+    };
+  }, [config, makePracticeSnapshot, net]);
 
   // ── M2 helpers: roster lookups, kill feed, host scoring from 'down' events ──
   const rosterName = (netId: string) => net?.roster.find((r) => r.netId === netId)?.name ?? 'Player';
@@ -634,6 +768,8 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
           applyRemoteHit(ev.from, String(d.by ?? ''), Number(d.hp));
         }
         else if (ev.t === 'leave') {
+          if (leftPlayers.current.has(ev.from)) continue;
+          leftPlayers.current.add(ev.from);
           const name = typeof d.name === 'string' && d.name.trim() ? d.name.slice(0, 30) : rosterName(ev.from);
           applyRemoteLeave(w, ev.from);
           scoredVictims.current.delete(ev.from);
@@ -742,34 +878,60 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const boot = useCallback(() => {
     clearTimers();
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    worldRef.current = createWorld(
-      perTeam, config.hero, config.obstacles, config.difficulty, config.seed, config.botFill ?? true,
-      mp ? net!.roster : undefined, mp ? net!.myNetId : undefined, config.initialWeapon, myTeam,
-      spectator,
-    );
-    stats.current = { correct: 0, answered: 0, xp: 0, coins: 0 };
-    usedIds.current.clear();
+    const restored = !net && !restoredSnapshotRef.current && config.initialSnapshot?.v === 1 ? config.initialSnapshot : null;
+    if (restored) restoredSnapshotRef.current = true;
+    worldRef.current = restored
+      ? restoreWorld(restored.world, performance.now())
+      : createWorld(
+        perTeam, config.hero, config.obstacles, config.difficulty, config.seed, config.botFill ?? true,
+        mp ? net!.roster : undefined, mp ? net!.myNetId : undefined, config.initialWeapon, myTeam,
+        spectator,
+      );
+    stats.current = restored ? { ...restored.stats } : { correct: 0, answered: 0, xp: 0, coins: 0 };
+    usedIds.current = new Set(restored?.usedIds ?? []);
     lastTs.current = 0;
-    lastScores.current = { red: 0, blue: 0 };
+    lastScores.current = restored ? { ...restored.lastScores } : { red: 0, blue: 0 };
     fxRef.current = new Fx();
     fxRef.current.intensity = reducedMotion ? 0.35 : 1;
     camRef.current = { zoom: 1, cx: WORLD_W / 2, cy: WORLD_H / 2 };
-    dyingRef.current = { active: false, t: 0, x: 0, y: 0 };
-    heroKills.current = [];
+    dyingRef.current = restored ? { ...restored.dying } : { active: false, t: 0, x: 0, y: 0 };
+    heroKills.current = [...(restored?.heroKills ?? [])];
     matchPointRef.current = false;
     behindRef.current = false;
-    scoredVictims.current.clear();
-    matchEndsAtRef.current = 0;
+    scoredVictims.current = new Set(restored?.scoredVictims ?? []);
+    hitSeq.current = restored?.hitSeq ?? 0;
+    matchEndsAtRef.current = restored?.matchRemainingMs ? Date.now() + restored.matchRemainingMs : 0;
     hudAccum.current = 0;
     hitMarkerRef.current = null;
     setFeed([]);
     setBanner(null);
-    setScores({ red: 0, blue: 0 });
-    setResult(null);
-    setPrepared(null);
-    setCount(3);
-    setPhaseBoth('intro');
+    setScores(restored ? restored.scores : { red: 0, blue: 0 });
+    setResult(restored?.result ?? null);
+    setPrepared(restored?.prepared ?? null);
+    setLearnState(restored?.learnState ?? 'answering');
+    setLastReward(restored?.lastReward ?? null);
+    setCount(restored?.count ?? 3);
+    setPhaseBoth(restored?.phase ?? 'intro');
     resize();
+
+    if (restored) {
+      if (restored.phase === 'intro') {
+        let n = Math.max(1, restored.count);
+        const tick = () => {
+          n -= 1;
+          emit('countdown');
+          if (n <= 0) { setCount(0); matchEndsAtRef.current = Date.now() + Math.max(1, restored.matchRemainingMs); setPhaseBoth('playing'); }
+          else { setCount(n); timers.current.push(setTimeout(tick, 800)); }
+        };
+        timers.current.push(setTimeout(tick, 800));
+      } else if (restored.phase === 'learning' && restored.learnState === 'correct') {
+        timers.current.push(setTimeout(respawnHero, CELEBRATE_MS));
+      } else if (restored.phase === 'learning' && restored.learnState === 'wrong-cooldown') {
+        timers.current.push(setTimeout(() => { if (phaseRef.current === 'learning') loadQuestion(); }, WRONG_COOLDOWN_MS));
+      }
+      rafRef.current = requestAnimationFrame(loop);
+      return;
+    }
 
     // intro countdown 3-2-1 → play
     let n = 3;
@@ -815,15 +977,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       if (down) resumeAudio();
       if (k === ' ') { ctl.current.spaceFire = down; e.preventDefault(); return; }
       if (down && k === 'f') { toggleFullscreen(); return; } // F = toggle fullscreen
-      // weapon controls (refs are stable, so a stale closure is fine here):
-      // R = reload, 1..8 = switch blaster. The next HUD tick reflects it.
+      // Weapon controls: the selected blaster is locked for the whole match.
+      // R reloads; number-key weapon switching is intentionally disabled.
       if (down && k === 'r') { const w = worldRef.current; if (w) requestReload(w, performance.now()); return; }
-      if (down && k >= '1' && k <= '8') {
-        const spec = WEAPONS[Number(k) - 1];
-        const w = worldRef.current;
-        if (spec && w) switchWeapon(w, spec.id);
-        return;
-      }
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
         if (down) ctl.current.keys.add(k); else ctl.current.keys.delete(k);
         e.preventDefault();
@@ -945,7 +1101,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   return (
     <div className="mx-auto max-w-5xl px-3 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <button onClick={leaveMatch} disabled={leaving} className="btn-ghost px-3 py-1.5 text-sm disabled:opacity-60">
+        <button onClick={requestLeave} disabled={leaving} className="btn-ghost px-3 py-1.5 text-sm disabled:opacity-60">
           ← {leaving ? t('arena.leaving') : t('hud.leave')}
         </button>
         <span className="chip bg-grape-50 text-grape">{mode.emoji} {mode.name}</span>
@@ -976,7 +1132,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
 
         {/* fullscreen toggle (F key also works) */}
         <button
-          onClick={leaveMatch}
+          onClick={requestLeave}
           disabled={leaving}
           className="pointer-events-auto absolute left-2 top-2 z-40 rounded-xl bg-white/90 px-3 py-2 text-xs font-extrabold text-ink shadow-card ring-1 ring-grape-100 backdrop-blur transition hover:bg-white disabled:opacity-60"
         >
@@ -1074,8 +1230,44 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
               lastReward={lastReward}
               cooldownMs={WRONG_COOLDOWN_MS}
               onAnswer={submitAnswer}
-              onLeave={leaveMatch}
+              onLeave={requestLeave}
             />
+          )}
+        </AnimatePresence>
+
+        {/* leave confirmation — only after the player explicitly confirms do we
+            drop them from the match (and remove their character for everyone). */}
+        <AnimatePresence>
+          {confirmLeave && (
+            <motion.div
+              className="absolute inset-0 z-50 grid place-items-center bg-ink/55 p-4 backdrop-blur-sm"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+              <motion.div
+                initial={{ scale: 0.85, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }}
+                className="w-full max-w-xs rounded-[26px] bg-white p-6 text-center shadow-soft"
+              >
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-grape-50 text-3xl">👋</div>
+                <p className="mt-3 font-display text-xl font-extrabold">{t('arena.leaveConfirmTitle')}</p>
+                <p className="mt-2 text-sm font-bold text-ink-soft">{t('arena.leaveConfirmBody')}</p>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    onClick={() => setConfirmLeave(false)}
+                    disabled={leaving}
+                    className="btn-ghost flex-1 px-4 py-2.5 disabled:opacity-60"
+                  >
+                    {t('arena.leaveConfirmStay')}
+                  </button>
+                  <button
+                    onClick={() => { setConfirmLeave(false); leaveMatch(); }}
+                    disabled={leaving}
+                    className="flex-1 rounded-full bg-bubble px-4 py-2.5 font-extrabold text-white shadow-card transition hover:brightness-105 disabled:opacity-60"
+                  >
+                    {t('arena.leaveConfirmLeave')}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

@@ -101,6 +101,16 @@ export class MatchService {
     return this.inbound.drain();
   }
 
+  /** Inject a synthetic inbound 'leave' for a player who vanished from presence
+   *  (refresh / tab close / crash / network drop) and never sent their own
+   *  'leave'. This is the RELIABLE path: it's server-detected, so a dying client
+   *  doesn't have to successfully transmit anything for its character to be
+   *  removed and the "X left" notice to show on every remaining client. */
+  injectLeave(fromId: string, name: string) {
+    this.inbound.accept({ t: 'leave', from: fromId, seq: 1, data: { name } });
+    this.forget(fromId);
+  }
+
   /** A player left mid-match — stop trusting their stale movement sequence. */
   forget(playerId: string) {
     this.inbound.forget(playerId);

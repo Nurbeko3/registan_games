@@ -41,6 +41,11 @@ const OPTIMISTIC_META_MS = 3000;
 /** How long a code-joining client waits to see the host before declaring the
  *  room non-existent (invalid code). Generous enough for cross-device presence. */
 const ROOM_FIND_MS = 6000;
+/** Grace period after a roster player drops from presence mid-match before we
+ *  treat them as gone. A refresh/tab-reload re-appears well within this, so the
+ *  player resumes and their character is never removed; only a real disconnect
+ *  (no return) eventually triggers the "left" removal + notice. */
+const RECONNECT_GRACE_MS = 12000;
 
 export interface RoomState {
   phase: RoomPhase;
@@ -98,6 +103,12 @@ export class RoomService {
   private matchEnd: MatchScores | null = null;
   private lastEvent: { name: string; at: number } | null = null;
   private roster: RosterEntry[] = [];
+  /** roster ids already removed mid-match (via presence-drop OR their own
+   *  'leave'), so we inject/announce each departure exactly once. */
+  private leftNetIds = new Set<string>();
+  /** roster ids currently absent from presence mid-match, on a grace timer.
+   *  Cleared if they reconnect (refresh); fires removal only if they don't. */
+  private leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private match: MatchService;
   private listeners = new Set<(s: RoomState) => void>();
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -196,6 +207,40 @@ export class RoomService {
 
   private note(name: string) { this.lastEvent = { name, at: Date.now() }; }
 
+  /** Reconcile presence against the match roster. A roster player missing from
+   *  presence starts a grace timer (covers refresh/reconnect); if they come
+   *  back the timer is cancelled. Only when the grace elapses without a return
+   *  do we remove their character + show the "left" notice — so a refresh never
+   *  drops a player, but a real disconnect eventually does. */
+  private reviewMatchPresence(present: Record<string, PresenceMeta>) {
+    const inMatch = this.phase === 'countdown' || this.phase === 'playing';
+    if (!inMatch) { this.clearLeaveTimers(); return; }
+    for (const entry of this.roster) {
+      const id = entry.netId;
+      if (id === this.transport.id || this.leftNetIds.has(id)) continue;
+      if (present[id]) {
+        // reconnected (or never really gone) — cancel any pending removal
+        const pending = this.leaveTimers.get(id);
+        if (pending) { clearTimeout(pending); this.leaveTimers.delete(id); }
+        continue;
+      }
+      if (this.leaveTimers.has(id)) continue; // already counting down
+      this.leaveTimers.set(id, setTimeout(() => {
+        this.leaveTimers.delete(id);
+        // still in a match, still absent, still not already removed?
+        if (this.phase !== 'countdown' && this.phase !== 'playing') return;
+        if (this.presence[id] || this.leftNetIds.has(id)) return;
+        this.leftNetIds.add(id);
+        this.match.injectLeave(id, entry.name);
+      }, RECONNECT_GRACE_MS));
+    }
+  }
+
+  private clearLeaveTimers() {
+    for (const timer of this.leaveTimers.values()) clearTimeout(timer);
+    this.leaveTimers.clear();
+  }
+
   private startCountdown(startAt: number) {
     if (this.timer) clearTimeout(this.timer);
     const delay = Math.max(0, startAt - Date.now());
@@ -216,12 +261,23 @@ export class RoomService {
     matchId: string;
     seed: number;
     roster: RosterEntry[];
+    /** Relative path (live broadcast): count down from NOW. Preferred — it is
+     *  immune to cross-device wall-clock skew, which made clients enter the
+     *  match at wildly different times when we synced on an absolute deadline. */
+    countdownMs?: number;
+    /** Absolute path (persistence recovery for clients that missed the
+     *  broadcast): a server-derived epoch ms. Only used when countdownMs absent. */
     startAt?: number;
   }) {
     this.matchId = payload.matchId || makeMatchId();
     this.seed = Number(payload.seed) || 0;
     this.roster = Array.isArray(payload.roster) ? payload.roster : [];
-    this.startAt = payload.startAt ?? Date.now() + COUNTDOWN_MS;
+    this.leftNetIds.clear();
+    this.clearLeaveTimers();
+    this.startAt =
+      typeof payload.countdownMs === 'number'
+        ? Date.now() + payload.countdownMs
+        : payload.startAt ?? Date.now() + COUNTDOWN_MS;
     this.liveScores = { red: 0, blue: 0 };
     this.matchEnd = null;
     this.startCountdown(this.startAt);
@@ -369,6 +425,7 @@ export class RoomService {
       const grew = Object.keys(mergedMap).length > Object.keys(this.presence).length;
       this.note('presence');
       this.presence = mergedMap;
+      this.reviewMatchPresence(mergedMap);
       // a code-joiner is "in" only once a host actually shows up in the room
       const seenHost = Object.entries(mergedMap).find(([, p]) => p.isHost);
       if (!this.forcedHost && !this.quick && !this.validated && seenHost) {
@@ -414,14 +471,25 @@ export class RoomService {
     t.on('start', (payload) => {
       this.note('start');
       if (!this.fromHost(payload)) return;
+      // Ignore echoes/retries of a match we already adopted: Supabase delivers
+      // the host its OWN start (broadcast:self), and we may re-send for
+      // reliability. Re-adopting would reset the relative countdown and make us
+      // enter late. matchId is unique per start, so it's a safe identity.
+      const incomingMatch = typeof payload.matchId === 'string' ? payload.matchId : '';
+      if (incomingMatch && incomingMatch === this.matchId && (this.phase === 'countdown' || this.phase === 'playing')) return;
+      const broadcastCountdown = Number(payload.countdownMs);
       const broadcastStartAt = Number(payload.startAt);
+      const hasCountdown = Number.isFinite(broadcastCountdown);
       this.adoptStart({
         matchId: (payload.matchId as string) ?? makeMatchId(),
         seed: Number(payload.seed) || 0,
         roster: Array.isArray(payload.roster) ? (payload.roster as RosterEntry[]) : [],
-        // Host sends one shared deadline so all clients enter the match together.
-        // If an old/invalid client omits it, fall back to the previous behavior.
-        startAt: Number.isFinite(broadcastStartAt) ? broadcastStartAt : Date.now() + COUNTDOWN_MS,
+        // Count down from the moment WE received this, not from the host's
+        // wall clock — so device clock skew can't make us enter early/late.
+        // An older host may instead send an absolute startAt; honor it as a
+        // fallback. If neither is present, adoptStart defaults to COUNTDOWN_MS.
+        countdownMs: hasCountdown ? broadcastCountdown : undefined,
+        startAt: !hasCountdown && Number.isFinite(broadcastStartAt) ? broadcastStartAt : undefined,
       });
     });
     // host-authoritative score mirror (host also receives its own via broadcast:self)
@@ -476,8 +544,10 @@ export class RoomService {
     const players = this.toPlayers();
     const contenders = players.filter((p) => !(p.isHost && p.role === 'observer'));
     if (contenders.length < 2 || contenders.some((p) => !p.ready)) return;
-    const startAt = Date.now() + COUNTDOWN_MS;
-    const payload = { matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster(contenders), startAt };
+    // Send a relative countdown, not an absolute deadline: every client (incl.
+    // the host) counts down from when it receives this, so mismatched device
+    // clocks can't stagger entry. Residual skew is just one-way send latency.
+    const payload = { matchId: makeMatchId(), seed: makeSeed(), roster: this.buildRoster(contenders), countdownMs: COUNTDOWN_MS };
     void this.persistStart(payload);
     this.transport.broadcast('start', payload);
     this.adoptStart(payload);
@@ -549,6 +619,7 @@ export class RoomService {
     if (this.timer) clearTimeout(this.timer);
     if (this.validateTimer) clearTimeout(this.validateTimer);
     if (this.persistenceTimer) clearInterval(this.persistenceTimer);
+    this.clearLeaveTimers();
     this.match.stop();
     this.transport.disconnect();
     this.listeners.clear();

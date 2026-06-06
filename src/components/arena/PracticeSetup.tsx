@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { ARENA_MODES, TEAM_SIZES } from '@/data/arenaModes';
@@ -8,10 +8,64 @@ import { ARENA_MAPS, type ArenaMap } from '@/data/arenaMaps';
 import { WORLD_H, WORLD_W, type ArenaDifficulty } from '@/lib/arena/engine';
 import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
-import { ArenaGame } from './ArenaGame';
+import { ArenaGame, type ArenaPracticeSnapshot } from './ArenaGame';
 import { MatchLengthInput } from './MatchLengthInput';
 import { WeaponLoadout } from './WeaponLoadout';
-import { DEFAULT_WEAPON, type WeaponId } from '@/lib/arena/weapons';
+import { DEFAULT_WEAPON, isWeaponId, type WeaponId } from '@/lib/arena/weapons';
+
+export const PRACTICE_SESSION_KEY = 'kcq.arena.practice.v1';
+
+interface PracticeSession {
+  v: 1;
+  started: boolean;
+  mapId: string;
+  perTeam: number;
+  difficulty: ArenaDifficulty;
+  durationSec: number;
+  weapon: WeaponId;
+  snapshot: ArenaPracticeSnapshot | null;
+}
+
+function readPracticeSession(): PracticeSession | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(PRACTICE_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PracticeSession>;
+    const mapId = typeof parsed.mapId === 'string' && ARENA_MAPS.some((m) => m.id === parsed.mapId)
+      ? parsed.mapId
+      : ARENA_MAPS[0].id;
+    const perTeam = TEAM_SIZES.some((t) => t.perTeam === parsed.perTeam) ? parsed.perTeam! : TEAM_SIZES[1].perTeam;
+    const difficulty = parsed.difficulty === 'easy' || parsed.difficulty === 'medium' || parsed.difficulty === 'hard' || parsed.difficulty === 'expert'
+      ? parsed.difficulty
+      : 'medium';
+    const durationSec = typeof parsed.durationSec === 'number' && Number.isFinite(parsed.durationSec)
+      ? Math.max(30, Math.min(900, Math.round(parsed.durationSec)))
+      : 180;
+    return {
+      v: 1,
+      started: parsed.started === true,
+      mapId,
+      perTeam,
+      difficulty,
+      durationSec,
+      weapon: isWeaponId(parsed.weapon) ? parsed.weapon : DEFAULT_WEAPON,
+      snapshot: parsed.snapshot?.v === 1 ? parsed.snapshot : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function savePracticeSession(session: PracticeSession | null) {
+  if (typeof window === 'undefined') return;
+  if (!session) sessionStorage.removeItem(PRACTICE_SESSION_KEY);
+  else sessionStorage.setItem(PRACTICE_SESSION_KEY, JSON.stringify(session));
+}
+
+export function hasSavedPracticeSession(): boolean {
+  return readPracticeSession() !== null;
+}
 
 export const DIFFICULTIES: { id: ArenaDifficulty; label: string; emoji: string }[] = [
   { id: 'easy', label: 'Easy', emoji: '😊' },
@@ -35,27 +89,67 @@ const MAP_CHALLENGE_LABEL: Record<ArenaMap['challenge'], string> = {
 /** Play vs Bots — pick map, difficulty, team size and match length, then play. */
 export function PracticeSetup({ onBack }: { onBack: () => void }) {
   const t = useT();
+  const savedRef = useRef<PracticeSession | null>(readPracticeSession());
   const playerName = useGame((s) => s.playerName);
   const arenaAvatar = useGame((s) => s.arenaAvatar);
   const hero = { name: playerName || 'You', avatar: arenaAvatar };
 
   const mode = ARENA_MODES[0];
-  const [mapId, setMapId] = useState<string>(ARENA_MAPS[0].id);
+  const [mapId, setMapId] = useState<string>(savedRef.current?.mapId ?? ARENA_MAPS[0].id);
   const map = ARENA_MAPS.find((m) => m.id === mapId) ?? ARENA_MAPS[0];
-  const [perTeam, setPerTeam] = useState<number>(TEAM_SIZES[1].perTeam);
-  const [difficulty, setDifficulty] = useState<ArenaDifficulty>('medium');
-  const [durationSec, setDurationSec] = useState<number>(180);
-  const [weapon, setWeapon] = useState<WeaponId>(DEFAULT_WEAPON);
-  const [started, setStarted] = useState(false);
+  const [perTeam, setPerTeam] = useState<number>(savedRef.current?.perTeam ?? TEAM_SIZES[1].perTeam);
+  const [difficulty, setDifficulty] = useState<ArenaDifficulty>(savedRef.current?.difficulty ?? 'medium');
+  const [durationSec, setDurationSec] = useState<number>(savedRef.current?.durationSec ?? 180);
+  const [weapon, setWeapon] = useState<WeaponId>(savedRef.current?.weapon ?? DEFAULT_WEAPON);
+  const [started, setStarted] = useState(savedRef.current?.started ?? false);
+  const snapshotRef = useRef<ArenaPracticeSnapshot | null>(savedRef.current?.snapshot ?? null);
+
+  const writeSession = useCallback((nextSnapshot = snapshotRef.current) => {
+    savePracticeSession({ v: 1, started, mapId, perTeam, difficulty, durationSec, weapon, snapshot: nextSnapshot });
+  }, [difficulty, durationSec, mapId, perTeam, started, weapon]);
+
+  useEffect(() => {
+    writeSession();
+  }, [writeSession]);
+
+  const clearAndBack = () => {
+    savePracticeSession(null);
+    onBack();
+  };
+
+  const startPractice = () => {
+    snapshotRef.current = null;
+    setStarted(true);
+  };
+
+  const saveSnapshot = useCallback((snapshot: ArenaPracticeSnapshot | null) => {
+    snapshotRef.current = snapshot;
+    savePracticeSession({ v: 1, started: true, mapId, perTeam, difficulty, durationSec, weapon, snapshot });
+  }, [difficulty, durationSec, mapId, perTeam, weapon]);
 
   if (started) {
-    return <ArenaGame config={{ mode, perTeam, hero, obstacles: map.obstacles, difficulty, durationSec, initialWeapon: weapon, onExit: onBack }} />;
+    return (
+      <ArenaGame
+        config={{
+          mode,
+          perTeam,
+          hero,
+          obstacles: map.obstacles,
+          difficulty,
+          durationSec,
+          initialWeapon: weapon,
+          initialSnapshot: snapshotRef.current ?? undefined,
+          onSnapshot: saveSnapshot,
+          onExit: clearAndBack,
+        }}
+      />
+    );
   }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-5">
       <div className="mb-3 flex items-center justify-between">
-        <button onClick={onBack} className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</button>
+        <button onClick={clearAndBack} className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</button>
         <span className="chip bg-grape-50 text-grape"><Icon name="bot" className="h-4 w-4" /> {t('arena.bots')}</span>
       </div>
 
@@ -129,7 +223,7 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
 
       <motion.button
         whileTap={{ scale: 0.98 }}
-        onClick={() => setStarted(true)}
+        onClick={startPractice}
         className="btn-primary mt-6 w-full text-lg"
       >
         <Icon name="rocket" className="h-5 w-5" /> {t('arena.bots')}

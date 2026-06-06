@@ -1,18 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { ArenaMenu, type MenuChoice } from '@/components/arena/ArenaMenu';
-import { PracticeSetup } from '@/components/arena/PracticeSetup';
+import { hasSavedPracticeSession, PracticeSetup } from '@/components/arena/PracticeSetup';
 import { RoomLobby } from '@/components/arena/RoomLobby';
 import { JoinRoomModal } from '@/components/arena/JoinRoomModal';
 import { makeRoomCode, DEFAULT_SETTINGS, type RoomSettings } from '@/lib/arena/network/types';
 import { loadArenaAuthorityStatus } from '@/lib/arena/authority';
+import { DEFAULT_WEAPON, isWeaponId, type WeaponId } from '@/lib/arena/weapons';
 
 type View = 'menu' | 'practice' | 'room';
 type HostRole = 'observer' | 'player';
-interface RoomEntry { code: string; isHost: boolean; quick: boolean; clientId: string; settings?: RoomSettings; hostRole?: HostRole }
+interface RoomEntry { code: string; isHost: boolean; quick: boolean; clientId: string; settings?: RoomSettings; hostRole?: HostRole; weapon?: WeaponId }
 
 const ROOM_SESSION_KEY = 'kcq.arena.room.v1';
 const makeClientId = () => Math.random().toString(36).slice(2, 10);
@@ -31,6 +32,7 @@ function readSavedRoom(): RoomEntry | null {
       clientId: typeof parsed.clientId === 'string' && parsed.clientId ? parsed.clientId : makeClientId(),
       settings: parsed.settings,
       hostRole: parsed.hostRole === 'player' ? 'player' : 'observer',
+      weapon: isWeaponId(parsed.weapon) ? parsed.weapon : DEFAULT_WEAPON,
     };
   } catch {
     return null;
@@ -59,23 +61,37 @@ export default function ArenaPage() {
       if (!alive) return;
       setMultiplayerEnabled(status.enabled);
       setAuthorityChecked(true);
-      if (!status.enabled) saveRoom(null);
     });
     return () => { alive = false; };
   }, []);
 
+  // Restore a saved room on refresh BEFORE we ever persist, and do it
+  // independently from the authority health probe. A temporary probe failure
+  // must not kick an already-playing student out of their room.
+  const restoredRef = useRef(false);
+  const skipNextPersistRef = useRef(false);
   useEffect(() => {
-    if (!authorityChecked) return;
-    if (!multiplayerEnabled) {
-      saveRoom(null);
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const saved = readSavedRoom();
+    if (saved) {
+      skipNextPersistRef.current = true;
+      setRoom(saved);
+      setView('room');
       return;
     }
-    const saved = readSavedRoom();
-    if (!saved) return;
-    setRoom(saved);
-    setView('room');
-  }, [authorityChecked, multiplayerEnabled]);
-  useEffect(() => { saveRoom(room); }, [room]);
+    if (hasSavedPracticeSession()) setView('practice');
+  }, []);
+  // Persist only AFTER the restore attempt — otherwise the mount-time room=null
+  // would wipe the saved room before refresh could ever recover it.
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
+    saveRoom(room);
+  }, [room]);
 
   const choose = (c: MenuChoice) => {
     if (c === 'practice') setView('practice');
@@ -100,6 +116,10 @@ export default function ArenaPage() {
     setRoom((r) => (r ? { ...r, settings } : r));
   }, []);
 
+  const updateRoomWeapon = useCallback((weapon: WeaponId) => {
+    setRoom((r) => (r ? { ...r, weapon } : r));
+  }, []);
+
   const toMenu = () => { setRoom(null); setView('menu'); };
 
   return (
@@ -116,7 +136,9 @@ export default function ArenaPage() {
           quick={room.quick}
           hostRole={room.hostRole}
           settings={room.settings}
+          initialWeapon={room.weapon}
           onSettingsChange={updateRoomSettings}
+          onWeaponChange={updateRoomWeapon}
           onLeave={toMenu}
         />
       )}

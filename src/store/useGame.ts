@@ -30,6 +30,14 @@ export interface CompleteResult {
   newAchievements: Achievement[];
 }
 
+export interface LevelCelebration {
+  code: string;
+  kind: 'level';
+  level: number;
+}
+
+export type Celebration = Achievement | LevelCelebration;
+
 /** XP + coins granted for a correct Battle Learn Arena question, by difficulty. */
 const ARENA_REWARD: Record<'easy' | 'medium' | 'hard', { xp: number; coins: number }> = {
   easy: { xp: 8, coins: 4 },
@@ -65,7 +73,7 @@ interface GameState {
 
   // transient (not persisted)
   hydrated: boolean;
-  celebrations: Achievement[];
+  celebrations: Celebration[];
 
   // actions
   setPlayerName: (name: string) => void;
@@ -133,6 +141,16 @@ function buildSnapshot(s: GameState): AchievementSnapshot {
   };
 }
 
+export function levelCelebrationsBetween(fromXp: number, toXp: number): LevelCelebration[] {
+  const fromLevel = levelForXp(fromXp);
+  const toLevel = levelForXp(toXp);
+  if (toLevel <= fromLevel) return [];
+  return Array.from({ length: toLevel - fromLevel }, (_, i) => {
+    const level = fromLevel + i + 1;
+    return { code: `LEVEL_UP_${level}`, kind: 'level', level };
+  });
+}
+
 export const useGame = create<GameState>()(
   persist(
     (set, get) => ({
@@ -172,7 +190,6 @@ export const useGame = create<GameState>()(
         const streak = state.lastPlayedDay === today ? state.streak : nextStreak(state.lastPlayedDay, state.streak);
 
         const newXp = state.xp + xpAwarded;
-        const leveledUp = levelForXp(newXp) > levelForXp(state.xp);
 
         const completed: Record<string, GameRecord> = {
           ...state.completed,
@@ -191,15 +208,17 @@ export const useGame = create<GameState>()(
         const newlyUnlocked = ACHIEVEMENTS.filter((a) => !state.unlockedAchievements.includes(a.code) && a.check(snap));
         const achvXp = newlyUnlocked.length * 25;
         const achvCoins = newlyUnlocked.length * 15;
+        const finalXp = newXp + achvXp;
+        const levelUps = levelCelebrationsBetween(state.xp, finalXp);
 
         set({
-          xp: newXp + achvXp,
+          xp: finalXp,
           coins: state.coins + coinsAwarded + achvCoins,
           streak,
           lastPlayedDay: today,
           completed,
           unlockedAchievements: [...state.unlockedAchievements, ...newlyUnlocked.map((a) => a.code)],
-          celebrations: [...state.celebrations, ...newlyUnlocked],
+          celebrations: [...state.celebrations, ...levelUps, ...newlyUnlocked],
         });
 
         return {
@@ -208,8 +227,8 @@ export const useGame = create<GameState>()(
           stars,
           bestStars: Math.max(prevStars, stars),
           improved,
-          leveledUp,
-          newLevel: levelForXp(newXp + achvXp),
+          leveledUp: levelUps.length > 0,
+          newLevel: levelForXp(finalXp),
           newAchievements: newlyUnlocked,
         };
       },
@@ -217,11 +236,15 @@ export const useGame = create<GameState>()(
       // ── Battle Learn Arena: a correct answer respawns the player + pays out ──
       arenaAnswerCorrect: (difficulty) => {
         const reward = ARENA_REWARD[difficulty];
-        set((s) => ({
-          xp: s.xp + reward.xp,
-          coins: s.coins + reward.coins,
-          arenaCorrect: s.arenaCorrect + 1,
-        }));
+        set((s) => {
+          const newXp = s.xp + reward.xp;
+          return {
+            xp: newXp,
+            coins: s.coins + reward.coins,
+            arenaCorrect: s.arenaCorrect + 1,
+            celebrations: [...s.celebrations, ...levelCelebrationsBetween(s.xp, newXp)],
+          };
+        });
         return reward;
       },
 
@@ -244,15 +267,17 @@ export const useGame = create<GameState>()(
         const newlyUnlocked = ACHIEVEMENTS.filter(
           (a) => !state.unlockedAchievements.includes(a.code) && a.check(snap),
         );
+        const finalXp = draft.xp + newlyUnlocked.length * 25;
+        const levelUps = levelCelebrationsBetween(state.xp, finalXp);
 
         set({
-          xp: draft.xp + newlyUnlocked.length * 25,
+          xp: finalXp,
           coins: draft.coins + newlyUnlocked.length * 15,
           arenaMatches: draft.arenaMatches,
           arenaWins: draft.arenaWins,
           arenaBestElims: draft.arenaBestElims,
           unlockedAchievements: [...state.unlockedAchievements, ...newlyUnlocked.map((a) => a.code)],
-          celebrations: [...state.celebrations, ...newlyUnlocked],
+          celebrations: [...state.celebrations, ...levelUps, ...newlyUnlocked],
         });
 
         return { bonusXp, bonusCoins, newAchievements: newlyUnlocked };
@@ -263,7 +288,15 @@ export const useGame = create<GameState>()(
         if (get().lastDailyClaim === today) return null;
         const coins = 25;
         const xp = 20;
-        set((s) => ({ coins: s.coins + coins, xp: s.xp + xp, lastDailyClaim: today }));
+        set((s) => {
+          const newXp = s.xp + xp;
+          return {
+            coins: s.coins + coins,
+            xp: newXp,
+            lastDailyClaim: today,
+            celebrations: [...s.celebrations, ...levelCelebrationsBetween(s.xp, newXp)],
+          };
+        });
         return { coins, xp };
       },
 

@@ -461,19 +461,13 @@ export function applyRemoteRespawn(world: World, netId: string, d: { x: number; 
 
 // ── hero weapon controls (called from the React/controls layer) ──────────────
 
-/** Switch the hero's blaster — fresh full magazine + that weapon's reserve. */
-export function switchWeapon(world: World, id: WeaponId) {
-  if (world.weapon.id === id) return;
-  const spec = getWeapon(id);
-  world.weapon = { id, mag: spec.magSize, reserve: spec.reserve, reloadUntil: 0, reloadStart: 0 };
-  world.fighters[0].weaponId = id;
-}
-
-/** Begin a reload if it makes sense (not full, have reserve, not already reloading). */
+/** Begin a reload if it makes sense. Reserve is infinite for kid-friendly play:
+ *  the visible reserve stays at the weapon's normal reserve count after reloads. */
 export function requestReload(world: World, now: number) {
   const w = world.weapon;
   const spec = getWeapon(w.id);
-  if (w.reloadUntil > 0 || w.mag >= spec.magSize || w.reserve <= 0) return;
+  if (w.reloadUntil > 0 || w.mag >= spec.magSize) return;
+  w.reserve = spec.reserve;
   w.reloadStart = now;
   w.reloadUntil = now + spec.reloadMs;
 }
@@ -679,8 +673,8 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
     const W = world.weapon;
     if (W.reloadUntil > 0 && now >= W.reloadUntil) {
       const spec = getWeapon(W.id);
-      const take = Math.min(spec.magSize - W.mag, W.reserve);
-      W.mag += take; W.reserve -= take;
+      W.mag = spec.magSize;
+      W.reserve = spec.reserve;
       W.reloadUntil = 0; W.reloadStart = 0;
     }
     const reloading = W.reloadUntil > 0;
@@ -693,8 +687,8 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
           // one representative bolt for opponents to spawn (flat, accurate enough)
           heroShot = { x: hero.x, y: hero.y, angle, speed: spec.bulletSpeed, dmg: spec.damage, life: spec.rangeMs };
         }
-        if (W.mag === 0 && W.reserve > 0) requestReload(world, now); // auto-reload when empty
-      } else if (W.reserve > 0) {
+        if (W.mag === 0) requestReload(world, now); // auto-reload when empty
+      } else {
         requestReload(world, now); // clicked on an empty mag → start reloading
       }
     }
