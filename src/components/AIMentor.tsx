@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { getHint, MENTOR_GREETINGS, ENCOURAGEMENTS } from '@/data/hints';
 import { useT } from '@/lib/i18n';
 
@@ -13,6 +13,7 @@ interface Msg { from: 'byte' | 'me'; text: string }
  */
 export function AIMentor({ game }: { game: string }) {
   const t = useT();
+  const shouldReduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [messages, setMessages] = useState<Msg[]>([
@@ -35,9 +36,11 @@ export function AIMentor({ game }: { game: string }) {
       <motion.button
         onClick={() => setOpen((o) => !o)}
         aria-label={t('mentor.open')}
-        className="fixed bottom-5 right-5 z-40 grid h-16 w-16 place-items-center rounded-full bg-grape text-3xl text-white shadow-toy"
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className="fixed bottom-28 right-4 z-40 grid h-14 w-14 place-items-center rounded-full bg-grape text-2xl text-white shadow-toy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2"
+        animate={shouldReduceMotion ? {} : { y: [0, -8, 0] }}
+        transition={{ duration: 3, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut' }}
         whileTap={{ scale: 0.9 }}
       >
         🤖
@@ -46,10 +49,13 @@ export function AIMentor({ game }: { game: string }) {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            initial={shouldReduceMotion ? {} : { opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 30, scale: 0.95 }}
-            className="fixed bottom-24 right-5 z-40 flex h-[420px] w-[330px] max-w-[88vw] flex-col overflow-hidden rounded-xl2 bg-white shadow-toy"
+            exit={shouldReduceMotion ? {} : { opacity: 0, y: 30, scale: 0.95 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Byte — AI Mentor"
+            className="fixed bottom-44 right-4 z-40 flex h-[400px] w-[320px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl2 bg-white shadow-toy"
           >
             <div className="flex items-center gap-2 bg-grape px-4 py-3 text-white">
               <span className="text-2xl">🤖</span>

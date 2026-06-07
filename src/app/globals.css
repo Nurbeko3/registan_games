@@ -100,6 +100,14 @@
   .safe-bottom {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
+  /* page content bottom padding — clears the fixed bottom nav + iOS safe area */
+  .page-pad-bottom {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+  /* skeleton shimmer for loading states */
+  .skeleton {
+    @apply animate-pulse rounded-2xl bg-grape-100/70;
+  }
 }
 
 /* reduced motion respect */

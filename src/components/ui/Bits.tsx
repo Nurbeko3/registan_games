@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Icon } from './Icon';
 
 export function Stat({ icon, value, label }: { icon: React.ReactNode; value: number | string; label: string }) {
@@ -27,13 +27,14 @@ export function ProgressBar({ pct, className = 'bg-grape', track = 'bg-grape-100
 }
 
 export function Stars({ count, size = 'text-2xl' }: { count: number; size?: string }) {
+  const shouldReduceMotion = useReducedMotion();
   return (
     <div className={`flex gap-1 text-sun ${size}`} aria-label={`${count} of 3 stars`}>
       {[1, 2, 3].map((i) => (
         <motion.span
           key={i}
-          initial={{ scale: 0, rotate: -40 }}
-          animate={{ scale: 1, rotate: 0 }}
+          initial={shouldReduceMotion ? false : { scale: 0, rotate: -40 }}
+          animate={shouldReduceMotion ? {} : { scale: 1, rotate: 0 }}
           transition={{ delay: 0.15 * i, type: 'spring', stiffness: 300 }}
           className={i <= count ? 'text-sun' : 'text-grape-100'}
         >

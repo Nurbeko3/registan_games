@@ -51,7 +51,7 @@ export default function WorldMapPage() {
   const visibleCompleted = hydrated && loggedIn ? completed : {};
 
   return (
-    <main id="main" className="min-h-screen pb-4 dotted">
+    <main id="main" className="min-h-screen dotted page-pad-bottom">
       <TopBar />
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="text-center">
@@ -98,16 +98,16 @@ export default function WorldMapPage() {
                         <Link
                           key={slug}
                           href={`/play/${slug}`}
-                          className="flex items-center gap-3 rounded-2xl bg-white/95 p-3 text-ink transition hover:scale-[1.02]"
+                          className="flex items-center gap-3 rounded-2xl bg-white/95 p-3 text-ink shadow-soft ring-1 ring-white/60 transition hover:scale-[1.02] hover:shadow-card active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape"
                         >
-                          <span className="grid h-10 w-10 place-items-center rounded-xl bg-grape-50 text-grape">
+                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-grape-50 text-grape">
                             <Icon name={gameIcon(slug)} className="h-5 w-5" />
                           </span>
-                          <div className="flex-1">
-                            <p className="font-display font-extrabold leading-tight">{t(`game.${slug}.title`)}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-display font-extrabold leading-tight">{t(`game.${slug}.title`)}</p>
                             <div className="text-sm"><Stars count={hydrated ? stars : 0} size="text-xs" /></div>
                           </div>
-                          <span className="font-display font-bold text-grape">{t('common.play')}</span>
+                          <span className="shrink-0 font-display text-sm font-bold text-grape">{t('common.play')}</span>
                         </Link>
                       );
                     })}

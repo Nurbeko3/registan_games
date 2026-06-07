@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { useGame, useHydrated, selectTotalStars } from '@/store/useGame';
 import { ACHIEVEMENT_GROUPS, ACHIEVEMENTS, RARITY_RING, type Achievement } from '@/data/achievements';
-import { AVATARS, THEMES } from '@/data/cosmetics';
-import { levelForXp, levelState } from '@/lib/leveling';
+import { levelState } from '@/lib/leveling';
 import { AccountCard } from '@/components/AccountCard';
 import { isCloudEnabled } from '@/lib/supabase/client';
 import { ACCOUNT_SESSION_EVENT, accountLogout, accountResume, readSession } from '@/lib/supabase/account';
@@ -86,14 +85,23 @@ function RewardsContent() {
   }
 
   return (
-    <main id="main" className="mx-auto max-w-3xl px-4 py-6">
+    <main id="main" className="mx-auto max-w-3xl px-4 py-6 page-pad-bottom">
       {/* header stats */}
-      <section className="card bg-gradient-to-br from-grape to-grape-600 text-center text-white">
+      <section className="card overflow-hidden bg-gradient-to-br from-grape to-grape-600 text-center text-white">
         <h1 className="font-display text-2xl font-extrabold">{t('rw.profile')}</h1>
-        <div className="mt-3 flex justify-center gap-6 font-display font-extrabold">
-          <div><div className="text-3xl">{ls.level}</div><div className="text-sm text-white/80">{t('rw.level')}</div></div>
-          <div><div className="flex items-center justify-center gap-1 text-3xl">{totalStars}<Icon name="star" className="h-7 w-7 text-sun" /></div><div className="text-sm text-white/80">{t('rw.stars')}</div></div>
-          <div><div className="flex items-center justify-center gap-1 text-3xl">{coins}<Icon name="coin" className="h-7 w-7 text-sun" /></div><div className="text-sm text-white/80">{t('rw.coins')}</div></div>
+        <div className="mt-4 flex justify-center gap-4 font-display font-extrabold sm:gap-8">
+          <div className="flex flex-col items-center rounded-2xl bg-white/15 px-4 py-3">
+            <div className="text-3xl font-extrabold">{ls.level}</div>
+            <div className="mt-0.5 text-xs text-white/80">{t('rw.level')}</div>
+          </div>
+          <div className="flex flex-col items-center rounded-2xl bg-white/15 px-4 py-3">
+            <div className="flex items-center gap-1 text-3xl">{totalStars}<Icon name="star" className="h-6 w-6 text-sun" /></div>
+            <div className="mt-0.5 text-xs text-white/80">{t('rw.stars')}</div>
+          </div>
+          <div className="flex flex-col items-center rounded-2xl bg-white/15 px-4 py-3">
+            <div className="flex items-center gap-1 text-3xl">{coins}<Icon name="coin" className="h-6 w-6 text-sun" /></div>
+            <div className="mt-0.5 text-xs text-white/80">{t('rw.coins')}</div>
+          </div>
         </div>
       </section>
 
@@ -108,48 +116,200 @@ function RewardsContent() {
           <p className="font-display font-extrabold">{t('rw.daily')}</p>
           <p className="text-sm text-ink-soft">{canClaim ? t('rw.dailyClaim') : claimMsg ?? t('rw.dailyBack')}</p>
         </div>
-        <button onClick={onClaim} disabled={!canClaim} className="btn-primary disabled:opacity-40">{canClaim ? t('rw.claim') : '✓'}</button>
+        <button onClick={onClaim} disabled={!canClaim} className="btn-primary disabled:opacity-40" aria-label={canClaim ? t('rw.claim') : t('rw.dailyBack')}>
+          {canClaim ? t('rw.claim') : <Icon name="check" className="h-5 w-5" />}
+        </button>
       </section>
 
-      {/* achievements */}
-      <section className="mt-6">
-        <h2 className="font-display text-xl font-extrabold">{t('rw.achievements')} ({unlockedAch.length}/{ACHIEVEMENTS.length})</h2>
-
-        <div className="mt-3 space-y-3">
-          {ACHIEVEMENT_GROUPS.map((group) => {
-            const items = ACHIEVEMENTS.filter((a) => a.group === group.id);
-            const groupDone = items.filter((a) => unlockedAch.includes(a.code)).length;
-            return (
-              <div key={group.id} className="overflow-hidden rounded-2xl border border-grape-100 bg-white shadow-card">
-                <div className="flex items-center justify-between gap-3 bg-grape-50/70 px-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="text-xl">{group.emoji}</span>
-                    <div className="min-w-0">
-                      <h3 className="truncate font-display text-sm font-extrabold">{t(group.titleKey)}</h3>
-                      <p className="truncate text-[11px] font-bold text-ink-faint">{t(group.subtitleKey)}</p>
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-mint-700 ring-1 ring-mint/20">
-                    {groupDone}/{items.length}
-                  </span>
-                </div>
-
-                <div className="divide-y divide-grape-100/70">
-                  {items.map((a) => (
-                    <AchievementCard key={a.code} achievement={a} unlocked={unlockedAch.includes(a.code)} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {/* compact achievements trigger */}
+      <AchievementsButton unlockedCount={unlockedAch.length} totalCount={ACHIEVEMENTS.length} unlockedAch={unlockedAch} />
 
       <AccountCard />
-      <AvatarShop />
-      <ThemeShop />
       <SettingsPanel />
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Achievements compact trigger + modal
+// ---------------------------------------------------------------------------
+
+interface AchievementsButtonProps {
+  unlockedCount: number;
+  totalCount: number;
+  unlockedAch: string[];
+}
+
+function AchievementsButton({ unlockedCount, totalCount, unlockedAch }: AchievementsButtonProps) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Compact trigger card */}
+      <button
+        type="button"
+        role="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+        className="mt-5 flex w-full items-center gap-4 rounded-2xl bg-white px-4 py-4 shadow-card transition hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape"
+      >
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sun/15 text-3xl">
+          🏅
+        </span>
+        <div className="min-w-0 flex-1 text-left">
+          <p className="font-display text-base font-extrabold leading-snug">
+            {t('rw.achievements')}
+            <span className="ml-2 rounded-full bg-mint/15 px-2.5 py-0.5 text-xs font-extrabold text-mint-700">
+              {unlockedCount}/{totalCount}
+            </span>
+          </p>
+          <p className="mt-0.5 text-sm text-ink-soft">{t('rw.achSub')}</p>
+        </div>
+        <span className="shrink-0 text-ink-faint" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </button>
+
+      {/* Modal */}
+      <AchievementsModal open={open} onClose={() => setOpen(false)} unlockedAch={unlockedAch} />
+    </>
+  );
+}
+
+interface AchievementsModalProps {
+  open: boolean;
+  onClose: () => void;
+  unlockedAch: string[];
+}
+
+function AchievementsModal({ open, onClose, unlockedAch }: AchievementsModalProps) {
+  const t = useT();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Escape key listener
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
+  // Focus close button when modal opens
+  useEffect(() => {
+    if (open) {
+      // Defer so AnimatePresence finishes mounting
+      const id = setTimeout(() => closeButtonRef.current?.focus(), 50);
+      return () => clearTimeout(id);
+    }
+  }, [open]);
+
+  // Lock body scroll while open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      onClose();
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="ach-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6 backdrop-blur-sm"
+          onClick={handleBackdropClick}
+          aria-modal="true"
+          role="dialog"
+          aria-label={t('rw.achievements')}
+        >
+          <motion.div
+            key="ach-panel"
+            ref={panelRef}
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+          >
+            {/* Sticky header */}
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-grape-100 bg-grape-50/70 px-5 py-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-2xl" aria-hidden="true">🏅</span>
+                <div className="min-w-0">
+                  <h2 className="font-display text-lg font-extrabold leading-tight">
+                    {t('rw.achievements')}
+                  </h2>
+                  <p className="text-sm font-bold text-mint-700">
+                    {unlockedAch.length}/{ACHIEVEMENTS.length}
+                  </p>
+                </div>
+              </div>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                onClick={onClose}
+                aria-label={t('rw.achClose')}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white text-ink-soft shadow-sm transition hover:bg-grape-50 hover:text-grape focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="space-y-3 pb-2">
+                {ACHIEVEMENT_GROUPS.map((group) => {
+                  const items = ACHIEVEMENTS.filter((a) => a.group === group.id);
+                  const groupDone = items.filter((a) => unlockedAch.includes(a.code)).length;
+                  return (
+                    <div key={group.id} className="overflow-hidden rounded-2xl border border-grape-100 bg-white shadow-card">
+                      <div className="flex items-center justify-between gap-3 bg-grape-50/70 px-3 py-2.5">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="text-xl">{group.emoji}</span>
+                          <div className="min-w-0">
+                            <h3 className="truncate font-display text-sm font-extrabold">{t(group.titleKey)}</h3>
+                            <p className="truncate text-[11px] font-bold text-ink-faint">{t(group.subtitleKey)}</p>
+                          </div>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-mint-700 ring-1 ring-mint/20">
+                          {groupDone}/{items.length}
+                        </span>
+                      </div>
+                      <div className="divide-y divide-grape-100/70">
+                        {items.map((a) => (
+                          <AchievementCard key={a.code} achievement={a} unlocked={unlockedAch.includes(a.code)} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -168,7 +328,8 @@ function AchievementCard({ achievement, unlocked }: { achievement: Achievement; 
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center justify-between gap-2">
           <p className="truncate font-display text-sm font-extrabold">{t(achievement.titleKey)}</p>
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${unlocked ? 'bg-mint/15 text-mint-700' : 'bg-ink/10 text-ink-soft'}`}>
+          <span className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${unlocked ? 'bg-mint/15 text-mint-700' : 'bg-ink/10 text-ink-soft'}`}>
+            <Icon name={unlocked ? 'check' : 'lock'} className="h-3 w-3" />
             {unlocked ? t('ach.unlockedShort') : t('ach.lockedShort')}
           </span>
         </div>
@@ -218,80 +379,6 @@ function OfflineNameCard() {
   );
 }
 
-function AvatarShop() {
-  const t = useT();
-  const avatarId = useGame((s) => s.avatarId);
-  const unlocked = useGame((s) => s.unlockedAvatars);
-  const coins = useGame((s) => s.coins);
-  const xp = useGame((s) => s.xp);
-  const buy = useGame((s) => s.buyAvatar);
-  const select = useGame((s) => s.selectAvatar);
-  const level = levelForXp(xp);
-
-  return (
-    <section className="mt-6">
-      <h2 className="font-display text-xl font-extrabold">{t('rw.characters')}</h2>
-      <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
-        {AVATARS.map((a) => {
-          const owned = unlocked.includes(a.id);
-          const active = avatarId === a.id;
-          const lockedByLevel = a.unlockLevel ? level < a.unlockLevel : false;
-          return (
-            <motion.button
-              key={a.id}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => (owned ? select(a.id) : buy(a.id))}
-              disabled={!owned && (lockedByLevel || coins < a.cost)}
-              className={`grid place-items-center rounded-2xl p-3 text-center shadow-card transition ${active ? 'bg-grape text-white ring-2 ring-grape' : 'bg-white'} ${!owned && (lockedByLevel || coins < a.cost) ? 'opacity-50' : ''}`}
-            >
-              <span className="text-3xl">{a.emoji}</span>
-              <span className="mt-1 text-xs font-bold leading-tight">{a.name}</span>
-              <span className="mt-0.5 text-[11px] font-bold">
-                {active ? t('rw.wearing') : owned ? t('rw.tapWear') : lockedByLevel ? `${t('common.lv')} ${a.unlockLevel}` : (
-                  <span className="inline-flex items-center gap-1"><Icon name="coin" className="h-3 w-3" /> {a.cost}</span>
-                )}
-              </span>
-            </motion.button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function ThemeShop() {
-  const t = useT();
-  const themeId = useGame((s) => s.themeId);
-  const unlocked = useGame((s) => s.unlockedThemes);
-  const coins = useGame((s) => s.coins);
-  const buy = useGame((s) => s.buyTheme);
-  const select = useGame((s) => s.selectTheme);
-
-  return (
-    <section className="mt-6">
-      <h2 className="font-display text-xl font-extrabold">{t('rw.themes')}</h2>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {THEMES.map((th) => {
-          const owned = unlocked.includes(th.id);
-          const active = themeId === th.id;
-          return (
-            <button
-              key={th.id}
-              onClick={() => (owned ? select(th.id) : buy(th.id))}
-              disabled={!owned && coins < th.cost}
-              className={`rounded-2xl p-4 text-center shadow-card transition ${active ? 'ring-2 ring-grape' : ''} ${th.bg} ${!owned && coins < th.cost ? 'opacity-50' : ''}`}
-            >
-              <div className="text-3xl">{th.emoji}</div>
-              <p className="mt-1 text-sm font-bold">{th.name}</p>
-              <p className="text-[11px] font-bold">{active ? t('rw.active') : owned ? t('rw.use') : <span className="inline-flex items-center gap-1"><Icon name="coin" className="h-3 w-3" /> {th.cost}</span>}</p>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 function SettingsPanel() {
   const t = useT();
   const settings = useGame((s) => s.settings);
@@ -328,9 +415,14 @@ function SettingsPanel() {
 
 function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="flex w-full items-center justify-between rounded-2xl bg-cloud p-3 font-bold">
+    <button
+      onClick={onClick}
+      role="switch"
+      aria-checked={on}
+      className="flex w-full items-center justify-between rounded-2xl bg-cloud p-3 font-bold transition hover:bg-grape-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape"
+    >
       <span>{label}</span>
-      <span className={`flex h-7 w-12 items-center rounded-full p-1 transition ${on ? 'bg-mint' : 'bg-grape-100'}`}>
+      <span className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${on ? 'bg-mint' : 'bg-grape-100'}`}>
         <motion.span layout className={`h-5 w-5 rounded-full bg-white shadow ${on ? 'ml-auto' : ''}`} />
       </span>
     </button>

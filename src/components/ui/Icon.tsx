@@ -2,11 +2,13 @@
 
 export type IconName =
   | 'arena'
+  | 'bag'
   | 'binary'
   | 'bot'
   | 'brain'
   | 'bug'
   | 'calculator'
+  | 'check'
   | 'city'
   | 'cloud'
   | 'coin'
@@ -33,6 +35,7 @@ export type IconName =
   | 'star'
   | 'sword'
   | 'trophy'
+  | 'unlock'
   | 'user'
   | 'warning'
   | 'wrench'
@@ -87,11 +90,13 @@ export function IconTile({ name, className = '', iconClassName = 'h-7 w-7' }: { 
 
 const paths: Record<IconName, React.ReactNode> = {
   arena: <><path d="m6 18 7.5-7.5" /><path d="m18 18-7.5-7.5" /><path d="M7.5 6.5 10.5 9.5" /><path d="M16.5 6.5 13.5 9.5" /></>,
+  bag: <><path d="M6 8h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 8Z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></>,
   binary: <><path d="M7 7h2v10H7" /><path d="M15 7a2 2 0 0 1 2 2v6a2 2 0 1 1-4 0V9a2 2 0 0 1 2-2Z" /></>,
   bot: <><rect x="5" y="8" width="14" height="11" rx="3" /><path d="M12 8V5" /><path d="M9 13h.01" /><path d="M15 13h.01" /><path d="M9.5 17h5" /></>,
   brain: <><path d="M8 7a3 3 0 0 1 5-2 3 3 0 0 1 5 3 3 3 0 0 1-1 5 3 3 0 0 1-3 5h-1V5" /><path d="M8 7a3 3 0 0 0-2 5 3 3 0 0 0 2 6h3V5" /></>,
   bug: <><path d="M8 8a4 4 0 0 1 8 0v8a4 4 0 0 1-8 0V8Z" /><path d="M4 13h4" /><path d="M16 13h4" /><path d="M5 19l3-2" /><path d="M19 19l-3-2" /><path d="M9 4l2 2" /><path d="M15 4l-2 2" /></>,
   calculator: <><rect x="6" y="3.5" width="12" height="17" rx="2" /><path d="M9 7h6" /><path d="M9 11h.01" /><path d="M12 11h.01" /><path d="M15 11h.01" /><path d="M9 15h.01" /><path d="M12 15h.01" /><path d="M15 15h.01" /></>,
+  check: <path d="M4.5 12.5 9 17l10.5-10" />,
   city: <><path d="M4 20h16" /><path d="M6 20V8l5-3v15" /><path d="M13 20V7h5v13" /><path d="M8 11h1" /><path d="M8 15h1" /><path d="M15 11h1" /><path d="M15 15h1" /></>,
   cloud: <><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.3 1.7A3.2 3.2 0 0 0 7 18Z" /></>,
   coin: <><circle cx="12" cy="12" r="8" /><path d="M12 7v10" /><path d="M9.5 9.5A2.5 2.5 0 0 1 12 8h1a2 2 0 0 1 0 4h-2a2 2 0 0 0 0 4h1a2.5 2.5 0 0 0 2.5-1.5" /></>,
@@ -118,6 +123,7 @@ const paths: Record<IconName, React.ReactNode> = {
   star: <><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 16.9 6.6 19.8l1-6.1-4.4-4.3 6.1-.9L12 3Z" /></>,
   sword: <><path d="M14.5 4.5 20 4l-.5 5.5L9 20l-5-5L14.5 4.5Z" /><path d="m13 7 4 4" /><path d="m7 17-3 3" /></>,
   trophy: <><path d="M8 4h8v3a4 4 0 0 1-8 0V4Z" /><path d="M8 6H5.5A2.5 2.5 0 0 0 8 10" /><path d="M16 6h2.5A2.5 2.5 0 0 1 16 10" /><path d="M12 11v5" /><path d="M8 20h8" /></>,
+  unlock: <><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V8a4 4 0 0 1 8 0" /></>,
   user: <><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" /><path d="M5 20a7 7 0 0 1 14 0" /></>,
   warning: <><path d="m12 3 10 18H2L12 3Z" /><path d="M12 9v5" /><path d="M12 17h.01" /></>,
   wrench: <><path d="M14.7 6.3a4 4 0 0 0-5 5L4 17l3 3 5.7-5.7a4 4 0 0 0 5-5l-3 3-3-3 3-3Z" /></>,

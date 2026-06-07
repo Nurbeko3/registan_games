@@ -19,7 +19,7 @@ export default function HomePage() {
   const previewGames = GAMES.slice(0, 8);
 
   return (
-    <main id="main">
+    <main id="main" className="page-pad-bottom">
       <TopBar />
 
       {/* ── HERO ── */}
@@ -62,7 +62,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-4xl px-5 pb-2">
         <div className="flex items-center justify-between">
           <h2 className="h-section">{t('home.path')}</h2>
-          <Link href="/map" className="font-display text-sm font-extrabold text-grape">
+          <Link href="/map" className="tap rounded-xl px-2 font-display text-sm font-extrabold text-grape transition hover:text-grape-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape">
             {t('home.seeAll')}
           </Link>
         </div>
@@ -87,7 +87,7 @@ export default function HomePage() {
                 <IconTile name={worldIcon(z.slug)} className="h-11 w-11 bg-white/20 text-white" iconClassName="h-6 w-6" />
                 <div>
                   <p className="font-display text-sm font-extrabold leading-tight">{t(`world.${z.slug}.title`)}</p>
-                  <p className="mt-1 text-xs font-bold text-white/70">{i + 1}-bosqich</p>
+                  <p className="mt-1 text-xs font-bold text-white/70">{t('map.stage', { n: i + 1 })}</p>
                 </div>
               </div>
             ))}
@@ -151,7 +151,7 @@ export default function HomePage() {
               viewport={{ once: true }}
               custom={i}
             >
-              <Link href={`/play/${g.slug}`} className="card card-tap block text-center !p-4">
+              <Link href={`/play/${g.slug}`} className="card card-tap block text-center !p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape">
                 <div
                   className={`mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${g.color} text-2xl shadow-toy`}
                 >
@@ -170,7 +170,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <p className="pb-4 text-center text-sm text-ink-faint">{t('home.footer')}</p>
+      <p className="pb-6 text-center text-sm text-ink-faint">{t('home.footer')}</p>
     </main>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { selectTotalStars, useGame, useHydrated, type CompleteResult } from '@/store/useGame';
 import { getGame } from '@/data/games';
 import { zoneOfGame } from '@/data/worlds';
@@ -18,6 +18,7 @@ import { GAME_REGISTRY } from './registry';
 
 export function GameShell({ slug }: { slug: string }) {
   const t = useT();
+  const shouldReduceMotion = useReducedMotion();
   const meta = getGame(slug);
   const GameComponent = GAME_REGISTRY[slug];
   const completeGame = useGame((s) => s.completeGame);
@@ -98,6 +99,15 @@ export function GameShell({ slug }: { slug: string }) {
     );
   }
 
+  // Escape key closes result modal
+  useEffect(() => {
+    if (!result) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') playAgain(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
+
   const onWin = (stars: number) => {
     if (awardedRef.current) return;
     awardedRef.current = true;
@@ -137,13 +147,18 @@ export function GameShell({ slug }: { slug: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={result.stars >= 3 ? t('gs.perfect') : result.stars >= 1 ? t('gs.cleared') : t('gs.goodTry')}
+            onClick={playAgain}
           >
             {result.stars >= 1 && <Confetti />}
             <motion.div
-              initial={{ scale: 0.7, y: 30 }}
-              animate={{ scale: 1, y: 0 }}
+              initial={shouldReduceMotion ? false : { scale: 0.7, y: 30 }}
+              animate={shouldReduceMotion ? {} : { scale: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 240, damping: 18 }}
               className="card w-full max-w-sm text-center"
+              onClick={(e) => e.stopPropagation()}
             >
               <p className="font-display text-sm font-bold uppercase tracking-wide text-grape">
                 {result.stars >= 3 ? t('gs.perfect') : result.stars >= 1 ? t('gs.cleared') : t('gs.goodTry')}
@@ -156,7 +171,11 @@ export function GameShell({ slug }: { slug: string }) {
               </div>
 
               {result.leveledUp && (
-                <motion.p initial={{ scale: 0 }} animate={{ scale: 1 }} className="mt-3 font-display text-lg font-extrabold text-bubble-600">
+                <motion.p
+                  initial={shouldReduceMotion ? false : { scale: 0 }}
+                  animate={shouldReduceMotion ? {} : { scale: 1 }}
+                  className="mt-3 font-display text-lg font-extrabold text-bubble-600"
+                >
                   {t('gs.levelUp', { n: result.newLevel })}
                 </motion.p>
               )}
@@ -167,10 +186,10 @@ export function GameShell({ slug }: { slug: string }) {
               )}
 
               <div className="mt-5 grid gap-2">
-                <button onClick={playAgain} className="btn-primary w-full">{t('gs.playAgain')}</button>
+                <button autoFocus onClick={playAgain} className="btn-primary w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2">{t('gs.playAgain')}</button>
                 <div className="flex gap-2">
-                  <Link href="/map" className="btn-ghost flex-1">{t('gs.map')}</Link>
-                  {nextSlug && <Link href={`/play/${nextSlug}`} className="btn-sun flex-1">{t('gs.next')}</Link>}
+                  <Link href="/map" className="btn-ghost flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2">{t('gs.map')}</Link>
+                  {nextSlug && <Link href={`/play/${nextSlug}`} className="btn-sun flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sun focus-visible:ring-offset-2">{t('gs.next')}</Link>}
                 </div>
               </div>
             </motion.div>

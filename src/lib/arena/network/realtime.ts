@@ -58,7 +58,10 @@ class SupabaseTransport implements Transport {
     });
     this.channel = channel;
 
-    channel.on('presence', { event: 'sync' }, () => {
+    // Shared helper: re-read full presence state and emit it. Wired to all three
+    // presence events so a join or leave under latency isn't missed (Supabase
+    // doesn't guarantee a 'sync' fires after every individual join/leave).
+    const emitPresence = () => {
       const raw = channel.presenceState() as Record<string, Array<Partial<PresenceMeta>>>;
       const map: PresenceMap = {};
       for (const [id, metas] of Object.entries(raw)) {
@@ -72,7 +75,10 @@ class SupabaseTransport implements Transport {
         };
       }
       this.presenceCb?.(map);
-    });
+    };
+    channel.on('presence', { event: 'sync' }, emitPresence);
+    channel.on('presence', { event: 'join' }, emitPresence);
+    channel.on('presence', { event: 'leave' }, emitPresence);
 
     for (const [event, cb] of Object.entries(this.handlers)) {
       channel.on('broadcast', { event }, ({ payload }) => cb((payload ?? {}) as Record<string, unknown>));

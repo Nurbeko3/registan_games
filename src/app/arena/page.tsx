@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { ArenaMenu, type MenuChoice } from '@/components/arena/ArenaMenu';
 import { hasSavedPracticeSession, PracticeSetup } from '@/components/arena/PracticeSetup';
@@ -10,6 +10,7 @@ import { JoinRoomModal } from '@/components/arena/JoinRoomModal';
 import { makeRoomCode, DEFAULT_SETTINGS, type RoomSettings } from '@/lib/arena/network/types';
 import { loadArenaAuthorityStatus } from '@/lib/arena/authority';
 import { DEFAULT_WEAPON, isWeaponId, type WeaponId } from '@/lib/arena/weapons';
+import { useT } from '@/lib/i18n';
 
 type View = 'menu' | 'practice' | 'room';
 type HostRole = 'observer' | 'player';
@@ -69,29 +70,30 @@ export default function ArenaPage() {
   // independently from the authority health probe. A temporary probe failure
   // must not kick an already-playing student out of their room.
   const restoredRef = useRef(false);
-  const skipNextPersistRef = useRef(false);
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
     const saved = readSavedRoom();
     if (saved) {
-      skipNextPersistRef.current = true;
       setRoom(saved);
       setView('room');
       return;
     }
     if (hasSavedPracticeSession()) setView('practice');
   }, []);
-  // Persist only AFTER the restore attempt — otherwise the mount-time room=null
-  // would wipe the saved room before refresh could ever recover it.
+  // Persist only when in the 'room' view with a valid room (so a transient
+  // room===null at mount time can never wipe a saved session). In StrictMode
+  // the effect runs twice on mount: the first run fires while restoredRef is
+  // still false and bails out immediately; the second run fires after the
+  // restore effect has already set room+view, so by then the guard passes and
+  // the correct value is persisted. In production the guard works the same way.
+  // The session is only cleared when the user explicitly navigates to 'menu'
+  // via toMenu(), not as a side effect of any null-room state.
   useEffect(() => {
     if (!restoredRef.current) return;
-    if (skipNextPersistRef.current) {
-      skipNextPersistRef.current = false;
-      return;
-    }
-    saveRoom(room);
-  }, [room]);
+    if (view === 'room' && room) saveRoom(room);
+    else if (view === 'menu') saveRoom(null);
+  }, [room, view]);
 
   const choose = (c: MenuChoice) => {
     if (c === 'practice') setView('practice');
@@ -120,10 +122,10 @@ export default function ArenaPage() {
     setRoom((r) => (r ? { ...r, weapon } : r));
   }, []);
 
-  const toMenu = () => { setRoom(null); setView('menu'); };
+  const toMenu = useCallback(() => { setRoom(null); setView('menu'); }, []);
 
   return (
-    <main id="main" className={`min-h-screen pb-24 ${view === 'menu' ? 'dotted' : ''}`}>
+    <main id="main" className={`min-h-screen ${view === 'menu' ? 'dotted page-pad-bottom' : 'pb-4'}`}>
       <TopBar />
 
       {view === 'menu' && <ArenaMenu onSelect={choose} multiplayerEnabled={multiplayerEnabled} authorityChecked={authorityChecked} />}
@@ -152,22 +154,48 @@ export default function ArenaPage() {
 }
 
 function HostRoleModal({ onPick, onClose }: { onPick: (role: HostRole) => void; onClose: () => void }) {
+  const t = useT();
+
+  // Escape key support
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-soft" onClick={(e) => e.stopPropagation()}>
-        <p className="font-display text-xl font-extrabold">Host roli</p>
-        <p className="mt-1 text-sm font-bold text-ink-soft">Xonani qanday boshqarasiz?</p>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('arena.hostRole.title')}
+    >
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.92, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+        className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-soft"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="font-display text-xl font-extrabold">{t('arena.hostRole.title')}</p>
+        <p className="mt-1 text-sm font-bold text-ink-soft">{t('arena.hostRole.sub')}</p>
         <div className="mt-4 grid gap-3">
-          <button onClick={() => onPick('observer')} className="rounded-2xl bg-grape-50 p-4 text-left shadow-card ring-2 ring-grape">
-            <span className="block font-display text-lg font-extrabold text-grape">👁 Kuzatuvchi</span>
-            <span className="mt-1 block text-sm font-bold text-ink-soft">Siz o‘ynamaysiz. O‘quvchilar o‘ynaydi, siz kuzatasiz.</span>
+          <button onClick={() => onPick('observer')} className="rounded-2xl bg-grape-50 p-4 text-left shadow-card ring-2 ring-grape transition hover:bg-grape-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape">
+            <span className="block font-display text-lg font-extrabold text-grape">👁 {t('arena.hostRole.observer')}</span>
+            <span className="mt-1 block text-sm font-bold text-ink-soft">{t('arena.hostRole.observerDesc')}</span>
           </button>
-          <button onClick={() => onPick('player')} className="rounded-2xl bg-white p-4 text-left shadow-card ring-1 ring-grape-100">
-            <span className="block font-display text-lg font-extrabold">⚔️ O‘yinchi</span>
-            <span className="mt-1 block text-sm font-bold text-ink-soft">Siz ham jamoaga qo‘shilib o‘ynaysiz.</span>
+          <button onClick={() => onPick('player')} className="rounded-2xl bg-white p-4 text-left shadow-card ring-1 ring-grape-100 transition hover:bg-grape-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape">
+            <span className="block font-display text-lg font-extrabold">⚔️ {t('arena.hostRole.player')}</span>
+            <span className="mt-1 block text-sm font-bold text-ink-soft">{t('arena.hostRole.playerDesc')}</span>
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

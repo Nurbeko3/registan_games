@@ -35,6 +35,31 @@ import {
 import type { TeamId, RosterEntry } from '@/lib/arena/types';
 
 const COUNTDOWN_MS = 3200;
+
+const VALID_DIFFICULTIES: RoomSettings['difficulty'][] = ['easy', 'medium', 'hard', 'expert'];
+const VALID_MODES: string[] = ['deathmatch', 'capture-the-flag', 'king-of-the-hill', 'knowledge-war'];
+
+/** Sanitize host-broadcast settings: clamp numerics, validate enums, fill any
+ *  missing or malformed field from DEFAULT_SETTINGS. This prevents a corrupt or
+ *  malicious settings payload from putting the room into an invalid state
+ *  (e.g. durationSec=0, targetScore negative, unknown modeId). */
+function sanitizeSettings(raw: Partial<RoomSettings>): RoomSettings {
+  const d = DEFAULT_SETTINGS;
+  return {
+    mapId: typeof raw.mapId === 'string' && raw.mapId.trim() ? raw.mapId.slice(0, 40) : d.mapId,
+    modeId: VALID_MODES.includes(raw.modeId as string) ? (raw.modeId as RoomSettings['modeId']) : d.modeId,
+    perTeam: typeof raw.perTeam === 'number' && Number.isFinite(raw.perTeam)
+      ? Math.max(1, Math.min(6, Math.round(raw.perTeam))) : d.perTeam,
+    botFill: typeof raw.botFill === 'boolean' ? raw.botFill : d.botFill,
+    targetScore: typeof raw.targetScore === 'number' && Number.isFinite(raw.targetScore)
+      ? Math.max(1, Math.min(200, Math.round(raw.targetScore))) : d.targetScore,
+    durationSec: typeof raw.durationSec === 'number' && Number.isFinite(raw.durationSec)
+      ? Math.max(30, Math.min(600, Math.round(raw.durationSec))) : d.durationSec,
+    difficulty: VALID_DIFFICULTIES.includes(raw.difficulty as RoomSettings['difficulty'])
+      ? (raw.difficulty as RoomSettings['difficulty']) : d.difficulty,
+    v: typeof raw.v === 'number' ? raw.v : d.v,
+  };
+}
 const FROM_KEY = '__from';
 const PLAYER_META_EVENT = 'player_meta';
 const OPTIMISTIC_META_MS = 3000;
@@ -450,7 +475,7 @@ export class RoomService {
       this.note('settings');
       if (this.isHost()) return; // host is the source of truth
       if (!this.fromHost(payload)) return;
-      this.settings = payload as unknown as RoomSettings;
+      this.settings = sanitizeSettings(payload as unknown as Partial<RoomSettings>);
       this.emit();
     });
     t.on(PLAYER_META_EVENT, (payload) => {

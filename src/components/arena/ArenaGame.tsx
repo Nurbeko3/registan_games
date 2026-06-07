@@ -246,6 +246,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const [hud, setHud] = useState<HudData | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const leavingRef = useRef(false); // ref guard prevents double-leave from stale closure
   const [confirmLeave, setConfirmLeave] = useState(false);
   const isFullscreenRef = useRef(false); // read inside resize() (kept deps-free)
 
@@ -274,7 +275,6 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   const matchPointRef = useRef(false);
   const behindRef = useRef(false);
   const scoredVictims = useRef<Set<string>>(new Set());
-  const restoredSnapshotRef = useRef(false);
   /** netIds we've already processed a 'leave' for, so a player's own 'leave'
    *  broadcast and the presence-derived fallback don't double-remove/announce. */
   const leftPlayers = useRef<Set<string>>(new Set());
@@ -372,7 +372,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     const level = levelForXp(useGame.getState().xp);
     const q = pickQuestion({ level, exclude: usedIds.current, categories: config.categories, locale });
     usedIds.current.add(q.q.id);
-    if (usedIds.current.size > 24) usedIds.current.clear();
+    // Keep accumulating across the whole match so questions don't repeat early.
+    // pickQuestion gracefully falls back to the full pool once everything is seen,
+    // so there's no need to wipe history mid-match (which caused instant repeats).
     setPrepared(q);
     setLearnState('answering');
   };
@@ -398,7 +400,10 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   };
 
   const leaveMatch = useCallback(() => {
-    if (leaving) return;
+    // Use a ref guard so two rapid calls in the same render cycle don't both
+    // fire the leave path (state closure would be stale for the second call).
+    if (leavingRef.current) return;
+    leavingRef.current = true;
     setLeaving(true);
     const c = ctl.current;
     c.touchFire = c.mouseFire = c.spaceFire = false;
@@ -416,7 +421,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       else window.location.assign('/arena');
     };
     window.setTimeout(finish, net ? 140 : 0);
-  }, [config, leaving, net]);
+  }, [config, net]);
 
   // Leaving is destructive (in multiplayer it removes your character for
   // everyone else), so ALWAYS confirm first — a stray tap or reflex must never
@@ -668,7 +673,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       savedAt: Date.now(),
       phase: phaseRef.current,
       count,
-      scores,
+      scores: { ...w.scores },
       prepared,
       learnState,
       lastReward,
@@ -683,18 +688,26 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
       hitSeq: hitSeq.current,
       world: snapshotWorld(w, performance.now()),
     };
-  }, [count, durationMs, learnState, lastReward, net, prepared, result, scores]);
+  }, [count, durationMs, learnState, lastReward, net, prepared, result]);
 
+  // Keep the snapshot fn in a ref so the interval/event listeners don't need
+  // to re-register every time learnState / lastReward / etc. changes.
+  const snapRef = useRef(makePracticeSnapshot);
+  snapRef.current = makePracticeSnapshot;
   useEffect(() => {
     if (net || !config.onSnapshot) return;
-    const save = () => config.onSnapshot?.(makePracticeSnapshot());
+    const save = () => config.onSnapshot?.(snapRef.current());
     const id = window.setInterval(save, 500);
+    // pagehide is the correct unload event on iOS Safari; beforeunload covers
+    // desktop browsers that may skip pagehide (e.g. Chrome bfcache).
     window.addEventListener('pagehide', save);
+    window.addEventListener('beforeunload', save);
     return () => {
       window.clearInterval(id);
       window.removeEventListener('pagehide', save);
+      window.removeEventListener('beforeunload', save);
     };
-  }, [config, makePracticeSnapshot, net]);
+  }, [config, net]);
 
   // ── M2 helpers: roster lookups, kill feed, host scoring from 'down' events ──
   const rosterName = (netId: string) => net?.roster.find((r) => r.netId === netId)?.name ?? 'Player';
@@ -778,9 +791,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         else if (ev.t === 'down') {
           const by = String(d.by ?? '');
           if (net.isHost) {
-            // Spectator host has no local fighter, so it validates victim-
-            // reported downs instead of controlling/scoring as a player.
-            if (!spectator) continue;
+            // Host (whether spectator-only or a player) is the authoritative
+            // scorer for remote downs. The old `if (!spectator) continue` was
+            // wrong: a player-host is still authoritative and must process these.
             const victim = remoteFighter(ev.from);
             if (!victim || !victim.alive || !validOpposingPlayers(by, ev.from) || scoredVictims.current.has(ev.from)) continue;
             applyRemoteDown(w, ev.from);
@@ -875,11 +888,10 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   }, []);
 
   // ── boot / restart a match ──
-  const boot = useCallback(() => {
+  const boot = useCallback((allowSnapshot = true) => {
     clearTimers();
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    const restored = !net && !restoredSnapshotRef.current && config.initialSnapshot?.v === 1 ? config.initialSnapshot : null;
-    if (restored) restoredSnapshotRef.current = true;
+    const restored = allowSnapshot && !net && config.initialSnapshot?.v === 1 ? config.initialSnapshot : null;
     worldRef.current = restored
       ? restoreWorld(restored.world, performance.now())
       : createWorld(
@@ -1093,7 +1105,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     // re-create the isolated-match bug). Re-lobbying in place is an M2 task.
     return (
       <div className="mx-auto max-w-md px-4 py-5">
-        <MatchResults result={result} onPlayAgain={net ? net.onExit : boot} />
+        <MatchResults result={result} onPlayAgain={net ? net.onExit : () => boot(false)} />
       </div>
     );
   }
@@ -1225,6 +1237,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         <AnimatePresence>
           {phase === 'learning' && prepared && (
             <LearningPanel
+              key={prepared.q.id}
               prepared={prepared}
               learnState={learnState}
               lastReward={lastReward}

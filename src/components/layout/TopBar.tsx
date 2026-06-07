@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useGame, useHydrated, getAvatar } from '@/store/useGame';
 import { levelState } from '@/lib/leveling';
 import { ACCOUNT_SESSION_EVENT, accountResume, readSession } from '@/lib/supabase/account';
@@ -15,6 +15,7 @@ import { useT } from '@/lib/i18n';
 export function TopBar({ showBack = false }: { showBack?: boolean }) {
   const t = useT();
   const hydrated = useHydrated();
+  const shouldReduceMotion = useReducedMotion();
   const coins = useGame((s) => s.coins);
   const streak = useGame((s) => s.streak);
   const avatarId = useGame((s) => s.avatarId);
@@ -103,13 +104,15 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
               transition={{ type: 'spring', stiffness: 120, damping: 20 }}
               className="relative h-full rounded-full bg-gradient-to-r from-grape via-bubble to-sun"
             >
-              {/* sweeping shine so it reads as a lively XP bar */}
-              <motion.span
-                aria-hidden
-                className="absolute inset-y-0 left-0 w-8 -skew-x-12 bg-white/45 blur-[2px]"
-                animate={{ x: ['-2rem', '14rem'] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.8 }}
-              />
+              {/* sweeping shine — skipped when reduced-motion is on */}
+              {!shouldReduceMotion && (
+                <motion.span
+                  aria-hidden
+                  className="absolute inset-y-0 left-0 w-8 -skew-x-12 bg-white/45 blur-[2px]"
+                  animate={{ x: ['-2rem', '14rem'] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.8 }}
+                />
+              )}
             </motion.div>
           </div>
           <span className="shrink-0 font-bold tabular-nums text-[11px] text-ink-faint">

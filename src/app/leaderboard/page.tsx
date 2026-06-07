@@ -27,7 +27,7 @@ export default function LeaderboardPage() {
   }, []);
 
   return (
-    <main id="main" className="min-h-screen pb-16">
+    <main id="main" className="min-h-screen page-pad-bottom">
       <TopBar />
       <div className="mx-auto max-w-2xl px-4 py-6">
         <div className="text-center">
@@ -37,7 +37,7 @@ export default function LeaderboardPage() {
 
         {/* before mount: neutral placeholder (matches server render) */}
         {!mounted && (
-          <div className="mt-6 space-y-2">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-12 animate-pulse rounded-2xl bg-grape-100/60" />)}</div>
+          <div className="mt-6 space-y-2">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-14" />)}</div>
         )}
 
         {/* cloud disabled → friendly fallback (offline build) */}
@@ -53,7 +53,7 @@ export default function LeaderboardPage() {
         {mounted && isCloudEnabled() && (
           <div className="mt-6">
             {rows === null && (
-              <div className="space-y-2">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-12 animate-pulse rounded-2xl bg-grape-100/60" />)}</div>
+              <div className="space-y-2">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-14" />)}</div>
             )}
             {rows && rows.length === 0 && (
               <div className="card text-center">
@@ -67,24 +67,39 @@ export default function LeaderboardPage() {
               <ol className="space-y-2">
                 {rows.map((r, i) => {
                   const me = !!myUsername && r.username.toLowerCase() === myUsername.toLowerCase();
+                  const isTop3 = i < 3;
                   return (
                     <motion.li
                       key={r.username}
                       initial={{ opacity: 0, x: -16 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: Math.min(i * 0.03, 0.5) }}
-                      className={`flex items-center gap-3 rounded-2xl p-3 shadow-card ${me ? 'bg-grape-50 ring-2 ring-grape' : 'bg-white'}`}
+                      className={`flex items-center gap-3 rounded-2xl p-3 shadow-card transition ${
+                        me ? 'bg-grape-50 ring-2 ring-grape' : isTop3 ? 'bg-white ring-1 ring-sun/30' : 'bg-white'
+                      }`}
                     >
-                      <span className="w-8 text-center font-display text-lg font-extrabold text-ink-faint">{MEDALS[i] ?? i + 1}</span>
-                      <span className="grid h-9 w-9 place-items-center rounded-full bg-grape-50 text-grape">
-                        <Icon name="rocket" className="h-5 w-5" />
+                      <span className={`w-8 shrink-0 text-center font-display text-lg font-extrabold ${isTop3 ? '' : 'text-ink-faint'}`}>
+                        {MEDALS[i] ?? <span className="text-base text-ink-faint">{i + 1}</span>}
                       </span>
-                      <div className="flex-1 truncate">
-                        <p className="truncate font-display font-extrabold">{r.display_name ?? t('lb.anon')}{me && ` ${t('common.you')}`}</p>
+                      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg ${
+                        isTop3 ? 'bg-sun/20 ring-1 ring-sun/40' : 'bg-grape-50'
+                      }`}>
+                        🚀
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display font-extrabold">
+                          {r.display_name ?? t('lb.anon')}
+                          {me && <span className="ml-1.5 rounded-full bg-grape px-2 py-0.5 text-[10px] font-extrabold text-white">{t('common.you')}</span>}
+                        </p>
                         <p className="text-xs font-bold text-ink-faint">{t('common.level')} {levelForXp(r.xp)}</p>
                       </div>
-                      <span className="inline-flex items-center gap-1 font-bold text-mango">{r.total_stars}<Icon name="star" className="h-4 w-4" /></span>
-                      <span className="font-display font-extrabold text-grape">{r.xp} XP</span>
+                      <div className="shrink-0 text-right">
+                        <div className="inline-flex items-center gap-1 font-display font-extrabold text-mango">
+                          {r.total_stars}
+                          <Icon name="star" className="h-4 w-4" />
+                        </div>
+                        <p className="text-xs font-bold text-ink-faint">{r.xp} XP</p>
+                      </div>
                     </motion.li>
                   );
                 })}

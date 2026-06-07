@@ -119,6 +119,15 @@ export function LearningPanel({
               <p className="mt-2 font-display text-2xl font-extrabold text-grape">{t('arena.learn.almost')}</p>
               <p className="mt-4 text-sm font-bold uppercase tracking-wide text-ink-faint">{t('arena.learn.correctAnswer')}</p>
               <p className="mt-2 rounded-2xl bg-mint/15 p-4 font-display text-2xl font-extrabold text-mint-700">{correctAnswer(prepared)}</p>
+              {q.explain && (
+                <div className="mt-3 flex items-start gap-2 rounded-2xl bg-sun/15 p-4 text-left">
+                  <span className="text-xl leading-none">💡</span>
+                  <span>
+                    <span className="block text-xs font-extrabold uppercase tracking-wide text-mango-600">{t('arena.learn.why')}</span>
+                    <span className="mt-0.5 block text-sm font-bold text-ink-soft">{q.explain}</span>
+                  </span>
+                </div>
+              )}
               <p className="mt-4 text-sm font-bold text-ink-faint">{t('arena.learn.fresh')}</p>
               <div className="mt-2 h-3 overflow-hidden rounded-full bg-grape-100">
                 <motion.div

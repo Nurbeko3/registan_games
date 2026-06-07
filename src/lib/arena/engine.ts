@@ -386,7 +386,7 @@ export function applyRemoteMove(
   d: { x: number; y: number; vx: number; vy: number; aim: number },
 ) {
   const f = byNet(world, netId);
-  if (!f) return;
+  if (!f || !f.alive) return;
   let vx = finite(d.vx);
   let vy = finite(d.vy);
   const speed = Math.hypot(vx, vy);
@@ -818,7 +818,7 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
         if (f.isHero) { fx?.addTrauma(crit ? 0.42 : 0.22); if (fx) fx.heroFlash = 1; sounds.push('hurt'); }
         if (isHeroBolt) heroHit = { crit, killed: f.hp <= 0 };
 
-        if (f.hp <= 0) {
+        if (f.hp <= 0 && f.alive) {
           f.alive = false;
           if (world.multiplayer) {
             // f is MY hero. Don't score locally — report who downed me; the host

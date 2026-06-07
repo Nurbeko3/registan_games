@@ -31,7 +31,7 @@ export default function PartyPage() {
   };
 
   return (
-    <main id="main" className="min-h-screen dotted">
+    <main id="main" className="min-h-screen dotted page-pad-bottom">
       <TopBar />
       <div className="mx-auto max-w-md px-4 py-6">
         <div className="flex items-center gap-3">

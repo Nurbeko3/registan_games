@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { useArenaRoom } from '@/lib/arena/network/useArenaRoom';
@@ -53,8 +53,15 @@ export function RoomLobby({
   const room = useArenaRoom(code, { name: hero.name, avatar: hero.avatar, isHost, clientId, quick, settings, hostRole });
   const s = room.state;
 
+  // Only propagate settings when their values actually change, not just the
+  // object reference, to avoid setRoom churn in the parent on every snapshot.
+  const lastSettingsJsonRef = useRef<string | null>(null);
   useEffect(() => {
-    if (s?.settings) onSettingsChange?.(s.settings);
+    if (!s?.settings) return;
+    const json = JSON.stringify(s.settings);
+    if (json === lastSettingsJsonRef.current) return;
+    lastSettingsJsonRef.current = json;
+    onSettingsChange?.(s.settings);
   }, [onSettingsChange, s?.settings]);
 
   useEffect(() => {

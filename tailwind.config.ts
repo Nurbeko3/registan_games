@@ -27,6 +27,7 @@ const config: Config = {
         pop: '0 10px 0 0 rgba(30,27,58,0.12)',
         toy: '0 18px 40px -12px rgba(124,92,252,0.45)',
         card: '0 8px 30px -10px rgba(30,27,58,0.18)',
+        soft: '0 4px 24px -6px rgba(30,27,58,0.12)',
       },
       keyframes: {
         float: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-14px)' } },

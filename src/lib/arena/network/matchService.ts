@@ -21,7 +21,8 @@ const FROM_KEY = '__from';
 const WORLD_LIMIT = 5000;
 const MAX_VELOCITY = 1200;
 const MAX_BULLET_SPEED = 1800;
-const MAX_DAMAGE = 60;
+// Must exceed the highest weapon's damage * headshotMult (sniper: 80 * 2.0 = 160).
+const MAX_DAMAGE = 200;
 const MAX_LIFE = 2500;
 
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
@@ -79,6 +80,8 @@ export class MatchService {
         safeEvent(ev)
       ) this.inbound.accept(ev);
     });
+    // Guard against a double interval if start() is called more than once.
+    if (this.flushTimer) clearInterval(this.flushTimer);
     this.flushTimer = setInterval(() => this.flush(), FLUSH_MS);
   }
 
@@ -107,6 +110,7 @@ export class MatchService {
    *  doesn't have to successfully transmit anything for its character to be
    *  removed and the "X left" notice to show on every remaining client. */
   injectLeave(fromId: string, name: string) {
+    if (!fromId) return;
     this.inbound.accept({ t: 'leave', from: fromId, seq: 1, data: { name } });
     this.forget(fromId);
   }
