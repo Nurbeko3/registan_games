@@ -383,11 +383,12 @@ function SettingsPanel() {
   const t = useT();
   const settings = useGame((s) => s.settings);
   const toggle = useGame((s) => s.toggleSetting);
-  const reset = useGame((s) => s.resetProgress);
   const [confirm, setConfirm] = useState(false);
   const onReset = () => {
+    // accountLogout() resets progress to a guest baseline (resetToGuest), which
+    // erases XP/coins/stars while keeping the device's language & accessibility
+    // settings — resetting those on an "erase progress" tap would be surprising.
     accountLogout();
-    reset();
     setConfirm(false);
   };
 

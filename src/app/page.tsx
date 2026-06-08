@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { Mascot } from '@/components/Mascot';
-import { Icon, IconTile, gameIcon, worldIcon } from '@/components/ui/Icon';
+import { Icon, IconTile, gameIcon, worldIcon, type IconName } from '@/components/ui/Icon';
 import { GAMES } from '@/data/games';
 import { ZONES } from '@/data/worlds';
 import { useT } from '@/lib/i18n';
@@ -13,6 +13,20 @@ const fadeUp = {
   hidden: { opacity: 0, y: 22 },
   show: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.07, duration: 0.5 } }),
 };
+
+/** Extra game modes shown in the "Game modes" carousel on the landing page. */
+const MODE_CARDS: {
+  href: string;
+  icon: IconName;
+  gradient: string;
+  title: string; // i18n key
+  sub: string; // i18n key
+  soon?: boolean;
+}[] = [
+  { href: '/arena', icon: 'arena', gradient: 'from-grape to-bubble', title: 'home.arenaTitle', sub: 'home.arenaSub' },
+  { href: '/party', icon: 'party', gradient: 'from-mango to-sun', title: 'home.partyTitle', sub: 'home.partySub' },
+  { href: '/quest', icon: 'sword', gradient: 'from-sky to-grape', title: 'home.questTitle', sub: 'home.questSub', soon: true },
+];
 
 export default function HomePage() {
   const t = useT();
@@ -103,35 +117,32 @@ export default function HomePage() {
             <p className="mt-1 text-ink-soft">{t('home.modesSub')}</p>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Link
-            href="/arena"
-            className="card-tap group overflow-hidden rounded-2xl bg-gradient-to-br from-grape to-bubble p-5 text-white shadow-card"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <IconTile name="arena" className="h-14 w-14 bg-white/20 text-white" iconClassName="h-7 w-7" />
-              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold">{t('home.modeExtra')}</span>
-            </div>
-            <h3 className="mt-5 font-display text-2xl font-extrabold">{t('home.arenaTitle')}</h3>
-            <p className="mt-1 font-bold text-white/80">{t('home.arenaSub')}</p>
-            <span className="mt-5 inline-flex items-center gap-2 font-display font-extrabold text-sun">
-              {t('home.openMode')} <Icon name="spark" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </span>
-          </Link>
-          <Link
-            href="/party"
-            className="card-tap group overflow-hidden rounded-2xl bg-gradient-to-br from-mango to-sun p-5 text-white shadow-card"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <IconTile name="party" className="h-14 w-14 bg-white/20 text-white" iconClassName="h-7 w-7" />
-              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold">{t('home.modeExtra')}</span>
-            </div>
-            <h3 className="mt-5 font-display text-2xl font-extrabold">{t('home.partyTitle')}</h3>
-            <p className="mt-1 font-bold text-white/90">{t('home.partySub')}</p>
-            <span className="mt-5 inline-flex items-center gap-2 font-display font-extrabold text-white">
-              {t('home.openMode')} <Icon name="spark" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </span>
-          </Link>
+        {/* horizontal carousel — swipe on touch, scroll-snaps to each mode */}
+        <div
+          className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="list"
+          aria-label={t('home.modes')}
+        >
+          {MODE_CARDS.map((m) => (
+            <Link
+              key={m.href}
+              href={m.href}
+              role="listitem"
+              className={`card-tap group relative shrink-0 basis-[82%] snap-start overflow-hidden rounded-2xl bg-gradient-to-br ${m.gradient} p-5 text-white shadow-card sm:basis-[47%] lg:basis-[31%]`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <IconTile name={m.icon} className="h-14 w-14 bg-white/20 text-white" iconClassName="h-7 w-7" />
+                <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold">
+                  {t(m.soon ? 'home.modeSoon' : 'home.modeExtra')}
+                </span>
+              </div>
+              <h3 className="mt-5 font-display text-2xl font-extrabold">{t(m.title)}</h3>
+              <p className="mt-1 font-bold text-white/80">{t(m.sub)}</p>
+              <span className="mt-5 inline-flex items-center gap-2 font-display font-extrabold text-sun">
+                {t('home.openMode')} <Icon name="spark" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </span>
+            </Link>
+          ))}
         </div>
       </section>
 

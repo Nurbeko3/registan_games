@@ -18,7 +18,6 @@ export function AccountCard() {
   const t = useT();
   const playerName = useGame((s) => s.playerName);
   const setPlayerName = useGame((s) => s.setPlayerName);
-  const resetProgress = useGame((s) => s.resetProgress);
 
   const [phase, setPhase] = useState<Phase>(isCloudEnabled() ? 'loading' : 'off');
   const [username, setUsername] = useState('');
@@ -55,8 +54,10 @@ export function AccountCard() {
 
   const onLogout = () => {
     if (!window.confirm(t('auth.logoutConfirm'))) return;
+    // accountLogout() already resets the store to a guest baseline (resetToGuest),
+    // clearing the student's balance while PRESERVING device prefs (locale/sound/
+    // reduced-motion). Calling resetProgress() here too would wipe those prefs.
     accountLogout();
-    resetProgress();
     setSignedName(''); setUsername(''); setPassword(''); setErr(null);
     setPhase('logged-out');
   };

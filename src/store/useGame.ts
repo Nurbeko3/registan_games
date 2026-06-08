@@ -8,6 +8,34 @@ import { ZONES } from '@/data/worlds';
 import { ACHIEVEMENTS, type Achievement, type AchievementSnapshot } from '@/data/achievements';
 import { AVATARS, THEMES, getAvatar, getTheme } from '@/data/cosmetics';
 import type { Locale } from '@/lib/i18n/config';
+import { isCloudEnabled } from '@/lib/supabase/client';
+
+// Mirrors SESSION_KEY from src/lib/supabase/account.ts. Kept inline to avoid
+// a circular import (account.ts imports this store). Returns true only when a
+// student session token is present in localStorage on the client.
+function hasStudentSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try { return JSON.parse(localStorage.getItem('kcq.session') || 'null') !== null; }
+  catch { return false; }
+}
+
+// Shop purchases are gated to logged-in students ONLY when cloud is enabled
+// (classroom mode). With no Supabase env there are no profiles at all, so the
+// gate would brick the offline-first shop — keep buying open in that case.
+// (Cloud must stay strictly additive — see CLAUDE.md.)
+function purchasesLocked(): boolean {
+  return progressLocked();
+}
+
+// Earning XP/coins (and any other persistent progress mutation) is gated the
+// same way as purchases: in classroom (cloud) mode a guest with no logged-in
+// student profile must earn NOTHING and persist NOTHING — otherwise phantom
+// progress accumulates in localStorage that gets wiped on the next login
+// anyway (account login is authoritative, see account.ts applyToStore).
+// With no Supabase env this always returns false — offline-first is untouched.
+function progressLocked(): boolean {
+  return isCloudEnabled() && !hasStudentSession();
+}
 
 interface GameRecord {
   stars: number;
@@ -70,6 +98,8 @@ interface GameState {
   arenaWins: number;
   arenaCorrect: number;
   arenaBestElims: number;
+  /** Codecaster dungeon: best stars per level (key = level id like 'L01'). */
+  codecaster: Record<string, { stars: number }>;
 
   // transient (not persisted)
   hydrated: boolean;
@@ -81,6 +111,7 @@ interface GameState {
   setLocale: (locale: Locale) => void;
   setHydrated: () => void;
   completeGame: (slug: string, stars: number) => CompleteResult;
+  codecasterComplete: (levelId: string, stars: number) => CompleteResult;
   arenaAnswerCorrect: (difficulty: 'easy' | 'medium' | 'hard') => { xp: number; coins: number };
   arenaMatchEnd: (r: { won: boolean; correct: number; elims: number }) => {
     bonusXp: number;
@@ -95,6 +126,13 @@ interface GameState {
   toggleSetting: (key: keyof Settings) => void;
   dismissCelebration: (code: string) => void;
   resetProgress: () => void;
+  /**
+   * Reset PROGRESS to baseline (xp/coins/streak/completed/achievements/
+   * cosmetics/arena/codecaster) while PRESERVING device-level prefs (locale,
+   * settings). Used on logout / failed-resume in classroom mode so a shared
+   * device never displays or carries a previous student's balance forward.
+   */
+  resetToGuest: () => void;
 }
 
 const DEFAULTS = {
@@ -118,6 +156,7 @@ const DEFAULTS = {
   arenaWins: 0,
   arenaCorrect: 0,
   arenaBestElims: 0,
+  codecaster: {} as Record<string, { stars: number }>,
 };
 
 // ── derived selectors (use with useGame(selector)) ──────────────────
@@ -174,6 +213,25 @@ export const useGame = create<GameState>()(
 
       completeGame: (slug, stars) => {
         const state = get();
+
+        // Classroom mode + guest (no logged-in student): full no-op. Recording
+        // anonymous progress would only create phantom XP/coins that vanish on
+        // the next login (account progress is authoritative) — so we award and
+        // persist nothing, and report the existing best back to the UI.
+        if (progressLocked()) {
+          const prevStars = state.completed[slug]?.stars ?? 0;
+          return {
+            xpAwarded: 0,
+            coinsAwarded: 0,
+            stars,
+            bestStars: prevStars,
+            improved: false,
+            leveledUp: false,
+            newLevel: levelForXp(state.xp),
+            newAchievements: [],
+          };
+        }
+
         const meta = getGame(slug);
         const baseXp = meta?.baseXp ?? 30;
 
@@ -233,8 +291,93 @@ export const useGame = create<GameState>()(
         };
       },
 
+      // ── Codecaster dungeon: record a solved level, award by stars ──
+      // Mirrors completeGame's reward scale & celebration pipeline. Anti-farm:
+      // we store only the BEST stars per level and award only the DELTA of XP/
+      // coins between the old best and the new best — replaying at equal/lower
+      // stars pays nothing, and improving pays only the difference, so a level
+      // can never be farmed for repeat rewards.
+      codecasterComplete: (levelId, stars) => {
+        const state = get();
+
+        // Same guest-lockout as completeGame — see its comment for rationale.
+        if (progressLocked()) {
+          const prevStars = state.codecaster[levelId]?.stars ?? 0;
+          return {
+            xpAwarded: 0,
+            coinsAwarded: 0,
+            stars,
+            bestStars: prevStars,
+            improved: false,
+            leveledUp: false,
+            newLevel: levelForXp(state.xp),
+            newAchievements: [],
+          };
+        }
+
+        const prev = state.codecaster[levelId];
+        const prevStars = prev?.stars ?? 0;
+        const bestStars = Math.max(prevStars, stars);
+        const improved = stars > prevStars;
+
+        // Reward scale matches completeGame (baseXp 30): xp = round(30*(0.5+0.25*s)),
+        // coins = s*10. We award the DELTA between the new best and old best so
+        // re-solving better only tops up the difference.
+        const CC_BASE_XP = 30;
+        const xpFor = (s: number) => (s > 0 ? Math.round(CC_BASE_XP * (0.5 + 0.25 * s)) : 0);
+        const coinsFor = (s: number) => s * 10;
+        const xpAwarded = improved ? xpFor(bestStars) - xpFor(prevStars) : 0;
+        const coinsAwarded = improved ? coinsFor(bestStars) - coinsFor(prevStars) : 0;
+
+        // streak: count once per day on any play (same as completeGame)
+        const today = dayKey();
+        const streak = state.lastPlayedDay === today ? state.streak : nextStreak(state.lastPlayedDay, state.streak);
+
+        const newXp = state.xp + xpAwarded;
+        const codecaster = { ...state.codecaster, [levelId]: { stars: bestStars } };
+
+        // Achievements evaluate against the would-be new state (data-driven).
+        const draft: GameState = {
+          ...state,
+          xp: newXp,
+          coins: state.coins + coinsAwarded,
+          streak,
+          codecaster,
+        };
+        const snap = buildSnapshot(draft);
+        const newlyUnlocked = ACHIEVEMENTS.filter((a) => !state.unlockedAchievements.includes(a.code) && a.check(snap));
+        const achvXp = newlyUnlocked.length * 25;
+        const achvCoins = newlyUnlocked.length * 15;
+        const finalXp = newXp + achvXp;
+        const levelUps = levelCelebrationsBetween(state.xp, finalXp);
+
+        set({
+          xp: finalXp,
+          coins: state.coins + coinsAwarded + achvCoins,
+          streak,
+          lastPlayedDay: today,
+          codecaster,
+          unlockedAchievements: [...state.unlockedAchievements, ...newlyUnlocked.map((a) => a.code)],
+          celebrations: [...state.celebrations, ...levelUps, ...newlyUnlocked],
+        });
+
+        return {
+          xpAwarded: xpAwarded + achvXp,
+          coinsAwarded: coinsAwarded + achvCoins,
+          stars,
+          bestStars,
+          improved,
+          leveledUp: levelUps.length > 0,
+          newLevel: levelForXp(finalXp),
+          newAchievements: newlyUnlocked,
+        };
+      },
+
       // ── Battle Learn Arena: a correct answer respawns the player + pays out ──
       arenaAnswerCorrect: (difficulty) => {
+        // Guest in classroom mode: no reward, no mutation (see completeGame).
+        if (progressLocked()) return { xp: 0, coins: 0 };
+
         const reward = ARENA_REWARD[difficulty];
         set((s) => {
           const newXp = s.xp + reward.xp;
@@ -250,6 +393,9 @@ export const useGame = create<GameState>()(
 
       // ── Battle Learn Arena: end-of-match bookkeeping, bonuses & achievements ──
       arenaMatchEnd: ({ won, elims }) => {
+        // Guest in classroom mode: no bonus, no mutation (see completeGame).
+        if (progressLocked()) return { bonusXp: 0, bonusCoins: 0, newAchievements: [] };
+
         const state = get();
         const bonusXp = won ? ARENA_WIN_BONUS.xp : 0;
         const bonusCoins = won ? ARENA_WIN_BONUS.coins : 0;
@@ -284,6 +430,9 @@ export const useGame = create<GameState>()(
       },
 
       claimDaily: () => {
+        // Guest in classroom mode: treat as unavailable, no mutation.
+        if (progressLocked()) return null;
+
         const today = dayKey();
         if (get().lastDailyClaim === today) return null;
         const coins = 25;
@@ -301,6 +450,8 @@ export const useGame = create<GameState>()(
       },
 
       buyAvatar: (id) => {
+        // In classroom (cloud) mode, buying requires a logged-in student.
+        if (purchasesLocked()) return false;
         const s = get();
         const a = AVATARS.find((x) => x.id === id);
         if (!a || s.unlockedAvatars.includes(id)) return false;
@@ -316,6 +467,8 @@ export const useGame = create<GameState>()(
       },
 
       buyTheme: (id) => {
+        // In classroom (cloud) mode, buying requires a logged-in student.
+        if (purchasesLocked()) return false;
         const s = get();
         const t = THEMES.find((x) => x.id === id);
         if (!t || s.unlockedThemes.includes(id)) return false;
@@ -332,6 +485,9 @@ export const useGame = create<GameState>()(
       dismissCelebration: (code) => set((s) => ({ celebrations: s.celebrations.filter((c) => c.code !== code) })),
 
       resetProgress: () => set({ ...DEFAULTS, hydrated: true, celebrations: [] }),
+
+      resetToGuest: () =>
+        set((s) => ({ ...DEFAULTS, locale: s.locale, settings: s.settings, hydrated: true, celebrations: [] })),
     }),
     {
       name: 'kcq.v2',

@@ -126,6 +126,12 @@ export async function accountSave(): Promise<boolean> {
   return !error && !!data?.ok;
 }
 
-export function accountLogout() { clearSession(); }
+export function accountLogout() {
+  clearSession();
+  // Shared classroom devices: wipe this student's progress from the store so
+  // the next person who plays as a guest (or logs in as someone else) never
+  // sees/inherits a stale balance. Device prefs (locale/settings) survive.
+  useGame.getState().resetToGuest();
+}
 
 export { applyToStore as applyAccountToStore };

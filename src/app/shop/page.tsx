@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { useGame, useHydrated } from '@/store/useGame';
@@ -8,6 +9,8 @@ import { AVATARS, THEMES, type Avatar, type Theme } from '@/data/cosmetics';
 import { levelForXp } from '@/lib/leveling';
 import { Icon } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
+import { accountSave } from '@/lib/supabase/account';
+import { useMustLogIn } from '@/lib/supabase/useAccount';
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +49,9 @@ function ShopContent() {
   const coins = useGame((s) => s.coins);
   const xp = useGame((s) => s.xp);
   const level = levelForXp(xp);
+  // Buying is gated to logged-in students only in classroom (cloud) mode.
+  // With no Supabase there are no profiles, so the shop stays open offline.
+  const mustLogIn = useMustLogIn();
 
   const avatarId = useGame((s) => s.avatarId);
   const unlockedAvatars = useGame((s) => s.unlockedAvatars);
@@ -85,13 +91,17 @@ function ShopContent() {
         return;
       }
       if (lockedByLevel) return; // button is disabled, click should not reach here
+      if (mustLogIn) {
+        showToast(t('shop.loginToast'));
+        return;
+      }
       if (!affordable) {
         showToast(t('shop.notEnough'));
         return;
       }
       setPending({ kind: 'avatar', id: avatar.id });
     },
-    [unlockedAvatars, level, coins, selectAvatar, showToast, t],
+    [unlockedAvatars, level, coins, mustLogIn, selectAvatar, showToast, t],
   );
 
   // ── theme click handler ──────────────────────────────────────────────────
@@ -105,30 +115,38 @@ function ShopContent() {
         selectTheme(theme.id);
         return;
       }
+      if (mustLogIn) {
+        showToast(t('shop.loginToast'));
+        return;
+      }
       if (!affordable) {
         showToast(t('shop.notEnough'));
         return;
       }
       setPending({ kind: 'theme', id: theme.id });
     },
-    [unlockedThemes, coins, selectTheme, showToast, t],
+    [unlockedThemes, coins, mustLogIn, selectTheme, showToast, t],
   );
 
   // ── confirm purchase ─────────────────────────────────────────────────────
   const handleConfirm = useCallback(() => {
     if (!pending) return;
 
+    let success = false;
     if (pending.kind === 'avatar') {
       const avatar = AVATARS.find((a) => a.id === pending.id);
       if (!avatar) { setPending(null); return; }
-      const success = buyAvatar(avatar.id);
+      success = buyAvatar(avatar.id);
       if (success) showToast(t('shop.bought', { name: avatar.name }));
     } else {
       const theme = THEMES.find((th) => th.id === pending.id);
       if (!theme) { setPending(null); return; }
-      const success = buyTheme(theme.id);
+      success = buyTheme(theme.id);
       if (success) showToast(t('shop.bought', { name: theme.name }));
     }
+    // Persist the spend immediately so a quick logout (which resets local
+    // progress) can't lose the purchase before AccountSync's debounce fires.
+    if (success) void accountSave();
     setPending(null);
   }, [pending, buyAvatar, buyTheme, showToast, t]);
 
@@ -158,6 +176,27 @@ function ShopContent() {
           <span className="text-sm font-bold text-white/80">{t('rw.coins')}</span>
         </div>
       </section>
+
+      {/* ── login-required banner (cloud mode only, when not logged in) ──── */}
+      {mustLogIn && (
+        <section className="card mt-4 flex items-start gap-3 border-2 border-mint/40 bg-mint/10">
+          <span className="mt-0.5 text-2xl leading-none" aria-hidden>🔒</span>
+          <div className="flex-1">
+            <p className="font-display text-base font-extrabold text-ink">
+              {t('shop.loginBannerTitle')}
+            </p>
+            <p className="mt-0.5 text-sm text-ink-soft">
+              {t('shop.loginRequired')}
+            </p>
+          </div>
+          <Link
+            href="/rewards"
+            className="btn-primary shrink-0 self-center px-4 py-2 text-sm"
+          >
+            {t('shop.loginCta')}
+          </Link>
+        </section>
+      )}
 
       {/* ── characters section ───────────────────────────────────────────── */}
       <section className="mt-6">

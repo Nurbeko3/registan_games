@@ -5,12 +5,15 @@ import { motion } from 'framer-motion';
 import { TEAMS, type MatchResult } from '@/lib/arena/types';
 import { Confetti } from '@/components/ui/Confetti';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { GuestRewardNudge } from '@/components/ui/GuestRewardNudge';
 import { useT } from '@/lib/i18n';
+import { useMustLogIn } from '@/lib/supabase/useAccount';
 
 /** Post-match screen. Win or lose, the framing is positive: it celebrates what
  *  the child LEARNED (accuracy, questions, XP) as much as the battle result. */
 export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onPlayAgain: () => void }) {
   const t = useT();
+  const mustLogIn = useMustLogIn();
   const acc = result.answered ? Math.round((result.correct / result.answered) * 100) : 0;
   const mine = TEAMS[result.myTeam];
   const myTeamName = `${mine.emoji} ${t(`team.${result.myTeam}`)}`;
@@ -42,9 +45,13 @@ export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onP
         <Stat icon="spark" label={t('arena.res.xp')} value={`+${result.xpEarned}`} />
       </div>
 
-      <div className="mt-3 flex justify-center">
-        <span className="chip bg-mango/20 text-ink"><Icon name="coin" className="h-4 w-4" /> +{result.coinsEarned} {t('arena.res.coins')}</span>
-      </div>
+      {mustLogIn ? (
+        <GuestRewardNudge className="mt-3" />
+      ) : (
+        <div className="mt-3 flex justify-center">
+          <span className="chip bg-mango/20 text-ink"><Icon name="coin" className="h-4 w-4" /> +{result.coinsEarned} {t('arena.res.coins')}</span>
+        </div>
+      )}
 
       <div className="mt-5 flex gap-2">
         <Link href="/arena" className="btn-ghost flex-1 text-center">{t('arena.res.newMatch')}</Link>

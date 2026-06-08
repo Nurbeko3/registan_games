@@ -38,6 +38,12 @@ export function AccountSync() {
         // Account progress is authoritative on shared classroom devices. Never
         // push anonymous/previous-student local progress into the resumed account.
         applyAccountToStore(u);
+      } else if (!readSession()) {
+        // Cloud is on but nobody is logged in: clear any stale persisted guest
+        // progress (e.g. coins earned before the earning-gate existed, or left
+        // behind by a previous student) so the display never shows a phantom
+        // balance. Device prefs (locale/settings) survive resetToGuest().
+        useGame.getState().resetToGuest();
       }
       lastSig = signature();
     })();

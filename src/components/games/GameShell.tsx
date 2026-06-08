@@ -13,6 +13,7 @@ import { AIMentor } from '@/components/AIMentor';
 import { Stars } from '@/components/ui/Bits';
 import { Icon, gameIcon } from '@/components/ui/Icon';
 import { Confetti } from '@/components/ui/Confetti';
+import { GuestRewardNudge } from '@/components/ui/GuestRewardNudge';
 import { useT } from '@/lib/i18n';
 import { GAME_REGISTRY } from './registry';
 
@@ -67,6 +68,10 @@ export function GameShell({ slug }: { slug: string }) {
   }
 
   const zone = zoneOfGame(slug);
+  // Cloud/classroom mode without a logged-in profile: rewards are no-ops
+  // (see useGame.completeGame), so guide the player to log in instead of
+  // silently showing "+0 XP / +0 coins".
+  const mustLogIn = isCloudEnabled() && !loggedIn;
   const visibleStars = hydrated && loggedIn ? totalStars : 0;
   const locked = hydrated && !!zone && visibleStars < zone.unlockStars;
   const currentIndex = zone?.games.indexOf(slug) ?? -1;
@@ -165,10 +170,14 @@ export function GameShell({ slug }: { slug: string }) {
               </p>
               <div className="mt-3 flex justify-center"><Stars count={result.stars} size="text-4xl" /></div>
 
-              <div className="mt-4 flex justify-center gap-3">
-                <span className="chip bg-sun/30 text-ink"><Icon name="zap" className="h-4 w-4" /> +{result.xpAwarded} XP</span>
-                {result.coinsAwarded > 0 && <span className="chip bg-mango/20 text-ink"><Icon name="coin" className="h-4 w-4" /> +{result.coinsAwarded}</span>}
-              </div>
+              {mustLogIn ? (
+                <GuestRewardNudge className="mt-4" />
+              ) : (
+                <div className="mt-4 flex justify-center gap-3">
+                  <span className="chip bg-sun/30 text-ink"><Icon name="zap" className="h-4 w-4" /> +{result.xpAwarded} XP</span>
+                  {result.coinsAwarded > 0 && <span className="chip bg-mango/20 text-ink"><Icon name="coin" className="h-4 w-4" /> +{result.coinsAwarded}</span>}
+                </div>
+              )}
 
               {result.leveledUp && (
                 <motion.p

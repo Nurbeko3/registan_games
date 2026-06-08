@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useGame, useHydrated, getAvatar } from '@/store/useGame';
 import { levelState } from '@/lib/leveling';
 import { ACCOUNT_SESSION_EVENT, accountResume, readSession } from '@/lib/supabase/account';
+import { useMustLogIn } from '@/lib/supabase/useAccount';
 import { Stat } from '@/components/ui/Bits';
 import { Icon } from '@/components/ui/Icon';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -21,6 +22,7 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
   const avatarId = useGame((s) => s.avatarId);
   const xp = useGame((s) => s.xp);
   const ls = levelState(xp);
+  const mustLogIn = useMustLogIn();
   const [loggedIn, setLoggedIn] = useState(false);
   const [student, setStudent] = useState('');
 
@@ -64,6 +66,17 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
         <div className="flex-1" />
 
         <LanguageSwitcher />
+
+        {hydrated && mustLogIn && (
+          <Link
+            href="/rewards"
+            className="hidden items-center gap-1.5 rounded-full bg-mint/15 px-3 py-1.5 text-xs font-extrabold text-mint-700 ring-1 ring-mint/30 transition hover:bg-mint/25 sm:flex"
+            title={t('guest.winNudge')}
+          >
+            <Icon name="lock" className="h-3.5 w-3.5" />
+            {t('guest.chip')}
+          </Link>
+        )}
 
         {hydrated && loggedIn && (
           <>
