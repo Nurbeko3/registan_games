@@ -709,6 +709,31 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     };
   }, [config, net]);
 
+  // ── multiplayer: tab visibility ──
+  // Hidden tab = rAF stops = no more 'move' packets, so opponents watched my
+  // fighter dead-reckon forever (slide into a wall / look frozen). Send one
+  // final stopped-move on hide; on return, reset the frame clock so the first
+  // visible frame doesn't compute a multi-second dt.
+  useEffect(() => {
+    if (!net) return;
+    const onVisibility = () => {
+      if (document.hidden) {
+        const w = worldRef.current;
+        const hero = w?.fighters[0];
+        if (w?.multiplayer && hero?.alive && !spectator) {
+          net.sendNet('move', {
+            x: Math.round(hero.x), y: Math.round(hero.y),
+            vx: 0, vy: 0, aim: +hero.aimAngle.toFixed(3),
+          });
+        }
+      } else {
+        lastTs.current = 0;
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [net, spectator]);
+
   // ── M2 helpers: roster lookups, kill feed, host scoring from 'down' events ──
   const rosterName = (netId: string) => net?.roster.find((r) => r.netId === netId)?.name ?? 'Player';
   const rosterTeam = (netId: string): TeamId | undefined => net?.roster.find((r) => r.netId === netId)?.team;
@@ -755,7 +780,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   frameRef.current = (ts: number) => {
     const w = worldRef.current;
     if (!w) return;
-    const dt = lastTs.current ? (ts - lastTs.current) / 1000 : 0;
+    // clamp: after a backgrounded tab resumes, the rAF gap can be many seconds —
+    // an unclamped dt exploded fx/death timers (step() clamps internally too)
+    const dt = Math.min(lastTs.current ? (ts - lastTs.current) / 1000 : 0, 0.1);
     lastTs.current = ts;
     const fx = fxRef.current;
 
@@ -766,7 +793,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
     if (net && w.multiplayer) {
       for (const ev of net.drainNet()) {
         const d = ev.data;
-        if (ev.t === 'move') applyRemoteMove(w, ev.from, { x: Number(d.x), y: Number(d.y), vx: Number(d.vx), vy: Number(d.vy), aim: Number(d.aim) });
+        if (ev.t === 'move') applyRemoteMove(w, ev.from, { x: Number(d.x), y: Number(d.y), vx: Number(d.vx), vy: Number(d.vy), aim: Number(d.aim) }, ts);
         else if (ev.t === 'shoot') applyRemoteShot(w, ev.from, {
           x: Number(d.x), y: Number(d.y), angle: Number(d.angle),
           speed: Number(d.speed), dmg: Number(d.dmg), life: Number(d.life), weapon: String(d.weapon ?? ''),

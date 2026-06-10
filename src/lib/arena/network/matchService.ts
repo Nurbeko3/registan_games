@@ -16,8 +16,11 @@ import type { NetEvent, NetEventType } from './types';
 
 const FLUSH_HZ = 12;
 const FLUSH_MS = Math.round(1000 / FLUSH_HZ);
-const NET_EVENT = 'net'; // single broadcast channel-event carrying a NetEvent
+const NET_EVENT = 'net'; // single broadcast channel-event carrying a NetEvent envelope
 const FROM_KEY = '__from';
+// Hard bound on events per envelope — a legit flush carries a handful
+// (1 move + a few shoot/hit), so anything huge is malformed or hostile.
+const MAX_ENVELOPE = 64;
 const WORLD_LIMIT = 5000;
 const MAX_VELOCITY = 1200;
 const MAX_BULLET_SPEED = 1800;
@@ -71,14 +74,20 @@ export class MatchService {
   /** Begin relaying. Call once the match starts. */
   start() {
     this.transport.on(NET_EVENT, (payload) => {
-      const ev = payload as unknown as NetEvent;
       const transportFrom = payload[FROM_KEY];
-      if (
-        ev &&
-        ev.from !== this.myId &&
-        (typeof transportFrom !== 'string' || transportFrom === ev.from) &&
-        safeEvent(ev)
-      ) this.inbound.accept(ev);
+      // One broadcast = one envelope of events (rate-limit friendly). Old
+      // clients sent one bare event per broadcast — accept that shape too.
+      const batch = Array.isArray(payload.events) ? payload.events : [payload];
+      if (batch.length > MAX_ENVELOPE) return;
+      for (const raw of batch) {
+        const ev = raw as NetEvent;
+        if (
+          ev &&
+          ev.from !== this.myId &&
+          (typeof transportFrom !== 'string' || transportFrom === ev.from) &&
+          safeEvent(ev)
+        ) this.inbound.accept(ev);
+      }
     });
     // Guard against a double interval if start() is called more than once.
     if (this.flushTimer) clearInterval(this.flushTimer);
@@ -94,9 +103,11 @@ export class MatchService {
 
   private flush() {
     if (!this.out.pending) return;
-    for (const ev of this.out.drain()) {
-      this.transport.broadcast(NET_EVENT, ev as unknown as Record<string, unknown>);
-    }
+    // ONE broadcast per flush, however many events piled up. A firefight used
+    // to fan out as 15-25 separate sends/sec per player — message COUNT is what
+    // burns the Realtime tenant events/sec quota (and any client throttle), so
+    // batching keeps a full lobby far below the ceiling.
+    this.transport.broadcast(NET_EVENT, { events: this.out.drain() });
   }
 
   /** Take all remote events received since the last call, for the engine to apply. */

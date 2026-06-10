@@ -34,6 +34,11 @@ export class OutboundQueue {
   }
 }
 
+/** Inbound buffer cap. A tab that sat hidden for minutes drains its backlog in
+ *  ONE frame on return — keep the queue bounded, shedding the oldest `move`
+ *  snapshots first (they're superseded anyway; non-move events are kept). */
+const INBOUND_MAX = 256;
+
 export class InboundQueue {
   private buffer: NetEvent[] = [];
   /** highest seq seen per sender — drop out-of-order `move` packets */
@@ -44,6 +49,10 @@ export class InboundQueue {
       const last = this.lastSeq.get(ev.from) ?? 0;
       if (ev.seq <= last) return; // stale movement — ignore
       this.lastSeq.set(ev.from, ev.seq);
+    }
+    if (this.buffer.length >= INBOUND_MAX) {
+      const oldestMove = this.buffer.findIndex((e) => e.t === 'move');
+      this.buffer.splice(oldestMove >= 0 ? oldestMove : 0, 1);
     }
     this.buffer.push(ev);
   }

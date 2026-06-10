@@ -103,6 +103,20 @@ export interface Fighter {
   /** network player id for a remote human, else null. */
   netId: string | null;
   weaponId?: WeaponId;
+  /** remote humans: trigger-pull timestamps in the last second (windowed
+   *  fire-rate allowance — replaces the hard cooldown that dropped batched shots). */
+  shotTimes?: number[];
+  /** remote humans: position snapshots for interpolated rendering. */
+  snaps?: RemoteSnap[];
+}
+
+/** One network movement snapshot for a remote fighter (see applyRemoteMove). */
+export interface RemoteSnap {
+  /** local receive time, ms. */
+  at: number;
+  x: number; y: number;
+  vx: number; vy: number;
+  aim: number;
 }
 
 export interface Bullet {
@@ -380,10 +394,22 @@ function makeHuman(e: RosterEntry, isHero: boolean, p: { x: number; y: number })
 const byNet = (world: World, netId: string): Fighter | undefined =>
   world.fighters.find((f) => f.netId === netId && !f.isHero);
 
-/** Remote MOVE: dead-reckon from this snapshot until the next packet. */
+/** How far in the past remote fighters are rendered. Two flush intervals
+ *  (~83ms each at 12 Hz) of buffer absorbs normal network jitter, so remotes
+ *  glide between snapshots instead of teleporting on every packet. */
+export const INTERP_DELAY_MS = 130;
+/** Past this with no fresh snapshot, stop extrapolating (freeze in place) —
+ *  better a briefly-still opponent than one sliding through walls. */
+const EXTRAP_MAX_MS = 250;
+/** Snapshots kept per remote fighter (≈1s of history at 12 Hz). */
+const SNAP_BUFFER_MAX = 12;
+
+/** Remote MOVE: buffer the snapshot; `step()` renders ~INTERP_DELAY_MS in the
+ *  past, lerping between snapshots (extrapolating briefly if packets stall). */
 export function applyRemoteMove(
   world: World, netId: string,
   d: { x: number; y: number; vx: number; vy: number; aim: number },
+  now: number,
 ) {
   const f = byNet(world, netId);
   if (!f || !f.alive) return;
@@ -394,22 +420,73 @@ export function applyRemoteMove(
     const k = REMOTE_MAX_SPEED / speed;
     vx *= k; vy *= k;
   }
-  f.x = finiteClamp(d.x, FIGHTER_R, world.w - FIGHTER_R, f.x);
-  f.y = finiteClamp(d.y, FIGHTER_R, world.h - FIGHTER_R, f.y);
-  f.vx = vx; f.vy = vy;
+  const snaps = (f.snaps ??= []);
+  snaps.push({
+    at: now,
+    x: finiteClamp(d.x, FIGHTER_R, world.w - FIGHTER_R, f.x),
+    y: finiteClamp(d.y, FIGHTER_R, world.h - FIGHTER_R, f.y),
+    vx, vy,
+    aim: finite(d.aim, f.aimAngle),
+  });
+  if (snaps.length > SNAP_BUFFER_MAX) snaps.splice(0, snaps.length - SNAP_BUFFER_MAX);
+  // aim stays realtime — a 130ms-late gun barrel reads as lag, positions don't
   f.aimAngle = finite(d.aim, f.aimAngle);
-  resolveObstacles(f, world.obstacles);
 }
 
-/** Remote SHOOT: spawn the opponent's bolt in our world (it can hit our hero). */
+/** Drive a remote fighter's position from its snapshot buffer (interpolation
+ *  with short extrapolation). Falls back to plain dead-reckoning before the
+ *  first packet arrives. Called from `step()` each frame. */
+function updateRemoteFromSnaps(world: World, f: Fighter, now: number, dt: number) {
+  const snaps = f.snaps;
+  if (!snaps || snaps.length === 0) {
+    f.x = clamp(f.x + f.vx * dt, FIGHTER_R, world.w - FIGHTER_R);
+    f.y = clamp(f.y + f.vy * dt, FIGHTER_R, world.h - FIGHTER_R);
+    return;
+  }
+  const t = now - INTERP_DELAY_MS;
+  // drop history older than the pair bracketing the render time
+  while (snaps.length > 2 && snaps[1].at <= t) snaps.shift();
+  const a = snaps[0];
+  const b = snaps.length > 1 ? snaps[1] : null;
+  if (t <= a.at) {
+    // render time hasn't reached the oldest snapshot yet — hold it
+    f.x = a.x; f.y = a.y; f.vx = a.vx; f.vy = a.vy;
+  } else if (b && b.at > a.at) {
+    const k = clamp((t - a.at) / (b.at - a.at), 0, 1);
+    f.x = a.x + (b.x - a.x) * k;
+    f.y = a.y + (b.y - a.y) * k;
+    f.vx = b.vx; f.vy = b.vy;
+  } else {
+    // newest snapshot is already in the past → extrapolate up to the budget,
+    // then pin at that point (a briefly-still opponent beats a wall-clipper)
+    const overMs = t - a.at;
+    const s = Math.min(overMs, EXTRAP_MAX_MS) / 1000;
+    f.x = clamp(a.x + a.vx * s, FIGHTER_R, world.w - FIGHTER_R);
+    f.y = clamp(a.y + a.vy * s, FIGHTER_R, world.h - FIGHTER_R);
+    if (overMs > EXTRAP_MAX_MS) { f.vx = 0; f.vy = 0; }
+  }
+}
+
+/** Remote SHOOT: spawn the opponent's bolt(s) in our world (they can hit our hero).
+ *
+ *  Fire-rate anti-cheat is a WINDOWED allowance, not a hard cooldown: events
+ *  arrive in ~12 Hz batches, so two legitimate trigger pulls often share one
+ *  `now` — the old `cooldownUntil` gate silently dropped the second one (an SMG
+ *  lost ~half its bullets on the opponent's screen). */
 export function applyRemoteShot(
   world: World, netId: string,
   d: { x: number; y: number; angle: number; speed?: number; dmg?: number; life?: number; weapon?: string }, now: number,
 ) {
   const f = byNet(world, netId);
-  if (!f || !f.alive || now < f.cooldownUntil) return;
+  if (!f || !f.alive) return;
   const remoteWeapon = validWeaponId(d.weapon) ? d.weapon : DEFAULT_WEAPON;
   const spec = getWeapon(remoteWeapon);
+  // allow up to ~125% of the weapon's true rate over a rolling second
+  const times = (f.shotTimes ??= []);
+  while (times.length && times[0] < now - 1000) times.shift();
+  const maxPerSec = Math.max(2, Math.ceil((1000 / spec.fireRate) * 1.25));
+  if (times.length >= maxPerSec) return;
+  times.push(now);
   const rx = finiteClamp(d.x, FIGHTER_R, world.w - FIGHTER_R, f.x);
   const ry = finiteClamp(d.y, FIGHTER_R, world.h - FIGHTER_R, f.y);
   const tooFar = dist(rx, ry, f.x, f.y) > REMOTE_SHOT_ORIGIN_TOLERANCE;
@@ -421,21 +498,27 @@ export function applyRemoteShot(
   const life = finiteClamp(d.life ?? spec.rangeMs, 120, spec.rangeMs, spec.rangeMs);
   f.aimAngle = angle;
   f.weaponId = remoteWeapon;
-  f.cooldownUntil = now + spec.fireRate * 0.75;
+  f.cooldownUntil = now + spec.fireRate * 0.75; // kept for HUD/visual pacing only
   f.recoil = 1;
-  world.bullets.push({
-    id: world.bulletSeq++,
-    x: sx + Math.cos(angle) * (FIGHTER_R + BULLET_R + 2),
-    y: sy + Math.sin(angle) * (FIGHTER_R + BULLET_R + 2),
-    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-    team: f.team, ownerId: f.id, born: now, dmg, life,
-  });
+  // multi-pellet weapons (shotgun) fire ONE network event per trigger pull —
+  // realize the full spread locally so they hit as hard as on the shooter's screen
+  for (let p = 0; p < spec.pellets; p++) {
+    const spr = spec.spread && spec.pellets > 1 ? rnd(-spec.spread, spec.spread) : 0;
+    const a = angle + spr;
+    world.bullets.push({
+      id: world.bulletSeq++,
+      x: sx + Math.cos(a) * (FIGHTER_R + BULLET_R + 2),
+      y: sy + Math.sin(a) * (FIGHTER_R + BULLET_R + 2),
+      vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+      team: f.team, ownerId: f.id, born: now, dmg, life,
+    });
+  }
 }
 
 /** Remote DOWN: the opponent was tagged out (hide them until they respawn). */
 export function applyRemoteDown(world: World, netId: string) {
   const f = byNet(world, netId);
-  if (f) { f.alive = false; f.hp = 0; }
+  if (f) { f.alive = false; f.hp = 0; f.snaps = []; }
 }
 
 /** Remote LEAVE: remove the opponent from the active field without scoring. */
@@ -447,6 +530,7 @@ export function applyRemoteLeave(world: World, netId: string) {
     f.respawnAt = Number.POSITIVE_INFINITY;
     f.vx = 0;
     f.vy = 0;
+    f.snaps = [];
   }
 }
 
@@ -456,6 +540,7 @@ export function applyRemoteRespawn(world: World, netId: string, d: { x: number; 
   if (!f) return;
   const p = sanitizeRemoteSpawn(f.team, d);
   f.alive = true; f.hp = MAX_HP; f.x = p.x; f.y = p.y; f.vx = 0; f.vy = 0;
+  f.snaps = []; // stale pre-death snapshots must not drag them off the spawn
   f.shieldUntil = now + SHIELD_MS;
 }
 
@@ -697,12 +782,11 @@ export function step(world: World, dt: number, now: number, fx?: Fx): StepResult
   // ── BOTS (personality AI + momentum) ──
   for (let i = 1; i < world.fighters.length; i++) {
     const b = world.fighters[i];
-    // remote humans are driven by network packets, not AI: dead-reckon between
-    // packets and never auto-respawn (their owner controls respawn).
+    // remote humans are driven by network packets, not AI: render them from the
+    // interpolation buffer and never auto-respawn (their owner controls respawn).
     if (b.remote) {
       if (b.alive) {
-        b.x = clamp(b.x + b.vx * dt, FIGHTER_R, world.w - FIGHTER_R);
-        b.y = clamp(b.y + b.vy * dt, FIGHTER_R, world.h - FIGHTER_R);
+        updateRemoteFromSnaps(world, b, now, dt);
         resolveObstacles(b, world.obstacles);
       }
       continue;

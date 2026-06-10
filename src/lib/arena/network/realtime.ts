@@ -34,6 +34,8 @@ export interface Transport {
 const randomId = () => Math.random().toString(36).slice(2, 10);
 
 // ── Supabase Realtime ─────────────────────────────────────────────────────────
+const MAX_RECONNECT_ATTEMPTS = 8;
+
 class SupabaseTransport implements Transport {
   readonly id: string;
   readonly kind = 'cloud' as const;
@@ -42,6 +44,10 @@ class SupabaseTransport implements Transport {
   private stateCb?: (s: ConnectionState) => void;
   private presenceCb?: (p: PresenceMap) => void;
   private handlers: Record<string, BroadcastHandler> = {};
+  private lastMeta: PresenceMeta | null = null;
+  private closed = false;
+  private retries = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private code: string, id = randomId()) { this.id = id; }
 
@@ -52,7 +58,17 @@ class SupabaseTransport implements Transport {
   private setState(s: ConnectionState) { this.state = s; this.stateCb?.(s); }
 
   async connect(meta: PresenceMeta) {
+    this.closed = false;
+    this.lastMeta = meta;
     this.setState('connecting');
+    this.join();
+  }
+
+  /** (Re)create + subscribe the channel. Handlers/meta are kept on the
+   *  instance, so a reconnect rebuilds everything from scratch — an errored
+   *  Realtime channel can't be trusted to rejoin cleanly on its own. */
+  private join() {
+    if (this.closed) return;
     const channel = supabase!.channel(`kcq-arena-${this.code}`, {
       config: { presence: { key: this.id }, broadcast: { self: true } },
     });
@@ -85,17 +101,56 @@ class SupabaseTransport implements Transport {
     }
 
     channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') { void channel.track(meta); this.setState('connected'); }
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') this.setState('error');
+      if (status === 'SUBSCRIBED') {
+        this.retries = 0;
+        if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null; }
+        if (this.lastMeta) void channel.track(this.lastMeta);
+        this.setState('connected');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        this.scheduleReconnect();
+      }
     });
   }
 
-  track(meta: PresenceMeta) { void this.channel?.track(meta); }
+  /** Exponential-backoff rejoin (0.5s → 8s). A mobile network blip used to
+   *  flip the transport to 'error' permanently and freeze the match. */
+  private scheduleReconnect() {
+    if (this.closed || this.retryTimer) return;
+    if (this.retries >= MAX_RECONNECT_ATTEMPTS) { this.setState('error'); return; }
+    this.setState('connecting');
+    const delay = Math.min(8000, 500 * 2 ** this.retries);
+    this.retries += 1;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      if (this.closed) return;
+      this.teardownChannel();
+      this.join();
+    }, delay);
+  }
+
+  private teardownChannel() {
+    if (this.channel) {
+      void this.channel.unsubscribe();
+      void supabase!.removeChannel(this.channel);
+      this.channel = null;
+    }
+  }
+
+  track(meta: PresenceMeta) {
+    this.lastMeta = meta; // survives a reconnect — re-tracked on SUBSCRIBED
+    void this.channel?.track(meta);
+  }
   broadcast(event: string, payload: Record<string, unknown>) {
-    void this.channel?.send({ type: 'broadcast', event, payload: { ...payload, [FROM_KEY]: this.id } });
+    const p = this.channel?.send({ type: 'broadcast', event, payload: { ...payload, [FROM_KEY]: this.id } });
+    // Surface silent drops: supabase-js resolves 'rate limited' instead of throwing.
+    void p?.then((res) => {
+      if (res === 'rate limited') console.warn(`[arena] realtime send rate-limited (event: ${event})`);
+    }).catch(() => { /* channel torn down mid-send — reconnect path handles it */ });
   }
   disconnect() {
-    if (this.channel) { void this.channel.unsubscribe(); void supabase!.removeChannel(this.channel); this.channel = null; }
+    this.closed = true;
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null; }
+    this.teardownChannel();
     this.setState('offline');
   }
 }

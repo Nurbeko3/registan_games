@@ -16,6 +16,12 @@ function init(): SupabaseClient | null {
   try {
     return createClient(url, key, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      // Arena netcode flushes at ~12 Hz on top of room traffic. Current
+      // realtime-js has no client-side throttle (older builds dropped sends
+      // past 10/s via this param) — kept as documented headroom in case the
+      // limiter returns. Real ceilings are the tenant quotas; measure them
+      // with scripts/qa-realtime-probe.mjs.
+      realtime: { params: { eventsPerSecond: 30 } },
     });
   } catch {
     return null; // never crash the app over cloud setup
