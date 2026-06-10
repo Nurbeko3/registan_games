@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AdminInfo { id: string; email: string; name: string; role: 'super' | 'admin' }
@@ -88,7 +89,12 @@ function Panel({ admin, onLogout }: { admin: AdminInfo; onLogout: () => void }) 
           </span>
           <span className="hidden text-sm font-bold text-ink-faint sm:inline">{admin.email}</span>
         </div>
-        <button onClick={logout} className="btn-ghost px-3 py-1.5 text-sm">Chiqish</button>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/cases" className="btn-sun px-3 py-1.5 text-sm">
+            🕵️ Sinf turniri
+          </Link>
+          <button onClick={logout} className="btn-ghost px-3 py-1.5 text-sm">Chiqish</button>
+        </div>
       </header>
 
       {admin.role === 'super' && (

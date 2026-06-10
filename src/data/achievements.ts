@@ -12,6 +12,13 @@ export interface AchievementSnapshot {
   zonesUnlocked: number;
   arenaWins: number; // Battle Learn Arena matches won
   arenaCorrect: number; // questions answered correctly in the arena learning pod
+  // ── Case Files (reading-detective mode) ──
+  casesCompleted: number; // cases solved with >= 1 star
+  cases3star: number; // cases solved with 3 stars
+  caseXp: number; // cumulative case-solve XP (drives Detective rank)
+  caseNoHintSolves: number; // cases solved without opening any hint
+  caseStreak: number; // best consecutive-correct streak in a single case
+  classroomCaseTournamentWins: number; // 1st place in a server-confirmed classroom tournament
 }
 
 export interface Achievement {
@@ -27,7 +34,7 @@ export interface Achievement {
   check: (s: AchievementSnapshot) => boolean;
 }
 
-export type AchievementGroupId = 'start' | 'stars' | 'growth' | 'arena';
+export type AchievementGroupId = 'start' | 'stars' | 'growth' | 'arena' | 'cases';
 
 export interface AchievementGroup {
   id: AchievementGroupId;
@@ -61,6 +68,12 @@ export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
     titleKey: 'ach.group.arena.title',
     subtitleKey: 'ach.group.arena.subtitle',
   },
+  {
+    id: 'cases',
+    emoji: '🕵️',
+    titleKey: 'ach.group.cases.title',
+    subtitleKey: 'ach.group.cases.subtitle',
+  },
 ];
 
 export const ACHIEVEMENTS: Achievement[] = [
@@ -77,6 +90,13 @@ export const ACHIEVEMENTS: Achievement[] = [
   { code: 'ARENA_ROOKIE', group: 'arena', title: 'Arena Rookie', titleKey: 'ach.arenaRookie.title', description: 'Win your first Arena match.', descriptionKey: 'ach.arenaRookie.desc', hintKey: 'ach.arenaRookie.hint', emoji: '⚔️', rarity: 'rare', check: (s) => s.arenaWins >= 1 },
   { code: 'ARENA_SCHOLAR', group: 'arena', title: 'Battle Scholar', titleKey: 'ach.arenaScholar.title', description: 'Answer 25 Arena questions right.', descriptionKey: 'ach.arenaScholar.desc', hintKey: 'ach.arenaScholar.hint', emoji: '📚', rarity: 'epic', check: (s) => s.arenaCorrect >= 25 },
   { code: 'ARENA_LEGEND', group: 'arena', title: 'Arena Legend', titleKey: 'ach.arenaLegend.title', description: 'Win 5 Arena matches.', descriptionKey: 'ach.arenaLegend.desc', hintKey: 'ach.arenaLegend.hint', emoji: '🥇', rarity: 'legendary', check: (s) => s.arenaWins >= 5 },
+  // ── Case Files (reading-detective mode) ──
+  { code: 'CASE_FIRST_SOLVE', group: 'cases', title: 'Case Cracked', titleKey: 'ach.caseFirstSolve.title', description: 'Solve your first case.', descriptionKey: 'ach.caseFirstSolve.desc', hintKey: 'ach.caseFirstSolve.hint', emoji: '🔍', rarity: 'common', check: (s) => s.casesCompleted >= 1 },
+  { code: 'CASE_FIRST_3STAR', group: 'cases', title: 'Master Detective', titleKey: 'ach.caseFirst3star.title', description: 'Solve a case with 3 stars.', descriptionKey: 'ach.caseFirst3star.desc', hintKey: 'ach.caseFirst3star.hint', emoji: '🌟', rarity: 'rare', check: (s) => s.cases3star >= 1 },
+  { code: 'CASE_NO_HINTS', group: 'cases', title: 'Sharp Eyes', titleKey: 'ach.caseNoHints.title', description: 'Solve a case without any hints.', descriptionKey: 'ach.caseNoHints.desc', hintKey: 'ach.caseNoHints.hint', emoji: '👁️', rarity: 'rare', check: (s) => s.caseNoHintSolves >= 1 },
+  { code: 'CASE_STREAK_3', group: 'cases', title: 'On a Roll', titleKey: 'ach.caseStreak3.title', description: 'Answer 3 clues right in a row.', descriptionKey: 'ach.caseStreak3.desc', hintKey: 'ach.caseStreak3.hint', emoji: '🔥', rarity: 'rare', check: (s) => s.caseStreak >= 3 },
+  { code: 'CASE_RANK_SERGEANT', group: 'cases', title: 'Detective Sergeant', titleKey: 'ach.caseRankSergeant.title', description: 'Reach the Sergeant rank.', descriptionKey: 'ach.caseRankSergeant.desc', hintKey: 'ach.caseRankSergeant.hint', emoji: '🎖️', rarity: 'epic', check: (s) => s.caseXp >= 800 },
+  { code: 'CASE_CLASSROOM_WIN', group: 'cases', title: 'Class Champion', titleKey: 'ach.caseClassroomWin.title', description: 'Win a classroom tournament.', descriptionKey: 'ach.caseClassroomWin.desc', hintKey: 'ach.caseClassroomWin.hint', emoji: '🏆', rarity: 'epic', check: (s) => s.classroomCaseTournamentWins >= 1 },
 ];
 
 export const RARITY_RING: Record<Achievement['rarity'], string> = {

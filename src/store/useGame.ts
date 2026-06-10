@@ -9,6 +9,14 @@ import { ACHIEVEMENTS, type Achievement, type AchievementSnapshot } from '@/data
 import { AVATARS, THEMES, getAvatar, getTheme } from '@/data/cosmetics';
 import type { Locale } from '@/lib/i18n/config';
 import { isCloudEnabled } from '@/lib/supabase/client';
+import {
+  caseAnswerXp,
+  caseSolveXp,
+  caseSolveCoins,
+  CASE_ANSWER_COINS,
+  FIRST_CASE_OF_DAY_XP,
+  FIRST_CASE_OF_DAY_COINS,
+} from '@/lib/caseLeveling';
 
 // Mirrors SESSION_KEY from src/lib/supabase/account.ts. Kept inline to avoid
 // a circular import (account.ts imports this store). Returns true only when a
@@ -64,6 +72,35 @@ export interface LevelCelebration {
   level: number;
 }
 
+/** Result of finishing a Case Files case (drives the results screen + celebrations). */
+export interface CaseMatchResult {
+  xpAwarded: number;       // global XP added (solve-bonus delta + first-of-day + achievements)
+  coinsAwarded: number;    // global coins added
+  caseXpAwarded: number;   // case-solve XP added to the Detective-rank counter (delta only)
+  stars: number;
+  bestStars: number;
+  improved: boolean;
+  firstOfDay: boolean;
+  leveledUp: boolean;
+  newLevel: number;
+  newAchievements: Achievement[];
+}
+
+/** Mode + outcome a finished case reports to the store. `isClassroomConfirmed`
+ * must come from server-authoritative room state, never a raw client flag —
+ * it gates the classroom-win counter so Bot Practice can't self-grant it. */
+export interface CaseMatchInput {
+  caseId: string;
+  stars: number;           // offline: client-graded; cloud: recomputed server-side
+  correct: number;
+  total: number;
+  hintsUsed: boolean;
+  bestStreak: number;      // best consecutive-correct run within the match
+  mode: 'bot' | 'friendly' | 'classroom';
+  isClassroomConfirmed?: boolean;
+  placement?: number;      // 1 = winner
+}
+
 export type Celebration = Achievement | LevelCelebration;
 
 /** XP + coins granted for a correct Battle Learn Arena question, by difficulty. */
@@ -100,6 +137,19 @@ interface GameState {
   arenaBestElims: number;
   /** Codecaster dungeon: best stars per level (key = level id like 'L01'). */
   codecaster: Record<string, { stars: number }>;
+  // ── Case Files (reading-detective mode) ──
+  /** Best stars per case (key = case id like 'case01'). Anti-farm: best only. */
+  cases: Record<string, { stars: number }>;
+  /** Cumulative case-solve XP — the SEPARATE counter that drives Detective rank. */
+  caseXp: number;
+  /** Lifetime count of cases solved with no hints opened. */
+  caseNoHintSolves: number;
+  /** Best consecutive-correct streak achieved in any single case (high-water). */
+  caseStreak: number;
+  /** 1st-place finishes in server-confirmed classroom tournaments. */
+  classroomCaseTournamentWins: number;
+  /** Day key of the last solved case (for the first-case-of-day bonus). */
+  lastCaseDay: string | null;
 
   // transient (not persisted)
   hydrated: boolean;
@@ -112,6 +162,12 @@ interface GameState {
   setHydrated: () => void;
   completeGame: (slug: string, stars: number) => CompleteResult;
   codecasterComplete: (levelId: string, stars: number) => CompleteResult;
+  /** Case Files: per-answer reward (live multiplayer feedback). `consecutiveCorrect`
+   *  is the in-match correct streak SO FAR (this answer counts) — drives the multiplier. */
+  caseAnswerCorrect: (consecutiveCorrect: number) => { xp: number; coins: number };
+  /** Case Files: end-of-case settlement — solve bonus (anti-farm delta into caseXp +
+   *  global XP/coins), first-of-day bonus, stats, achievements. */
+  caseMatchEnd: (r: CaseMatchInput) => CaseMatchResult;
   arenaAnswerCorrect: (difficulty: 'easy' | 'medium' | 'hard') => { xp: number; coins: number };
   arenaMatchEnd: (r: { won: boolean; correct: number; elims: number }) => {
     bonusXp: number;
@@ -157,6 +213,12 @@ const DEFAULTS = {
   arenaCorrect: 0,
   arenaBestElims: 0,
   codecaster: {} as Record<string, { stars: number }>,
+  cases: {} as Record<string, { stars: number }>,
+  caseXp: 0,
+  caseNoHintSolves: 0,
+  caseStreak: 0,
+  classroomCaseTournamentWins: 0,
+  lastCaseDay: null as string | null,
 };
 
 // ── derived selectors (use with useGame(selector)) ──────────────────
@@ -166,6 +228,7 @@ export const selectTotalStars = (s: GameState): number =>
 function buildSnapshot(s: GameState): AchievementSnapshot {
   const totalStars = selectTotalStars(s);
   const records = Object.values(s.completed);
+  const caseRecords = Object.values(s.cases);
   return {
     xp: s.xp,
     level: levelForXp(s.xp),
@@ -177,6 +240,13 @@ function buildSnapshot(s: GameState): AchievementSnapshot {
     zonesUnlocked: ZONES.filter((z) => z.unlockStars <= totalStars).length,
     arenaWins: s.arenaWins,
     arenaCorrect: s.arenaCorrect,
+    // ── Case Files ── casesCompleted/cases3star are DERIVED from the best-stars map
+    casesCompleted: caseRecords.filter((r) => r.stars > 0).length,
+    cases3star: caseRecords.filter((r) => r.stars >= 3).length,
+    caseXp: s.caseXp,
+    caseNoHintSolves: s.caseNoHintSolves,
+    caseStreak: s.caseStreak,
+    classroomCaseTournamentWins: s.classroomCaseTournamentWins,
   };
 }
 
@@ -367,6 +437,127 @@ export const useGame = create<GameState>()(
           stars,
           bestStars,
           improved,
+          leveledUp: levelUps.length > 0,
+          newLevel: levelForXp(finalXp),
+          newAchievements: newlyUnlocked,
+        };
+      },
+
+      // ── Case Files: per-answer reward (live multiplayer feedback) ──
+      // Mirrors arenaAnswerCorrect: pays into the global XP/coin pools immediately
+      // for the "+XP" pop. Streak multiplier applies to XP only; coins are flat.
+      // The case-SOLVE bonus + caseXp (rank) are settled separately in caseMatchEnd.
+      caseAnswerCorrect: (consecutiveCorrect) => {
+        if (progressLocked()) return { xp: 0, coins: 0 };
+
+        const xp = caseAnswerXp(consecutiveCorrect);
+        const coins = CASE_ANSWER_COINS;
+        set((s) => {
+          const newXp = s.xp + xp;
+          return {
+            xp: newXp,
+            coins: s.coins + coins,
+            celebrations: [...s.celebrations, ...levelCelebrationsBetween(s.xp, newXp)],
+          };
+        });
+        return { xp, coins };
+      },
+
+      // ── Case Files: end-of-case settlement ──
+      // Anti-farm (mirrors codecasterComplete): stores BEST stars per case and pays
+      // only the DELTA of the solve bonus between old and new best — into BOTH the
+      // global XP/coin pools AND the separate caseXp rank counter. Per-answer XP was
+      // already paid live (caseAnswerCorrect), so it is NOT re-paid here.
+      caseMatchEnd: (input) => {
+        const state = get();
+        const newLevel0 = levelForXp(state.xp);
+
+        // Guest in classroom (cloud) mode: full no-op (see completeGame rationale).
+        if (progressLocked()) {
+          const prevStars = state.cases[input.caseId]?.stars ?? 0;
+          return {
+            xpAwarded: 0, coinsAwarded: 0, caseXpAwarded: 0,
+            stars: input.stars, bestStars: prevStars, improved: false,
+            firstOfDay: false, leveledUp: false, newLevel: newLevel0, newAchievements: [],
+          };
+        }
+
+        const stars = Math.max(0, Math.min(3, Math.round(input.stars)));
+        const prev = state.cases[input.caseId];
+        const prevStars = prev?.stars ?? 0;
+        const bestStars = Math.max(prevStars, stars);
+        const improved = stars > prevStars;
+        const solved = stars >= 1;
+
+        // Solve-bonus delta (anti-farm): only the improvement over the previous best.
+        const solveXpAwarded = improved ? caseSolveXp(bestStars) - caseSolveXp(prevStars) : 0;
+        const solveCoinsAwarded = improved ? caseSolveCoins(bestStars) - caseSolveCoins(prevStars) : 0;
+
+        // First-case-of-day bonus: once per calendar day, only on an actual solve.
+        // Uses lastCaseDay (DISTINCT from claimDaily's lastDailyClaim — different values).
+        const today = dayKey();
+        const firstOfDay = solved && state.lastCaseDay !== today;
+        const dayXp = firstOfDay ? FIRST_CASE_OF_DAY_XP : 0;
+        const dayCoins = firstOfDay ? FIRST_CASE_OF_DAY_COINS : 0;
+        // Daily play-streak bumps on the first solve of the day (like completeGame).
+        const streak = firstOfDay ? nextStreak(state.lastPlayedDay, state.streak) : state.streak;
+
+        // Classroom-win counter — ONLY when the SERVER confirmed this was a real
+        // classroom tournament AND the player placed 1st. A client-supplied mode
+        // flag is never trusted (Bot Practice can never self-grant this) [QA HIGH-02].
+        const wonClassroom =
+          input.mode === 'classroom' && input.isClassroomConfirmed === true && input.placement === 1;
+
+        const cases = { ...state.cases, [input.caseId]: { stars: bestStars } };
+        const caseNoHintSolves = state.caseNoHintSolves + (solved && !input.hintsUsed ? 1 : 0);
+        const caseStreak = Math.max(state.caseStreak, input.bestStreak);
+        const classroomCaseTournamentWins = state.classroomCaseTournamentWins + (wonClassroom ? 1 : 0);
+
+        // Evaluate achievements against the would-be new state (data-driven).
+        const baseXp = state.xp + solveXpAwarded + dayXp;
+        const draft: GameState = {
+          ...state,
+          xp: baseXp,
+          coins: state.coins + solveCoinsAwarded + dayCoins,
+          streak,
+          cases,
+          caseXp: state.caseXp + solveXpAwarded,
+          caseNoHintSolves,
+          caseStreak,
+          classroomCaseTournamentWins,
+        };
+        const snap = buildSnapshot(draft);
+        const newlyUnlocked = ACHIEVEMENTS.filter(
+          (a) => !state.unlockedAchievements.includes(a.code) && a.check(snap),
+        );
+        const achvXp = newlyUnlocked.length * 25;
+        const achvCoins = newlyUnlocked.length * 15;
+        const finalXp = baseXp + achvXp;
+        const levelUps = levelCelebrationsBetween(state.xp, finalXp);
+
+        set({
+          xp: finalXp,
+          coins: state.coins + solveCoinsAwarded + dayCoins + achvCoins,
+          streak,
+          lastPlayedDay: firstOfDay ? today : state.lastPlayedDay,
+          lastCaseDay: solved ? today : state.lastCaseDay,
+          cases,
+          caseXp: state.caseXp + solveXpAwarded,
+          caseNoHintSolves,
+          caseStreak,
+          classroomCaseTournamentWins,
+          unlockedAchievements: [...state.unlockedAchievements, ...newlyUnlocked.map((a) => a.code)],
+          celebrations: [...state.celebrations, ...levelUps, ...newlyUnlocked],
+        });
+
+        return {
+          xpAwarded: solveXpAwarded + dayXp + achvXp,
+          coinsAwarded: solveCoinsAwarded + dayCoins + achvCoins,
+          caseXpAwarded: solveXpAwarded,
+          stars,
+          bestStars,
+          improved,
+          firstOfDay,
           leveledUp: levelUps.length > 0,
           newLevel: levelForXp(finalXp),
           newAchievements: newlyUnlocked,

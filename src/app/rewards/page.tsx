@@ -11,6 +11,7 @@ import { isCloudEnabled } from '@/lib/supabase/client';
 import { ACCOUNT_SESSION_EVENT, accountLogout, accountResume, readSession } from '@/lib/supabase/account';
 import { Icon } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
+import { DetectiveRankBadge } from '@/components/case/DetectiveRankBadge';
 
 export default function RewardsPage() {
   const hydrated = useHydrated();
@@ -119,6 +120,14 @@ function RewardsContent() {
         <button onClick={onClaim} disabled={!canClaim} className="btn-primary disabled:opacity-40" aria-label={canClaim ? t('rw.claim') : t('rw.dailyBack')}>
           {canClaim ? t('rw.claim') : <Icon name="check" className="h-5 w-5" />}
         </button>
+      </section>
+
+      {/* Detective rank progress card */}
+      <section className="mt-5" aria-label={t('case.rankLabel')}>
+        <p className="mb-1.5 px-1 font-display text-xs font-extrabold uppercase tracking-wide text-ink-faint">
+          {t('case.rankLabel')}
+        </p>
+        <DetectiveRankBadge variant="full" />
       </section>
 
       {/* compact achievements trigger */}

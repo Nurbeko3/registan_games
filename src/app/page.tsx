@@ -24,6 +24,7 @@ const MODE_CARDS: {
   soon?: boolean;
 }[] = [
   { href: '/arena', icon: 'arena', gradient: 'from-grape to-bubble', title: 'home.arenaTitle', sub: 'home.arenaSub' },
+  { href: '/case', icon: 'search', gradient: 'from-sky to-grape', title: 'case.title', sub: 'case.sub' },
   { href: '/party', icon: 'party', gradient: 'from-mango to-sun', title: 'home.partyTitle', sub: 'home.partySub' },
   { href: '/quest', icon: 'sword', gradient: 'from-sky to-grape', title: 'home.questTitle', sub: 'home.questSub', soon: true },
 ];

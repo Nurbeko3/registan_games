@@ -9,10 +9,17 @@ import {
   Building2,
   Calculator,
   Check,
+  Clock,
   Cloud,
   Coins,
   Compass,
   Crown,
+  Eye,
+  FileText,
+  Mail,
+  MessageCircle,
+  Search,
+  Ticket,
   Flame,
   Gem,
   Gift,
@@ -53,13 +60,18 @@ export type IconName =
   | 'brain'
   | 'bug'
   | 'calculator'
+  | 'chat'
   | 'check'
   | 'city'
+  | 'clock'
   | 'cloud'
   | 'coin'
   | 'compass'
   | 'crown'
+  | 'eye'
+  | 'file'
   | 'flame'
+  | 'mail'
   | 'forest'
   | 'gem'
   | 'gift'
@@ -76,7 +88,9 @@ export type IconName =
   | 'puzzle'
   | 'rank'
   | 'rocket'
+  | 'search'
   | 'signal'
+  | 'ticket'
   | 'spark'
   | 'star'
   | 'sword'
@@ -145,13 +159,18 @@ const ICON_REGISTRY: Record<IconName, LucideIcon> = {
   brain: Brain,
   bug: Bug,
   calculator: Calculator,
+  chat: MessageCircle,
   check: Check,
   city: Building2,
+  clock: Clock,
   cloud: Cloud,
   coin: Coins,
   compass: Compass,
   crown: Crown,
+  eye: Eye,
+  file: FileText,
   flame: Flame,
+  mail: Mail,
   forest: Trees,
   gem: Gem,
   gift: Gift,
@@ -168,7 +187,9 @@ const ICON_REGISTRY: Record<IconName, LucideIcon> = {
   puzzle: Puzzle,
   rank: Medal,
   rocket: Rocket,
+  search: Search,
   signal: Wifi,
+  ticket: Ticket,
   spark: Sparkles,
   star: Star,
   sword: Sword,
