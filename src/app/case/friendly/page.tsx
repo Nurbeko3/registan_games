@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon, IconTile } from '@/components/ui/Icon';
 import { isCloudEnabled } from '@/lib/supabase/client';
-import { useGame, getAvatar } from '@/store/useGame';
-import { useT } from '@/lib/i18n';
+import { useGame } from '@/store/useGame';
+import { AvatarBadge } from '@/components/ui/AvatarBadge';
+import { useT, useLocale } from '@/lib/i18n';
 import { CASES } from '@/data/cases';
+import { localizeCaseTitle } from '@/data/cases/i18n';
 import type { CaseDef } from '@/data/cases/types';
 
 const makeCode = () =>
@@ -18,6 +20,7 @@ const makeCode = () =>
 
 export default function FriendlyPage() {
   const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [joinCode, setJoinCode] = useState('');
@@ -83,9 +86,7 @@ export default function FriendlyPage() {
             <section className="card mt-5">
               <p className="font-display font-extrabold">{t('party.yourHero')}</p>
               <div className="mt-3 flex items-center gap-3">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-grape-50 text-2xl">
-                  {getAvatar(avatarId).emoji}
-                </span>
+                <AvatarBadge avatar={avatarId} className="h-12 w-12 text-2xl" rounded="rounded-2xl" />
                 <input
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
@@ -114,10 +115,10 @@ export default function FriendlyPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-display font-extrabold text-ink">
-                            {c.title}
+                            {localizeCaseTitle(c, locale)}
                           </p>
                           <p className="text-xs font-bold text-ink-faint">
-                            {c.gradeBand} · {c.questions.length} questions
+                            {c.gradeBand} · {t('case.qCount', { n: c.questions.length })}
                           </p>
                         </div>
                         <Icon name="rocket" className="h-4 w-4 shrink-0 text-grape" />

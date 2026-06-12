@@ -61,6 +61,12 @@ export type Category =
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
+/** Uzbek school class (1–11). An extra classification on every question so the
+ *  admin can organise the bank by grade; orthogonal to `difficulty`, which still
+ *  drives arena matchmaking. */
+export type Grade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+export const GRADES: Grade[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
 export const CATEGORY_META: Record<Category, { label: string; emoji: string }> = {
   programming: { label: 'Programming', emoji: '💻' },
   logic: { label: 'Logic', emoji: '🧠' },
@@ -75,6 +81,9 @@ interface BaseQuestion {
   id: string;
   category: Category;
   difficulty: Difficulty;
+  /** Uzbek school class (1–11). Optional for back-compat; static + imported
+   *  questions set it. */
+  grade?: Grade;
   emoji: string;
   prompt: string;
   /** Kid-friendly teaching note shown on a wrong answer — never scolding. */

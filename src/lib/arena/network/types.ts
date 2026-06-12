@@ -3,7 +3,7 @@
  *  Transport-agnostic: the same shapes flow over Supabase Realtime in production
  *  and a BroadcastChannel locally for dev/testing. Pure data, no React. */
 
-import type { ModeId, TeamId } from '@/lib/arena/types';
+import type { Grade, ModeId, TeamId } from '@/lib/arena/types';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
 
 /** Connection lifecycle for the ConnectionStatus pill. */
@@ -22,6 +22,9 @@ export interface RoomSettings {
   /** match length in seconds — the match ends when the clock runs out. */
   durationSec: number;
   difficulty: ArenaDifficulty;
+  /** which school class's questions to use in the learning pod; undefined = all
+   *  grades mixed. The host picks this when creating/configuring the room. */
+  grade?: Grade;
   /** schema version — clients on a different version are rejected at join */
   v: number;
 }
@@ -65,7 +68,7 @@ export interface NetEvent {
   data: Record<string, number | string | boolean>;
 }
 
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 export const DEFAULT_SETTINGS: RoomSettings = {
   mapId: 'training',

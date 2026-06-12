@@ -29,3 +29,6 @@ packages/database/prisma/*.db
 !.vscode/extensions.json
 .idea/
 .vercel
+
+# claude code local config
+.claude/

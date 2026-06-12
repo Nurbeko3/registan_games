@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CASES } from '@/data/cases';
+import { localizeCaseTitle } from '@/data/cases/i18n';
 import type { CaseDef } from '@/data/cases/types';
 
 interface AdminInfo { id: string; email: string; name: string; role: 'super' | 'admin' }
@@ -126,7 +127,7 @@ function CasePicker({ admin }: { admin: AdminInfo }) {
                       🔍
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-display font-extrabold text-ink">{c.title}</p>
+                      <p className="truncate font-display font-extrabold text-ink">{localizeCaseTitle(c, 'uz')}</p>
                       <p className="text-xs font-bold text-ink-faint">
                         {c.gradeBand} sinf · {c.questions.length} ta savol
                       </p>

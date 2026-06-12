@@ -9,6 +9,7 @@ import { RoomLobby } from '@/components/arena/RoomLobby';
 import { JoinRoomModal } from '@/components/arena/JoinRoomModal';
 import { makeRoomCode, DEFAULT_SETTINGS, type RoomSettings } from '@/lib/arena/network/types';
 import { loadArenaAuthorityStatus } from '@/lib/arena/authority';
+import { loadCloudQuestions } from '@/lib/arena/cloudQuestions';
 import { DEFAULT_WEAPON, isWeaponId, type WeaponId } from '@/lib/arena/weapons';
 import { useT } from '@/lib/i18n';
 
@@ -63,6 +64,9 @@ export default function ArenaPage() {
       setMultiplayerEnabled(status.enabled);
       setAuthorityChecked(true);
     });
+    // Warm the admin-imported question pool (no-op offline) so the engine can
+    // draw from it the moment a match starts.
+    loadCloudQuestions();
     return () => { alive = false; };
   }, []);
 

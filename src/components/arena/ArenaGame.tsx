@@ -38,6 +38,7 @@ import {
   type ArenaMode,
   type ArenaPhase,
   type Category,
+  type Grade,
   type LearnState,
   type MatchResult,
   type PreparedQuestion,
@@ -63,6 +64,8 @@ export interface ArenaGameConfig {
   mode: ArenaMode;
   perTeam: number;
   categories?: Category[];
+  /** which school class's questions to use in the learning pod; undefined = all. */
+  grade?: Grade;
   hero: { name: string; avatar: string };
   /** custom map layout (defaults to the engine's built-in map) */
   obstacles?: Rect[];
@@ -370,7 +373,9 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
   // ── question loading ──
   const loadQuestion = () => {
     const level = levelForXp(useGame.getState().xp);
-    const q = pickQuestion({ level, exclude: usedIds.current, categories: config.categories, locale });
+    // anyDifficulty: within the host's chosen grade, draw from every difficulty
+    // so all of that class's questions can appear (grade undefined = all grades).
+    const q = pickQuestion({ level, exclude: usedIds.current, categories: config.categories, grade: config.grade, anyDifficulty: true, locale });
     usedIds.current.add(q.q.id);
     // Keep accumulating across the whole match so questions don't repeat early.
     // pickQuestion gracefully falls back to the full pool once everything is seen,

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon } from '@/components/ui/Icon';
 import { useGame, getAvatar } from '@/store/useGame';
+import { AvatarBadge } from '@/components/ui/AvatarBadge';
 import { useParty } from '@/lib/party/useParty';
 import { Confetti } from '@/components/ui/Confetti';
 import { useT } from '@/lib/i18n';
@@ -139,7 +140,7 @@ function PlayerList({ players, myId, title, compact }: { players: { id: string; 
         {players.map((p, i) => (
           <li key={p.id} className={`flex items-center gap-3 rounded-2xl p-2 ${p.id === myId ? 'bg-grape-50 ring-2 ring-grape' : 'bg-cloud'}`}>
             <span className="w-5 text-center font-display font-extrabold text-ink-faint">{i + 1}</span>
-            <span className="text-xl">{p.avatar}</span>
+            <AvatarBadge avatar={p.avatar} className="h-8 w-8 text-xl" rounded="rounded-lg" bg="bg-white/70" />
             <span className="flex-1 truncate font-bold">{p.name}{p.isHost && ' 👑'}{p.id === myId && ` ${t('party.you')}`}</span>
             <span className="font-display font-extrabold text-grape">{p.score}</span>
           </li>
@@ -158,8 +159,10 @@ function Results({ players, myId, isHost, onPlayAgain }: { players: { id: string
       <Confetti />
       <div className="card text-center">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-grape">{t('party.winner')}</p>
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260 }} className="mt-2 text-6xl">
-          {winner?.avatar ?? <Icon name="trophy" className="mx-auto h-14 w-14 text-mango" />}
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260 }} className="mt-2 grid place-items-center text-6xl">
+          {winner?.avatar
+            ? <AvatarBadge avatar={winner.avatar} className="h-20 w-20 text-6xl" rounded="rounded-3xl" />
+            : <Icon name="trophy" className="mx-auto h-14 w-14 text-mango" />}
         </motion.div>
         <p className="mt-2 font-display text-2xl font-extrabold">{winner?.name ?? t('party.champion')}</p>
         <p className="text-ink-soft">{iWon ? t('party.youWon') : t('party.goodGame')}</p>

@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⛔ HARD RULE — git & build are user-gated
+
+**NEVER run `git commit`, `git push`, or any build (`npm run build`, `vercel`, deploys) unless the user explicitly orders it in the current conversation.** No exceptions: not "to be safe", not as part of "finishing" a task, and a go-ahead given for one piece of work does not carry over to the next. Leave changes in the working tree, verify with `npm run typecheck` + `npm test` only, then stop and report.
+
 ## Project
 
 **KidsCode Quest** (package name `kidscode-quest`) — an offline-first educational game platform teaching kids 7–14 to code through play. Next.js 15 (App Router) · React 19 · TypeScript · TailwindCSS · Zustand · Framer Motion.

@@ -7,8 +7,9 @@ import { Icon } from '@/components/ui/Icon';
 import { Stars } from '@/components/ui/Bits';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { useGame, useHydrated, type CaseMatchResult } from '@/store/useGame';
-import { useT } from '@/lib/i18n';
+import { useT, useLocale } from '@/lib/i18n';
 import { CASES, getCase } from '@/data/cases';
+import { localizeCase, localizeCaseTitle } from '@/data/cases/i18n';
 import type { CaseDef } from '@/data/cases/types';
 import { makeBots, botScoreThrough, questionPoints, type Bot } from '@/lib/caseFiles/botEngine';
 import { gradeCaseRun, bestStreak } from '@/lib/caseFiles/grading';
@@ -27,6 +28,7 @@ type Pane = 'sources' | 'question';
  */
 export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string }) {
   const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const hydrated = useHydrated();
   const caseAnswerCorrect = useGame((s) => s.caseAnswerCorrect);
@@ -37,6 +39,11 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
   const [phase, setPhase] = useState<Phase>(initialCaseId ? 'investigate' : 'pick');
   const [caseDef, setCaseDef] = useState<CaseDef | null>(initialCaseId ? getCase(initialCaseId) ?? null : null);
   const [pane, setPane] = useState<Pane>('question');
+
+  // Display copy localised to the active language (uz/ru/en). Grading still
+  // runs on the canonical `caseDef` — localizeCase preserves answerIndex/order,
+  // so scoring is identical across locales. Re-derives if the user switches lang.
+  const lc = useMemo(() => (caseDef ? localizeCase(caseDef, locale) : null), [caseDef, locale]);
 
   // per-match state
   const [bots, setBots] = useState<Bot[]>([]);
@@ -139,7 +146,7 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
   }, [standings]);
 
   // ── render ──
-  if (phase === 'pick' || !caseDef) {
+  if (phase === 'pick' || !caseDef || !lc) {
     return (
       <main id="main" className="min-h-screen dotted page-pad-bottom">
         <TopBar showBack />
@@ -162,7 +169,7 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
                       <Icon name="search" className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-display font-extrabold text-ink">{c.title}</p>
+                      <p className="truncate font-display font-extrabold text-ink">{localizeCaseTitle(c, locale)}</p>
                       <p className="text-xs font-bold text-ink-faint">
                         {c.gradeBand} · {t(`case.doc.${c.sources[0].kind}`)} · {c.questions.length} ❓
                       </p>
@@ -190,8 +197,8 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
                 {t('case.investigate')}
               </span>
             </div>
-            <h1 className="mt-1 font-display text-2xl font-extrabold">{caseDef.title}</h1>
-            <p className="mt-2 font-semibold leading-relaxed text-white/90">{caseDef.briefing}</p>
+            <h1 className="mt-1 font-display text-2xl font-extrabold">{lc.title}</h1>
+            <p className="mt-2 font-semibold leading-relaxed text-white/90">{lc.briefing}</p>
           </div>
 
           <p className="mt-5 flex items-center gap-2 font-bold text-ink-soft">
@@ -199,7 +206,7 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
           </p>
 
           <div className="mt-3">
-            <SourcesPane sources={caseDef.sources} />
+            <SourcesPane sources={lc.sources} />
           </div>
 
           <button type="button" onClick={beginQuestions} className="btn-primary mt-5 w-full">
@@ -216,7 +223,7 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
         <TopBar showBack />
         <div className="px-4 py-6">
           <ResultsScreen
-            caseTitle={caseDef.title}
+            caseTitle={lc.title}
             result={result}
             score={playerScore}
             placement={placement}
@@ -232,8 +239,9 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
     );
   }
 
-  // phase === 'question'
-  const q = caseDef.questions[qIndex];
+  // phase === 'question' — display from the localised case so the question AND
+  // its evidence passage match the localised source bodies shown alongside.
+  const q = lc.questions[qIndex];
   const highlight = revealed ? evidenceFor(q) : null;
 
   return (
@@ -258,7 +266,7 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
             className={`${pane === 'sources' ? 'block' : 'hidden'} lg:block`}
             aria-label={t('case.pane.sources')}
           >
-            <SourcesPane sources={caseDef.sources} highlight={highlight} />
+            <SourcesPane sources={lc.sources} highlight={highlight} />
           </section>
 
           {/* Question + live scoreboard */}

@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon, IconTile } from '@/components/ui/Icon';
 import { isCloudEnabled } from '@/lib/supabase/client';
-import { useGame, getAvatar } from '@/store/useGame';
+import { useGame } from '@/store/useGame';
+import { AvatarBadge } from '@/components/ui/AvatarBadge';
 import { useT } from '@/lib/i18n';
 
 const makeCode = () => Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
@@ -59,7 +60,7 @@ export default function PartyPage() {
             <section className="card mt-5">
               <p className="font-display font-extrabold">{t('party.yourHero')}</p>
               <div className="mt-3 flex items-center gap-3">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-grape-50 text-2xl">{getAvatar(avatarId).emoji}</span>
+                <AvatarBadge avatar={avatarId} className="h-12 w-12 text-2xl" rounded="rounded-2xl" />
                 <input
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}

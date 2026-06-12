@@ -13,6 +13,7 @@ import {
   Cloud,
   Coins,
   Compass,
+  Copy,
   Crown,
   Eye,
   FileText,
@@ -67,6 +68,7 @@ export type IconName =
   | 'cloud'
   | 'coin'
   | 'compass'
+  | 'copy'
   | 'crown'
   | 'eye'
   | 'file'
@@ -166,6 +168,7 @@ const ICON_REGISTRY: Record<IconName, LucideIcon> = {
   cloud: Cloud,
   coin: Coins,
   compass: Compass,
+  copy: Copy,
   crown: Crown,
   eye: Eye,
   file: FileText,

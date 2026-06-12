@@ -90,6 +90,9 @@ function Panel({ admin, onLogout }: { admin: AdminInfo; onLogout: () => void }) 
           <span className="hidden text-sm font-bold text-ink-faint sm:inline">{admin.email}</span>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/admin/arena" className="btn-ghost px-3 py-1.5 text-sm">
+            ⚔️ Arena savollari
+          </Link>
           <Link href="/admin/cases" className="btn-sun px-3 py-1.5 text-sm">
             🕵️ Sinf turniri
           </Link>

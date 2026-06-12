@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { ARENA_AVATARS } from '@/data/arenaAvatars';
+import { AvatarBadge } from '@/components/ui/AvatarBadge';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
 
@@ -46,7 +47,7 @@ export function ArenaMenu({
       {/* setup: name + avatar */}
       <section className="mt-4 rounded-2xl bg-white p-3.5 shadow-card ring-1 ring-grape-100/70">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-grape-50 text-2xl">{arenaAvatar}</span>
+          <AvatarBadge avatar={arenaAvatar} className="h-11 w-11 shrink-0 text-2xl" />
           <input
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
@@ -72,7 +73,7 @@ export function ArenaMenu({
                 arenaAvatar === a ? 'scale-110 bg-grape text-white ring-2 ring-sun' : 'bg-grape-50 hover:bg-grape-100'
               }`}
             >
-              {a}
+              <AvatarBadge avatar={a} className="h-full w-full text-base" rounded="rounded-lg" bg="" />
             </button>
           ))}
         </div>

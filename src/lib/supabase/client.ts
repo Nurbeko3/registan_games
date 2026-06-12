@@ -19,8 +19,7 @@ function init(): SupabaseClient | null {
       // Arena netcode flushes at ~12 Hz on top of room traffic. Current
       // realtime-js has no client-side throttle (older builds dropped sends
       // past 10/s via this param) — kept as documented headroom in case the
-      // limiter returns. Real ceilings are the tenant quotas; measure them
-      // with scripts/qa-realtime-probe.mjs.
+      // limiter returns. Real ceilings are the tenant quotas.
       realtime: { params: { eventsPerSecond: 30 } },
     });
   } catch {

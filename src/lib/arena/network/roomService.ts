@@ -57,6 +57,9 @@ function sanitizeSettings(raw: Partial<RoomSettings>): RoomSettings {
       ? Math.max(30, Math.min(600, Math.round(raw.durationSec))) : d.durationSec,
     difficulty: VALID_DIFFICULTIES.includes(raw.difficulty as RoomSettings['difficulty'])
       ? (raw.difficulty as RoomSettings['difficulty']) : d.difficulty,
+    // grade is optional (undefined = all classes); keep a valid 1–11 or drop it.
+    grade: typeof raw.grade === 'number' && raw.grade >= 1 && raw.grade <= 11
+      ? (Math.round(raw.grade) as RoomSettings['grade']) : d.grade,
     v: typeof raw.v === 'number' ? raw.v : d.v,
   };
 }

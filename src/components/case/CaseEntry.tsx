@@ -6,9 +6,10 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Stars } from '@/components/ui/Bits';
 import { isCloudEnabled } from '@/lib/supabase/client';
-import { useT } from '@/lib/i18n';
+import { useT, useLocale } from '@/lib/i18n';
 import { useGame, useHydrated } from '@/store/useGame';
 import { dailyCaseForDay } from '@/data/cases';
+import { localizeCaseTitle } from '@/data/cases/i18n';
 import { DetectiveRankBadge } from './DetectiveRankBadge';
 
 /**
@@ -18,6 +19,7 @@ import { DetectiveRankBadge } from './DetectiveRankBadge';
  */
 export function CaseEntry() {
   const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const hydrated = useHydrated();
   const caseRecords = useGame((s) => s.cases);
@@ -28,6 +30,7 @@ export function CaseEntry() {
   // Daily case — deterministic, offline-safe
   const dayIndex = Math.floor(Date.now() / 86_400_000);
   const dailyCase = dailyCaseForDay(dayIndex);
+  const dailyTitle = localizeCaseTitle(dailyCase, locale);
   const dailyStars = hydrated ? (caseRecords[dailyCase.id]?.stars ?? 0) : 0;
 
   return (
@@ -54,7 +57,7 @@ export function CaseEntry() {
           type="button"
           onClick={() => router.push(`/case/practice?case=${dailyCase.id}`)}
           className="mt-5 flex w-full items-center gap-4 rounded-3xl border-2 border-sun/60 bg-gradient-to-br from-sun/10 to-mango/10 px-4 py-4 text-left transition hover:border-sun hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape"
-          aria-label={`${t('case.dailyCase')}: ${dailyCase.title}`}
+          aria-label={`${t('case.dailyCase')}: ${dailyTitle}`}
         >
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-sun to-mango text-white" aria-hidden="true">
             <Icon name="gift" className="h-6 w-6" />
@@ -66,7 +69,7 @@ export function CaseEntry() {
                 ★
               </span>
             </div>
-            <p className="mt-0.5 truncate text-sm font-bold text-ink-faint">{dailyCase.title}</p>
+            <p className="mt-0.5 truncate text-sm font-bold text-ink-faint">{dailyTitle}</p>
             <p className="text-[11px] font-bold text-ink-faint">{t('case.dailyCaseSub')}</p>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">

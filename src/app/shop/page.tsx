@@ -8,6 +8,7 @@ import { useGame, useHydrated } from '@/store/useGame';
 import { AVATARS, THEMES, type Avatar, type Theme } from '@/data/cosmetics';
 import { levelForXp } from '@/lib/leveling';
 import { Icon } from '@/components/ui/Icon';
+import { AvatarBadge } from '@/components/ui/AvatarBadge';
 import { useT } from '@/lib/i18n';
 import { accountSave } from '@/lib/supabase/account';
 import { useMustLogIn } from '@/lib/supabase/useAccount';
@@ -322,7 +323,7 @@ function AvatarCard({ avatar, active, owned, level, coins, onClick }: AvatarCard
         disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
       ].join(' ')}
     >
-      <span className="text-3xl leading-none">{avatar.emoji}</span>
+      <AvatarBadge avatar={avatar.id} className="h-12 w-12 text-3xl" bg="" />
       <span className="mt-1 text-xs font-bold leading-tight">{avatar.name}</span>
       <span className="mt-0.5 text-[11px] font-bold leading-none">
         {statusLabel}

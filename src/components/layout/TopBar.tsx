@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
-import { useGame, useHydrated, getAvatar } from '@/store/useGame';
+import { useGame, useHydrated } from '@/store/useGame';
+import { AvatarBadge } from '@/components/ui/AvatarBadge';
 import { levelState } from '@/lib/leveling';
 import { ACCOUNT_SESSION_EVENT, accountResume, readSession } from '@/lib/supabase/account';
 import { useMustLogIn } from '@/lib/supabase/useAccount';
@@ -92,7 +93,7 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
             <Stat icon={<Icon name="flame" className="h-4 w-4" />} value={streak} label={t('common.dayStreak')} />
             <Stat icon={<Icon name="coin" className="h-4 w-4" />} value={coins} label={t('common.coins')} />
             <Link href="/rewards" className="flex items-center gap-2 rounded-full bg-white px-2.5 py-1.5 shadow-card" title={t('topbar.profile')}>
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-grape-50 text-lg">{getAvatar(avatarId).emoji}</span>
+              <AvatarBadge avatar={avatarId} className="h-7 w-7 text-lg" rounded="rounded-full" />
               <span className="hidden font-display font-extrabold sm:inline">{t('common.lv')} {ls.level}</span>
             </Link>
           </>

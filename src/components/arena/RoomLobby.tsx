@@ -8,6 +8,7 @@ import { TEAM_SIZES, getMode } from '@/data/arenaModes';
 import { ARENA_MAPS, getMap } from '@/data/arenaMaps';
 import { DIFFICULTIES } from './PracticeSetup';
 import type { RoomSettings } from '@/lib/arena/network/types';
+import { GRADES, type Grade } from '@/lib/arena/types';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
 import { useT } from '@/lib/i18n';
 import { ArenaGame, type ArenaNet } from './ArenaGame';
@@ -115,6 +116,7 @@ export function RoomLobby({
       hero,
       obstacles: getMap(s.settings.mapId).obstacles,
       difficulty: s.settings.difficulty,
+      grade: s.settings.grade,
       durationSec: s.settings.durationSec,
       botFill: s.settings.botFill,
       seed: s.seed ?? undefined,
@@ -238,6 +240,18 @@ export function RoomLobby({
             value={s.settings.difficulty}
             disabled={!s.isHost}
             onPick={(id) => set({ difficulty: id as ArenaDifficulty })}
+          />
+        </SettingRow>
+
+        <SettingRow label={t('arena.grade')}>
+          <Pills
+            items={[
+              { id: 'all', label: t('arena.gradeAll') },
+              ...GRADES.map((g) => ({ id: String(g), label: t('arena.gradeN', { n: g }) })),
+            ]}
+            value={s.settings.grade == null ? 'all' : String(s.settings.grade)}
+            disabled={!s.isHost}
+            onPick={(id) => set({ grade: id === 'all' ? undefined : (Number(id) as Grade) })}
           />
         </SettingRow>
 

@@ -49,6 +49,7 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
     lastAnswer,
     revealCorrect,
     results,
+    isClassroom,
     myId,
     myResult,
     startInvestigation,
@@ -63,21 +64,39 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
   const [settledResult, setSettledResult] = useState<CaseMatchResult | null>(null);
   const settledRef = useRef(false);
 
+  // Best consecutive-correct run, tracked from SERVER-confirmed answer outcomes
+  // (lastAnswer.correct comes back from kcq_case_answer — feeds CASE_STREAK_3).
+  const streakRef = useRef({ cur: 0, best: 0, lastQ: -1 });
+  useEffect(() => {
+    if (!lastAnswer || lastAnswer.qIndex === streakRef.current.lastQ) return;
+    const s = streakRef.current;
+    s.lastQ = lastAnswer.qIndex;
+    s.cur = lastAnswer.correct ? s.cur + 1 : 0;
+    s.best = Math.max(s.best, s.cur);
+  }, [lastAnswer]);
+
   // Settle locally once when ended + myResult arrives
   useEffect(() => {
     if (phase !== 'ended' || !myResult || settledRef.current) return;
     settledRef.current = true;
+    // placement from the score-sorted player list (server-fed via postgres_changes)
+    const idx = players.findIndex((p) => p.id === myId);
+    const placement = idx >= 0 ? idx + 1 : players.length || 1;
     const res = caseMatchEnd({
       caseId: caseDef?.id ?? '',
       stars: myResult.stars,
       correct: myResult.correctCount,
       total: myResult.totalQ,
       hintsUsed: myResult.hintUsed,
-      bestStreak: 0,
-      mode: 'friendly',
+      bestStreak: streakRef.current.best,
+      // isClassroom is echoed from the server room row, not a client flag —
+      // exactly what the store's classroom-win gate requires.
+      mode: isClassroom ? 'classroom' : 'friendly',
+      isClassroomConfirmed: isClassroom,
+      placement,
     });
     setSettledResult(res);
-  }, [phase, myResult, caseDef, caseMatchEnd]);
+  }, [phase, myResult, caseDef, caseMatchEnd, isClassroom, players, myId]);
 
   const copyCode = () => {
     navigator.clipboard.writeText(code).catch(() => {});
@@ -148,7 +167,7 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
               onClick={copyCode}
               className="inline-flex items-center gap-2 rounded-xl bg-grape-50 px-4 py-2 text-sm font-extrabold text-grape transition hover:bg-grape-100"
             >
-              <Icon name={copied ? 'check' : 'gift'} className="h-4 w-4" />
+              <Icon name={copied ? 'check' : 'copy'} className="h-4 w-4" />
               {copied ? t('case.codeCopied') : t('case.copyCode')}
             </button>
           </div>
@@ -160,7 +179,7 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
               <div className="min-w-0">
                 <p className="truncate font-display font-extrabold text-ink">{caseDef.title}</p>
                 <p className="text-xs font-bold text-ink-faint">
-                  {caseDef.gradeBand} · {total || caseDef.questions.length} questions
+                  {caseDef.gradeBand} · {t('case.qCount', { n: total || caseDef.questions.length })}
                 </p>
               </div>
             </div>
@@ -411,7 +430,7 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
             score={myResult.score}
             placement={myRank}
             caseXp={caseXp}
-            bestStreak={0}
+            bestStreak={streakRef.current.best}
             correct={myResult.correctCount}
             total={myResult.totalQ}
             onReplay={() => router.push('/case/friendly')}

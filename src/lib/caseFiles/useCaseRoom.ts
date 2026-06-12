@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, isCloudEnabled } from '@/lib/supabase/client';
 import { getCase } from '@/data/cases';
+import { localizeCase } from '@/data/cases/i18n';
 import { publicCase, type PublicCase } from '@/data/cases/types';
+import { useLocale } from '@/lib/i18n';
 
 /**
  * Case Files realtime room — the React binding for Friendly / Classroom matches.
@@ -101,6 +103,7 @@ function normalizePlayer(raw: RawPlayer): CaseRoomPlayer | null {
 }
 
 export function useCaseRoom(code: string, opts: UseCaseRoomOptions) {
+  const locale = useLocale();
   const [phase, setPhase] = useState<CaseRoomPhase>('connecting');
   const [players, setPlayers] = useState<CaseRoomPlayer[]>([]);
   const [caseId, setCaseId] = useState<string | null>(opts.caseId ?? null);
@@ -338,9 +341,12 @@ export function useCaseRoom(code: string, opts: UseCaseRoomOptions) {
     });
   }, [code, qIndex]);
 
+  // Localise the case for display BEFORE stripping answers — every client
+  // renders content from its own bundle, and localizeCase keeps choice order +
+  // answerIndex identical, so server scoring stays locale-independent.
   const caseDef: PublicCase | null = caseId ? (() => {
     const c = getCase(caseId);
-    return c ? publicCase(c) : null;
+    return c ? publicCase(localizeCase(c, locale)) : null;
   })() : null;
 
   /**

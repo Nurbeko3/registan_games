@@ -6,6 +6,7 @@ import { useGame } from '@/store/useGame';
 import { ARENA_MODES, TEAM_SIZES } from '@/data/arenaModes';
 import { ARENA_MAPS, type ArenaMap } from '@/data/arenaMaps';
 import { WORLD_H, WORLD_W, type ArenaDifficulty } from '@/lib/arena/engine';
+import { GRADES, type Grade } from '@/lib/arena/types';
 import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
 import { ArenaGame, type ArenaPracticeSnapshot } from './ArenaGame';
@@ -21,6 +22,7 @@ interface PracticeSession {
   mapId: string;
   perTeam: number;
   difficulty: ArenaDifficulty;
+  grade?: Grade;
   durationSec: number;
   weapon: WeaponId;
   snapshot: ArenaPracticeSnapshot | null;
@@ -42,12 +44,16 @@ function readPracticeSession(): PracticeSession | null {
     const durationSec = typeof parsed.durationSec === 'number' && Number.isFinite(parsed.durationSec)
       ? Math.max(30, Math.min(900, Math.round(parsed.durationSec)))
       : 180;
+    const grade = typeof parsed.grade === 'number' && parsed.grade >= 1 && parsed.grade <= 11
+      ? (parsed.grade as Grade)
+      : undefined;
     return {
       v: 1,
       started: parsed.started === true,
       mapId,
       perTeam,
       difficulty,
+      grade,
       durationSec,
       weapon: isWeaponId(parsed.weapon) ? parsed.weapon : DEFAULT_WEAPON,
       snapshot: parsed.snapshot?.v === 1 ? parsed.snapshot : null,
@@ -99,14 +105,15 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
   const map = ARENA_MAPS.find((m) => m.id === mapId) ?? ARENA_MAPS[0];
   const [perTeam, setPerTeam] = useState<number>(savedRef.current?.perTeam ?? TEAM_SIZES[1].perTeam);
   const [difficulty, setDifficulty] = useState<ArenaDifficulty>(savedRef.current?.difficulty ?? 'medium');
+  const [grade, setGrade] = useState<Grade | undefined>(savedRef.current?.grade);
   const [durationSec, setDurationSec] = useState<number>(savedRef.current?.durationSec ?? 180);
   const [weapon, setWeapon] = useState<WeaponId>(savedRef.current?.weapon ?? DEFAULT_WEAPON);
   const [started, setStarted] = useState(savedRef.current?.started ?? false);
   const snapshotRef = useRef<ArenaPracticeSnapshot | null>(savedRef.current?.snapshot ?? null);
 
   const writeSession = useCallback((nextSnapshot = snapshotRef.current) => {
-    savePracticeSession({ v: 1, started, mapId, perTeam, difficulty, durationSec, weapon, snapshot: nextSnapshot });
-  }, [difficulty, durationSec, mapId, perTeam, started, weapon]);
+    savePracticeSession({ v: 1, started, mapId, perTeam, difficulty, grade, durationSec, weapon, snapshot: nextSnapshot });
+  }, [difficulty, grade, durationSec, mapId, perTeam, started, weapon]);
 
   useEffect(() => {
     writeSession();
@@ -124,8 +131,8 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
 
   const saveSnapshot = useCallback((snapshot: ArenaPracticeSnapshot | null) => {
     snapshotRef.current = snapshot;
-    savePracticeSession({ v: 1, started: true, mapId, perTeam, difficulty, durationSec, weapon, snapshot });
-  }, [difficulty, durationSec, mapId, perTeam, weapon]);
+    savePracticeSession({ v: 1, started: true, mapId, perTeam, difficulty, grade, durationSec, weapon, snapshot });
+  }, [difficulty, grade, durationSec, mapId, perTeam, weapon]);
 
   if (started) {
     return (
@@ -136,6 +143,7 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
           hero,
           obstacles: map.obstacles,
           difficulty,
+          grade,
           durationSec,
           initialWeapon: weapon,
           initialSnapshot: snapshotRef.current ?? undefined,
@@ -192,6 +200,31 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
             >
               <span className="block text-lg">{d.emoji}</span>
               {d.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-5">
+        <p className="mb-2 font-display font-extrabold">{t('arena.grade')}</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setGrade(undefined)}
+            className={`rounded-2xl px-3 py-2 font-display text-sm font-extrabold shadow-card transition ${
+              grade == null ? 'bg-grape text-white ring-2 ring-sun' : 'bg-white hover:bg-grape-50'
+            }`}
+          >
+            {t('arena.gradeAll')}
+          </button>
+          {GRADES.map((g) => (
+            <button
+              key={g}
+              onClick={() => setGrade(g)}
+              className={`rounded-2xl px-3 py-2 font-display text-sm font-extrabold shadow-card transition ${
+                grade === g ? 'bg-grape text-white ring-2 ring-sun' : 'bg-white hover:bg-grape-50'
+              }`}
+            >
+              {t('arena.gradeN', { n: g })}
             </button>
           ))}
         </div>
