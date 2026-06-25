@@ -285,7 +285,15 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
         </div>
       </div>
 
-      <AIMentor game="codecaster" />
+      <AIMentor
+        game="codecaster"
+        getContext={() => ({
+          level: level.id,
+          objective: t(level.objective),
+          code,
+          error: error ? t(error.bodyKey, error.vars) : undefined,
+        })}
+      />
 
       <FeedbackModal
         feedback={feedback}

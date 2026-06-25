@@ -253,6 +253,7 @@ const en: Dict = {
   // AI mentor (Byte)
   'mentor.sub': 'Your coding buddy', 'mentor.hint': '💡 Hint', 'mentor.cheer': 'Cheer me on!',
   'mentor.askHint': 'Give me a hint!', 'mentor.open': 'Open Byte, your AI mentor',
+  'mentor.aiBadge': 'Byte AI', 'mentor.thinking': 'Byte is thinking…',
   // cloud save
 
   // account / auth (username + auto-password)
@@ -678,6 +679,7 @@ const ru: Dict = {
   'team.red': 'Рыжие Лисы', 'team.blue': 'Синие Киты',
   'mentor.sub': 'Твой помощник по коду', 'mentor.hint': '💡 Подсказка', 'mentor.cheer': 'Подбодри меня!',
   'mentor.askHint': 'Дай подсказку!', 'mentor.open': 'Открыть Байта, твоего ИИ-наставника',
+  'mentor.aiBadge': 'Байт ИИ', 'mentor.thinking': 'Байт думает…',
 
   'auth.title': 'Аккаунт', 
   'auth.syncedSub': 'Твой прогресс сохранён и синхронизирован между устройствами.',
@@ -1092,6 +1094,7 @@ const uz: Dict = {
   'team.red': 'Qizil Tulkilar', 'team.blue': 'Ko‘k Kitlar',
   'mentor.sub': 'Kod bo‘yicha do‘sting', 'mentor.hint': '💡 Maslahat', 'mentor.cheer': 'Meni qo‘llab-quvvatla!',
   'mentor.askHint': 'Menga maslahat ber!', 'mentor.open': 'Bayt — sizning SI ustozingizni ochish',
+  'mentor.aiBadge': 'Bayt SI', 'mentor.thinking': 'Bayt o‘ylayapti…',
 
   'auth.title': 'Hisob', 
   'auth.syncedSub': 'Progressingiz saqlangan va qurilmalar o‘rtasida sinxronlangan.',
