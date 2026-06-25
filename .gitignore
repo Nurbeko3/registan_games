@@ -8,6 +8,10 @@ coverage/
 tsconfig.tsbuildinfo
 supabase/.temp/
 
+# Standalone backend — deployed separately to Render (own repo/build).
+# Excluded from the frontend repo so the two ship independently.
+backend/
+
 # env
 .env
 .env.local

@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   ADMIN_COOKIE,
   ADMIN_LOGIN_LIMIT,
@@ -7,9 +7,12 @@ import {
 } from './constants';
 
 /**
- * Server-only admin helpers. Admin auth lives in Supabase (kcq_admins, bcrypt);
- * the cookie just carries the DB-issued session token, validated on every call
- * by the kcq_admin_* RPCs. Nothing secret ships to the client bundle.
+ * Server-only admin helpers. Admin auth lives in our backend (kcq_admins,
+ * bcrypt); the cookie just carries the DB-issued session token, validated on
+ * every call by the kcq_admin_* RPCs. Nothing secret ships to the client bundle.
+ *
+ * `supabaseServer()` returns a tiny fetch-based shim exposing only `.rpc()` —
+ * the single method the admin route handlers use — pointed at the backend.
  */
 
 export { ADMIN_COOKIE, ADMIN_SESSION_MAX_AGE } from './constants';
@@ -18,12 +21,26 @@ interface LoginBucket { count: number; resetAt: number }
 
 const loginAttempts = new Map<string, LoginBucket>();
 
-/** Server-side Supabase client (anon key — RPC security is the admin token + role). */
+/** Server-side backend client (RPC security is the admin token + role inside
+ *  each handler). Exposes only `.rpc(fn, args)` → POST {API}/rpc/:fn. */
 export function supabaseServer(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
+  const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+  if (!apiUrl) return null;
+  const rpc = async (fn: string, args?: Record<string, unknown>) => {
+    try {
+      const res = await fetch(`${apiUrl}/rpc/${fn}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(args ?? {}),
+        cache: 'no-store',
+      });
+      if (!res.ok) return { data: null, error: { message: `HTTP ${res.status}` } };
+      return { data: await res.json(), error: null };
+    } catch (e) {
+      return { data: null, error: { message: (e as Error)?.message ?? 'network' } };
+    }
+  };
+  return { rpc } as unknown as SupabaseClient;
 }
 
 /** The current admin's session token from the cookie, or null. */
