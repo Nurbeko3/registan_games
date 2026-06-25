@@ -26,8 +26,6 @@
  *   Total: 7 steps
  *
  * Victory: collectAllCoins AND reachGoal
- *
- * TODO i18n
  */
 
 import type { CodecasterLevel } from '../types';
@@ -54,23 +52,14 @@ const L07: CodecasterLevel = {
   maxSteps: 30,
 
   // ── curriculum metadata ────────────────────────────────────────────────────
-  title: 'Three Coins',
+  title: 'cc.level.L07.title',
   band: 'B',
-  concept: 'Collect multiple items',
-  objective: 'Grab all three coins as you travel down the path, then reach the goal.',
-  starterCode: [
-    '# Collect each coin as you pass it',
-    'hero.moveRight()',
-    'hero.collect()  # pick up coin 1',
-    '# keep going down and collecting',
-  ].join('\n'),
+  concept: 'cc.level.L07.concept',
+  objective: 'cc.level.L07.objective',
+  starterCode: 'cc.level.L07.starter',
   parSteps: 8,
   requireConcept: 'collect_multi',
-  hints: [
-    'You must stand on each coin\'s tile and call `hero.collect()` before moving on.',
-    'The coins are in a column — move right once, then keep moving down and collecting.',
-    'Pattern:\nmoveRight → collect\nmoveDown → collect\nmoveDown → collect\nmoveRight (goal)',
-  ],
+  hints: ['cc.level.L07.hint1', 'cc.level.L07.hint2', 'cc.level.L07.hint3'],
   commands: ['moveRight','moveDown','collect'],
 };
 

@@ -65,10 +65,10 @@ export default function QuestPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className={`truncate font-display font-extrabold ${unlocked ? 'text-ink' : 'text-ink-faint'}`}>
-                    {lvl.title}
+                    {t(lvl.title)}
                   </p>
                   <p className="truncate text-xs font-bold text-ink-faint">
-                    {t('quest.learn')}: {lvl.concept}
+                    {t('quest.learn')}: {t(lvl.concept)}
                   </p>
                 </div>
                 {hydrated && unlocked && stars > 0 ? (

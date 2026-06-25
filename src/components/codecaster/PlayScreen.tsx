@@ -51,8 +51,11 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
 
   const initialState = useMemo<EngineState>(() => new DungeonEngine(level).state, [level]);
   const levelCommands = useMemo(() => commandsForLevel(level), [level]);
+  // starterCode is an i18n key — resolve it to the active locale. The per-level
+  // reset effect below re-seeds the editor when this changes (level or locale).
+  const starter = t(level.starterCode);
 
-  const [code, setCode] = useState(level.starterCode);
+  const [code, setCode] = useState(starter);
   const [displayState, setDisplayState] = useState<EngineState>(initialState);
   const [runState, setRunState] = useState<RunState>('idle');
   const [output, setOutput] = useState<string[]>([]);
@@ -65,9 +68,10 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const runIdRef = useRef(0);
 
-  // Reset all per-attempt state when navigating to a different level.
+  // Reset all per-attempt state when navigating to a different level, or when
+  // the locale resolves/changes (so the seeded starter code is localized too).
   useEffect(() => {
-    setCode(level.starterCode);
+    setCode(starter);
     setDisplayState(initialState);
     setRunState('idle');
     setOutput([]);
@@ -79,7 +83,7 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
     if (animTimerRef.current) clearTimeout(animTimerRef.current);
     runnerRef.current?.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level.id]);
+  }, [level.id, starter]);
 
   // Create the runner once (client-only) and dispose on unmount.
   useEffect(() => {
@@ -185,7 +189,7 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
     runIdRef.current += 1;
     if (animTimerRef.current) clearTimeout(animTimerRef.current);
     runnerRef.current?.cancel();
-    setCode(level.starterCode);
+    setCode(starter);
     setDisplayState(initialState);
     setRunState('idle');
     setOutput([]);
@@ -249,7 +253,7 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
                   {level.hints.slice(0, hintsRevealed).map((h, i) => (
                     <li key={i} className="flex items-start gap-2 rounded-xl bg-sun/15 px-3 py-2 text-sm font-bold leading-relaxed text-ink-soft whitespace-pre-line">
                       <Icon name="spark" className="mt-0.5 h-4 w-4 shrink-0 text-mango-600" />
-                      <span>{h}</span>
+                      <span>{t(h)}</span>
                     </li>
                   ))}
                 </ul>

@@ -12,8 +12,6 @@
  *
  * Victory: collectAllCoins AND reachGoal
  * Solution: move right, collect, move right, move right → 4 steps
- *
- * TODO i18n
  */
 
 import type { CodecasterLevel } from '../types';
@@ -34,23 +32,14 @@ const L06: CodecasterLevel = {
   maxSteps: 20,
 
   // ── curriculum metadata ────────────────────────────────────────────────────
-  title: 'Coin Run',
+  title: 'cc.level.L06.title',
   band: 'B',
-  concept: 'hero.collect()',
-  objective: 'Pick up the coin on your way to the goal. You must stand on it and then call collect().',
-  starterCode: [
-    '# Move to the coin, collect it, then reach the goal',
-    'hero.moveRight()   # step onto the coin',
-    '# collect it here',
-    '# then keep going',
-  ].join('\n'),
+  concept: 'cc.level.L06.concept',
+  objective: 'cc.level.L06.objective',
+  starterCode: 'cc.level.L06.starter',
   parSteps: 5,
   requireConcept: 'collect',
-  hints: [
-    'Move onto the coin\'s tile first — you can\'t collect from a distance.',
-    'Once Pip is standing on the coin, call `hero.collect()` to pick it up.',
-    'Full solution:\nhero.moveRight()\nhero.collect()\nhero.moveRight()\nhero.moveRight()',
-  ],
+  hints: ['cc.level.L06.hint1', 'cc.level.L06.hint2', 'cc.level.L06.hint3'],
   commands: ['moveRight','collect'],
 };
 

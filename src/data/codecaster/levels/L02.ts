@@ -4,8 +4,6 @@
  *
  * A slightly longer corridor: students must call moveRight() twice and
  * discover that Python runs each line in order, one after another.
- *
- * TODO i18n
  */
 
 import type { CodecasterLevel } from '../types';
@@ -25,22 +23,14 @@ const L02: CodecasterLevel = {
   maxSteps: 20,
 
   // ── curriculum metadata ────────────────────────────────────────────────────
-  title: 'Two Steps',
+  title: 'cc.level.L02.title',
   band: 'A',
-  concept: 'Sequence',
-  objective: 'Chain multiple move commands to guide Pip all the way to the goal.',
-  starterCode: [
-    '# Each line runs in order, top to bottom',
-    'hero.moveRight()',
-    '# Add more commands below',
-  ].join('\n'),
+  concept: 'cc.level.L02.concept',
+  objective: 'cc.level.L02.objective',
+  starterCode: 'cc.level.L02.starter',
   parSteps: 5,
   requireConcept: 'sequence',
-  hints: [
-    'Write one `hero.moveRight()` call per tile you want to move.',
-    'Each command must be on its own line — Python reads them one by one from top to bottom.',
-    'You need four `hero.moveRight()` calls in a row to reach the goal.',
-  ],
+  hints: ['cc.level.L02.hint1', 'cc.level.L02.hint2', 'cc.level.L02.hint3'],
   commands: ['moveRight'],
 };
 

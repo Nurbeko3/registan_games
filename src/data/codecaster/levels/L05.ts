@@ -12,8 +12,6 @@
  *
  * (top row is all walls — the "decoy" branch, explained in the comment)
  * Solution: moveRight ×4 → 4 steps
- *
- * TODO i18n
  */
 
 import type { CodecasterLevel } from '../types';
@@ -35,24 +33,14 @@ const L05: CodecasterLevel = {
   maxSteps: 20,
 
   // ── curriculum metadata ────────────────────────────────────────────────────
-  title: 'Mind the Comment',
+  title: 'cc.level.L05.title',
   band: 'A',
-  concept: 'Comments (#)',
-  objective: 'Only real commands move Pip. A commented-out line is a note — it does nothing. Reach the goal!',
-  starterCode: [
-    '# This is a comment — Python ignores it completely',
-    '# hero.moveUp()  ← this does NOT run',
-    '',
-    '# Write your real commands below:',
-    'hero.moveRight()',
-  ].join('\n'),
+  concept: 'cc.level.L05.concept',
+  objective: 'cc.level.L05.objective',
+  starterCode: 'cc.level.L05.starter',
   parSteps: 5,
   requireConcept: 'comment',
-  hints: [
-    'Lines that start with `#` are comments — they are notes for humans and Python skips them entirely.',
-    'The `# hero.moveUp()` line does NOT move Pip — it is just a note. Only un-commented lines run.',
-    'Keep going right: four `hero.moveRight()` calls will reach the goal.',
-  ],
+  hints: ['cc.level.L05.hint1', 'cc.level.L05.hint2', 'cc.level.L05.hint3'],
   commands: ['moveRight','comment'],
 };
 

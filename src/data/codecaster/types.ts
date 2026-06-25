@@ -6,8 +6,10 @@
  * only needs the LevelDef fields — this wrapper is what the UI and curriculum
  * system consume.
  *
- * TODO i18n — all human-readable strings are plain English for now.
- *             Replace with i18n key lookups in a later pass.
+ * i18n: all human-readable string fields (title, concept, objective,
+ * starterCode, hints) hold i18n KEYS — the trilingual text lives in
+ * `src/data/codecaster/levelStrings.ts` and is resolved with `t()` / `useT()`
+ * at the consuming component (the engine never reads these strings).
  */
 
 import type { LevelDef } from '@/lib/codecaster/types';
@@ -32,7 +34,7 @@ export type ConceptKey =
   | 'say'               // Band B: hero.say()
   | 'boss_defeat';      // Synthesis: defeatBoss victory
 
-/** Three escalating hints Byte the mentor can offer. */
+/** Three escalating hints Byte the mentor can offer (i18n keys). */
 export type HintTriple = [string, string, string];
 
 /**
@@ -40,17 +42,18 @@ export type HintTriple = [string, string, string];
  * authoring/curriculum metadata consumed by the UI and grading system.
  */
 export interface CodecasterLevel extends LevelDef {
-  /** Display title shown in the level-select card and mission header. */
+  /** i18n key → display title shown in the level-select card and mission header. */
   title: string;
   /** Curriculum band this level belongs to. */
   band: Band;
-  /** Short name of the Python concept being practised (shown in UI). */
+  /** i18n key → short name of the Python concept being practised (shown in UI). */
   concept: string;
-  /** One-sentence mission objective shown to the student before they code. */
+  /** i18n key → one-sentence mission objective shown to the student before they code. */
   objective: string;
   /**
-   * Pre-filled code placed in the editor when the level loads.
-   * Use Python-style placeholder comments to guide the student.
+   * i18n key → pre-filled code placed in the editor when the level loads.
+   * The localized value uses Python-style placeholder comments to guide the
+   * student (code tokens stay identical across languages).
    */
   starterCode: string;
   /**
@@ -63,7 +66,7 @@ export interface CodecasterLevel extends LevelDef {
    * null means the level does not have a concept gate (stops at ⭐⭐).
    */
   requireConcept: ConceptKey | null;
-  /** Three escalating hints from Byte the mentor [easy, medium, specific]. */
+  /** Three escalating hints from Byte the mentor [easy, medium, specific] (i18n keys). */
   hints: HintTriple;
   /**
    * The ONLY commands surfaced in the palette + autocomplete for this level,

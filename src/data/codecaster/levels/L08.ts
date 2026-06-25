@@ -15,8 +15,6 @@
  *
  * Victory: reachGoal
  * Solution: moveRight, collect, useKey, moveRight, moveRight → 5 steps
- *
- * TODO i18n
  */
 
 import type { CodecasterLevel } from '../types';
@@ -38,24 +36,14 @@ const L08: CodecasterLevel = {
   maxSteps: 20,
 
   // ── curriculum metadata ────────────────────────────────────────────────────
-  title: 'Locked Door',
+  title: 'cc.level.L08.title',
   band: 'B',
-  concept: 'hero.useKey()',
-  objective: 'Pick up the key, open the door, and reach the goal on the other side.',
-  starterCode: [
-    '# Step 1: move onto the key and collect it',
-    'hero.moveRight()',
-    'hero.collect()   # picks up the key',
-    '# Step 2: face the door and use the key',
-    '# Step 3: walk through to the goal',
-  ].join('\n'),
+  concept: 'cc.level.L08.concept',
+  objective: 'cc.level.L08.objective',
+  starterCode: 'cc.level.L08.starter',
   parSteps: 7,
   requireConcept: 'useKey',
-  hints: [
-    'You need a key before you can open a door — move onto the glowing key tile and call `hero.collect()` first.',
-    'Once you have the key, call `hero.useKey()` while facing the door to unlock it.',
-    'Full solution:\nhero.moveRight()\nhero.collect()\nhero.useKey()\nhero.moveRight()\nhero.moveRight()\nhero.moveRight()',
-  ],
+  hints: ['cc.level.L08.hint1', 'cc.level.L08.hint2', 'cc.level.L08.hint3'],
   commands: ['moveRight','collect','useKey'],
 };
 

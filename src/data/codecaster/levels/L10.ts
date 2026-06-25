@@ -24,8 +24,6 @@
  * Pip survives with hp = 1.  Total: 7 steps.
  *
  * Victory: defeatBoss AND reachGoal
- *
- * TODO i18n
  */
 
 import type { CodecasterLevel } from '../types';
@@ -46,22 +44,14 @@ const L10: CodecasterLevel = {
   maxSteps: 30,
 
   // ── curriculum metadata ────────────────────────────────────────────────────
-  title: 'The Sleeping Golem',
+  title: 'cc.level.L10.title',
   band: 'B',
-  concept: 'Sequencing synthesis + combat',
-  objective: 'The Stone Golem has 3 hit points. Strike it three times in order, then escape to the exit!',
-  starterCode: [
-    '# The Golem has 3 HP — hit it once for each HP point',
-    'hero.attack()  # hit 1',
-    '# add two more attacks, then walk to the goal',
-  ].join('\n'),
+  concept: 'cc.level.L10.concept',
+  objective: 'cc.level.L10.objective',
+  starterCode: 'cc.level.L10.starter',
   parSteps: 8,
   requireConcept: 'boss_defeat',
-  hints: [
-    'The Golem blocks the path — you cannot walk through it. Call `hero.attack()` to hit it.',
-    'The Golem has 3 hit points, so you need three `hero.attack()` calls to defeat it.',
-    'After three attacks the Golem falls. Then walk right four times to reach the goal:\nattack × 3\nmoveRight × 4',
-  ],
+  hints: ['cc.level.L10.hint1', 'cc.level.L10.hint2', 'cc.level.L10.hint3'],
   commands: ['attack','moveRight'],
 };
 

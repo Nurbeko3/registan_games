@@ -38,8 +38,8 @@ export function MissionPanel({ level }: { level: CodecasterLevel }) {
           <Icon name={isBoss ? 'crown' : 'sword'} className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-lg font-extrabold text-ink">{level.title}</p>
-          <p className="truncate text-xs font-bold text-ink-faint">{level.id} · {level.objective}</p>
+          <p className="truncate font-display text-lg font-extrabold text-ink">{t(level.title)}</p>
+          <p className="truncate text-xs font-bold text-ink-faint">{level.id} · {t(level.objective)}</p>
         </div>
         {hydrated && best > 0 && (
           <span className="shrink-0"><Stars count={best} size="text-base" /></span>
@@ -56,11 +56,11 @@ export function MissionPanel({ level }: { level: CodecasterLevel }) {
             className="overflow-hidden"
           >
             <div className="space-y-3 border-t border-grape-100/60 px-4 py-3">
-              <p className="text-sm font-bold leading-relaxed text-ink-soft">{level.objective}</p>
+              <p className="text-sm font-bold leading-relaxed text-ink-soft">{t(level.objective)}</p>
 
               <div className="flex flex-wrap items-center gap-2">
                 <span className="chip bg-sky/15 text-sky-600">
-                  <Icon name="brain" className="h-4 w-4" /> {t('cc.todayConcept', { concept: level.concept })}
+                  <Icon name="brain" className="h-4 w-4" /> {t('cc.todayConcept', { concept: t(level.concept) })}
                 </span>
                 {isBoss && (
                   <span className="chip bg-bubble/15 text-bubble-600">
@@ -74,7 +74,7 @@ export function MissionPanel({ level }: { level: CodecasterLevel }) {
                 <ul className="mt-1.5 space-y-1 text-sm font-bold text-ink-soft">
                   <li className="flex items-center gap-1.5"><Stars count={1} size="text-xs" /> {t('cc.star1')}</li>
                   <li className="flex items-center gap-1.5"><Stars count={2} size="text-xs" /> {t('cc.star2', { par: level.parSteps })}</li>
-                  <li className="flex items-center gap-1.5"><Stars count={3} size="text-xs" /> {t('cc.star3', { concept: level.concept })}</li>
+                  <li className="flex items-center gap-1.5"><Stars count={3} size="text-xs" /> {t('cc.star3', { concept: t(level.concept) })}</li>
                 </ul>
               </div>
 

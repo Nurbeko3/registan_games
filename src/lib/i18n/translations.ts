@@ -1,9 +1,12 @@
 /** Trilingual dictionary for KidsCode Quest — uz · ru · en.
  *  Flat dotted keys. Missing keys fall back to English, then to the key itself.
  *  Deep educational content (mini-game puzzles, arena questions) is intentionally
- *  not keyed here yet and stays in its source language. */
+ *  not keyed here yet and stays in its source language. Codecaster level copy
+ *  (titles/objectives/hints/starter code, `cc.level.*`) lives in its own data
+ *  module and is merged in below. */
 
 import type { Locale } from './config';
+import { CODECASTER_LEVEL_STRINGS } from '@/data/codecaster/levelStrings';
 
 type Dict = Record<string, string>;
 
@@ -1277,4 +1280,8 @@ const uz: Dict = {
   'acase.proj.finalStandings': 'Yakuniy jadval'
 };
 
-export const TRANSLATIONS: Record<Locale, Dict> = { uz, ru, en };
+export const TRANSLATIONS: Record<Locale, Dict> = {
+  uz: { ...uz, ...CODECASTER_LEVEL_STRINGS.uz },
+  ru: { ...ru, ...CODECASTER_LEVEL_STRINGS.ru },
+  en: { ...en, ...CODECASTER_LEVEL_STRINGS.en },
+};

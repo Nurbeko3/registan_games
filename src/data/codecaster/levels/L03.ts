@@ -9,8 +9,6 @@
  * Grid (3 cols × 2 rows):
  *   H . .
  *   # # G
- *
- * TODO i18n
  */
 
 import type { CodecasterLevel } from '../types';
@@ -32,21 +30,14 @@ const L03: CodecasterLevel = {
   maxSteps: 20,
 
   // ── curriculum metadata ────────────────────────────────────────────────────
-  title: 'Turn the Corner',
+  title: 'cc.level.L03.title',
   band: 'A',
-  concept: 'Order matters',
-  objective: 'Guide Pip along the L-shaped path: first go right, then turn down.',
-  starterCode: [
-    '# Move right along the top row, then turn down',
-    'hero.moveRight()',
-  ].join('\n'),
+  concept: 'cc.level.L03.concept',
+  objective: 'cc.level.L03.objective',
+  starterCode: 'cc.level.L03.starter',
   parSteps: 4,
   requireConcept: 'sequence',
-  hints: [
-    'Follow the path — go right until the corner, then switch to `hero.moveDown()`.',
-    'If Pip bumps into a wall, check the order: right first, then down.',
-    'Solution:\nhero.moveRight()\nhero.moveRight()\nhero.moveDown()',
-  ],
+  hints: ['cc.level.L03.hint1', 'cc.level.L03.hint2', 'cc.level.L03.hint3'],
   commands: ['moveRight','moveDown'],
 };
 

@@ -25,7 +25,7 @@ npm test          # vitest run (one-shot); npx vitest for watch mode
 
 **No ESLint** is configured — both `npm run lint` and `npm run typecheck` just run `tsc --noEmit`. Typecheck is the primary correctness gate; run it after non-trivial changes. The `@/*` import alias maps to `src/*` (mirrored in `vitest.config.ts`).
 
-Vitest (~260 tests, 14 files) covers the pure logic that's deliberately framework-free: leveling, the `useGame` store (`useGame.test.ts` + `useGame.shop.test.ts` + `useGame.codecaster.test.ts`), the arena engine/`eventQueue`, and the whole **Codecaster** layer (`src/lib/codecaster/*.test.ts` — engine, grading, errors, staticChecks, pyrunner; plus `src/data/codecaster/levels/levels.test.ts` which proves every level is solvable). Run one file with `npx vitest run src/lib/codecaster/engine.test.ts` (or `npx vitest -t "<name>"` for a single case). The React/UI layers are untested — keep new testable logic in the pure modules. The one runnable check beyond Vitest+typecheck is `node scripts/qa-party-rpc.mjs`, a live integration probe of the Party Postgres RPCs (needs Supabase env in `.env.local`).
+Vitest (~320 tests, 24 files) covers the pure logic that's deliberately framework-free: leveling (`leveling.test.ts` + `caseLeveling.test.ts`), the `useGame` store (`useGame.test.ts` + `.shop` + `.codecaster` + `.cases` + `.progress`), the arena engine/`eventQueue`/`matchService`/`questionImport`, the **Case Files** logic (`src/lib/caseFiles/caseFiles.test.ts` + `src/data/cases/*.test.ts`, which prove every case is answerable and its trilingual i18n is complete), and the whole **Codecaster** layer (`src/lib/codecaster/*.test.ts` — engine, grading, errors, staticChecks, pyrunner; plus `src/data/codecaster/levels/levels.test.ts` which proves every level is solvable). Run one file with `npx vitest run src/lib/codecaster/engine.test.ts` (or `npx vitest -t "<name>"` for a single case). The React/UI layers are untested — keep new testable logic in the pure modules. Beyond Vitest+typecheck there are two live integration probes of the Postgres RPCs (each needs Supabase env in `.env.local`): `node scripts/qa-party-rpc.mjs` (Party) and `node scripts/qa-case-rpc.mjs` (Case Files).
 
 ### Supabase (optional)
 
@@ -36,6 +36,8 @@ Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.loca
 - `0005`–`0007` authoritative **Party** room state: match flow, host-refresh resume, and answers scored server-side in Postgres via RPC (clients can't score as another player)
 - `0008`–`0009` authoritative **Arena** "match started" handshake + host-refresh resume, so joiners who miss a Realtime broadcast recover from Postgres
 - `0010` **Codecaster** cloud progress/solves + leaderboard (`kcq_codecaster_*`), RLS revoke-all + `SECURITY DEFINER` RPCs. MVP trusts the client (`validated=false`) pending a future server-replay edge function
+- `0011` authoritative **Case Files** multiplayer (`kcq_case_*`): RPC-driven phase machine, answer keys seeded server-side (clients get an answer-less projection), per-player score/streak in a relational table streamed over `postgres_changes`, match scored server-side
+- `0012` admin-managed **Arena question bank** (`kcq_arena_questions`): trilingual + grade-tagged rows merged into the static pool at runtime, written via the `/admin/arena` Excel import
 
 Note: live arena/party *gameplay* still runs over Realtime presence/broadcast; the tables are the canonical-state/recovery fallback, not the fast path.
 
@@ -68,6 +70,7 @@ A realtime top-down arena shooter where elimination opens a "Learning Pod" — a
 - **`network/roomService.ts`** — lobby orchestration on top of the transport (presence → player list, host broadcasts settings + start, ready/team toggles). Two host models: custom rooms have a fixed host (creator); quick-match **elects** the lowest-present id as host.
 - **`network/useArenaRoom.ts`** — the React binding: connects on mount, exposes live `RoomState` + lobby actions, leaves on unmount.
 - **`network/matchService.ts` + `eventQueue.ts`** — the in-match netcode (powers embodied 1v1 multiplayer). During play it ships only **events** (`MOVE`/`SHOOT`/`HIT`/`RESPAWN`/`ANSWERED`/`SCORE`/`MATCH_END`), never full state: `OutboundQueue` coalesces `move` (latest-wins) and batches the rest, flushed at a fixed ~12 Hz over the **same** transport/channel as the room. Persistence to `arena_matches`/`arena_match_events` is cloud-only and never blocks gameplay.
+- **`questionEngine.ts` + `localize.ts` + the question bank** — questions are the **trilingual** `LocalizedQuestion` shape (`prompt`/`options`/`explain` each carry `uz`/`ru`/`en`) and are also `grade`-tagged (1–11 Uzbek school class, orthogonal to `difficulty`, which still drives matchmaking). The static bank is `src/data/arenaQuestions.ts` (`ARENA_QUESTIONS_L10N`); admin-imported rows (`cloudQuestions.ts`, migration 0012) share the exact shape and merge in. `localize()` flattens one locale into the runtime question; `questionEngine.ts` scales difficulty to player level, avoids repeats, and **re-shuffles option order every time** (anti-cheat-by-memorization). `questionImport.ts` parses the trilingual Excel upload for `/admin/arena` — **no AI translation**, the spreadsheet carries all three languages.
 
 The presence+broadcast pattern originated in `src/lib/party/useParty.ts` (a simpler shared-quiz "party" feature) and was lifted into the arena services — keep them consistent.
 
@@ -83,13 +86,24 @@ A CodeCombat-style (but fully original) two-pane Python learning game: a dungeon
 - **Content** lives in `src/data/codecaster/levels/L01..L10.ts` (`CODECASTER_LEVELS` + `getLevel(id)`); each level is a `CodecasterLevel` with `parSteps`, `requireConcept`, `starterCode`, and a 3-hint ladder. Adding a level = add an `L*.ts` proven solvable by a `Command[]` trace in `levels.test.ts`, then export it from `index.ts`. L10 is the boss.
 - **UI**: `PlayScreen.tsx` composes `DungeonView` + `CodePane` (CodeMirror via `next/dynamic({ ssr: false })`) + `MissionPanel` + `FeedbackModal`. Responsive: side-by-side on desktop, a `[World | Code]` segmented toggle on mobile; honours reduced-motion.
 
+### Case Files — detective reading mode (`src/lib/caseFiles/` + `src/data/cases/` + `src/components/case/`)
+
+A multiplayer reading-comprehension detective game: each **case** is a set of *fictional* source documents (profile cards, chat logs, emails, notes, tickets — no real people or personal data) plus questions answered by reading and cross-referencing them. Reachable at `/case` (lobby) with `/case/friendly`, `/case/practice` (offline Bot Practice), `/case/[code]` (room), and `/case/[code]/display` (classroom projector view). Modeled on the Party feature and **server-authoritative** like it:
+
+- **Content** is data-driven in `src/data/cases/case01..05.ts` (`CaseDef` + `getCase(id)`), grade-banded (`7-9`/`10-12`/`13-14`) and subject-tagged. The `answerIndex` keys live in the `CaseDef`; the cloud ships clients an **answer-less `publicCase()` projection** so devtools can't peek. Trilingual copy is split into `src/data/cases/i18n/` and applied with `localizeCase()`. Tests prove every case is answerable (`cases.test.ts`/`seed.test.ts`) and every translation is complete (`i18n/i18n.test.ts`).
+- **`grading.ts`** — pure offline grader used by Bot Practice; it's the **mirror**, not the authority. In cloud play the same rubric is recomputed server-side (`kcq_case_end_match`, migration 0011) so a client can't self-report. Star/XP math is in `caseLeveling.ts` (`caseStarsFor`, detective ranks in `ranks.ts`).
+- **`botEngine.ts`** — drives offline Bot Practice opponents.
+- **`useCaseRoom.ts`** — the React realtime binding (cloned from `useParty.ts`): an RPC-authoritative phase machine (`lobby→investigation→question→reveal→ended`, host-driven, no auto-advance in MVP), per-player score/streak streamed over `postgres_changes` (relational table, scales to a classroom — **not** presence), and the just-closed question's correct option delivered via the host's `reveal` broadcast.
+- **`cloud.ts`** — save/leaderboard, no-op offline.
+- Progress is recorded through `useGame` (`useGame.cases.test.ts`).
+
 ### Cloud is strictly additive
 
 `src/lib/supabase/client.ts` returns `null` when env vars are missing or on the server, and **never throws**. All of `src/lib/supabase/*` (auth, leaderboard, sync) and the arena cloud transport must degrade silently to offline/local behavior. Never make a core game path depend on `supabase` being non-null.
 
 ### Classroom / admin (`src/lib/admin/`, `src/app/admin`, `src/app/api/admin/*`)
 
-The only **server-side** part of the app — a teacher-facing classroom layer that's also strictly additive (dead without Supabase env). `src/lib/admin/server.ts` is server-only (imports `next/headers`): admins (`kcq_admins`, bcrypt) and student accounts (migrations 0003/0004) live in Supabase; the `kcq_admin` cookie carries a DB-issued session token validated on **every** request by `kcq_admin_*` RPCs through the anon-key client — no secrets reach the client bundle. `requireAdmin()` is the gate for the API route handlers (`login`/`logout`/`me`/`admins`/`students` + `students/import` and `students/reset`). Student roster import/export uses `xlsx`. Keep all `requireAdmin()`-gated logic and secrets in `server.ts`/route handlers, never in client components.
+The only **server-side** part of the app — a teacher-facing classroom layer that's also strictly additive (dead without Supabase env). `src/lib/admin/server.ts` is server-only (imports `next/headers`): admins (`kcq_admins`, bcrypt) and student accounts (migrations 0003/0004) live in Supabase; the `kcq_admin` cookie carries a DB-issued session token validated on **every** request by `kcq_admin_*` RPCs through the anon-key client — no secrets reach the client bundle. `requireAdmin()` is the gate for the API route handlers (`login`/`logout`/`me`/`admins`/`students` + `students/import` and `students/reset`, plus `arena-questions` and `arena-questions/[id]` for the trilingual question-bank CRUD/import). Student roster and arena-question import/export both use `xlsx`. Keep all `requireAdmin()`-gated logic and secrets in `server.ts`/route handlers, never in client components.
 
 ### Server API routes (`src/app/api/`)
 
@@ -97,8 +111,8 @@ Two groups, both no-op without their env: the admin routes above, and `api/arena
 
 ### i18n (`src/lib/i18n/`)
 
-Default locale is **`uz` (Uzbek)**; `en` is the fallback dictionary. Translate via the `useT()` hook → `t(key, vars?)`. Before hydration it forces `DEFAULT_LOCALE` so SSR and first paint match, then switches to the persisted locale. Add strings to `translations.ts`.
+Three locales — **`uz` (Uzbek, default)**, `ru`, and `en` (`Locale = 'uz' | 'ru' | 'en'` in `config.ts`); `translations.ts` is the trilingual dictionary. Translate via the `useT()` hook → `t(key, vars?)`. Before hydration it forces `DEFAULT_LOCALE` so SSR and first paint match, then switches to the persisted locale. Add strings to `translations.ts`.
 
 ### Routing (`src/app/`)
 
-App Router. Notable routes: `/` (landing — the "extra game modes" section is a snap carousel of Arena/Party/Codecaster cards), `/map` (world map), `/play/[game]` (delegates to `GameShell`), `/quest` + `/quest/[level]` (Codecaster level select + play), `/rewards` (profile/achievements/settings), `/shop` (avatar/theme store, split out from `/rewards`), `/arena`, `/leaderboard`, `/party` + `/party/[code]`, `/admin` (teacher classroom UI, gated by the admin cookie). Dynamic route params are React 19 `Promise`s — unwrap with `use(params)`. App-wide chrome (theme, reduced-motion) is in `AppChrome.tsx`; HUD in `layout/TopBar.tsx`.
+App Router. Notable routes: `/` (landing — the "extra game modes" section is a snap carousel of Arena/Party/Codecaster/Case-Files cards), `/map` (world map), `/play/[game]` (delegates to `GameShell`), `/quest` + `/quest/[level]` (Codecaster level select + play), `/case` + `/case/friendly` + `/case/practice` + `/case/[code]` + `/case/[code]/display` (Case Files lobby/bot-practice/room/projector), `/rewards` (profile/achievements/settings), `/shop` (avatar/theme store, split out from `/rewards`), `/arena`, `/leaderboard`, `/party` + `/party/[code]`, `/admin` (teacher classroom UI, gated by the admin cookie). Dynamic route params are React 19 `Promise`s — unwrap with `use(params)`. App-wide chrome (theme, reduced-motion) is in `AppChrome.tsx`; HUD in `layout/TopBar.tsx`.
