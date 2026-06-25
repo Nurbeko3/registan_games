@@ -7,6 +7,8 @@ import { useGame, getTheme } from '@/store/useGame';
 import { Celebrations } from '@/components/Celebrations';
 import { AccountSync } from '@/components/AccountSync';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { Byte } from '@/components/Byte';
+import { MentorProvider } from '@/lib/mentor/context';
 
 // re-export helper so store stays the single source
 function useThemeBg(): string {
@@ -38,11 +40,15 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const showNav = !arenaPlaying && !pathname.startsWith('/play') && !pathname.startsWith('/admin') && !/^\/party\/.+/.test(pathname);
 
   return (
-    <MotionConfig reducedMotion={reduced ? 'always' : 'user'}>
-      <div className={`min-h-screen ${bg} transition-colors ${showNav ? 'pb-24' : ''}`}>{children}</div>
-      <Celebrations />
-      <AccountSync />
-      {showNav && <BottomNav />}
-    </MotionConfig>
+    <MentorProvider>
+      <MotionConfig reducedMotion={reduced ? 'always' : 'user'}>
+        <div className={`min-h-screen ${bg} transition-colors ${showNav ? 'pb-24' : ''}`}>{children}</div>
+        <Celebrations />
+        <AccountSync />
+        {/* Byte floats site-wide; hidden only during a live arena match (fullscreen). */}
+        {!arenaPlaying && <Byte />}
+        {showNav && <BottomNav />}
+      </MotionConfig>
+    </MentorProvider>
   );
 }

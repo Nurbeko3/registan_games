@@ -9,7 +9,7 @@ import { zoneOfGame } from '@/data/worlds';
 import { isCloudEnabled } from '@/lib/supabase/client';
 import { ACCOUNT_SESSION_EVENT, accountResume, readSession } from '@/lib/supabase/account';
 import { TopBar } from '@/components/layout/TopBar';
-import { AIMentor } from '@/components/AIMentor';
+import { useRegisterByte } from '@/lib/mentor/context';
 import { Stars } from '@/components/ui/Bits';
 import { Icon, gameIcon } from '@/components/ui/Icon';
 import { Confetti } from '@/components/ui/Confetti';
@@ -29,6 +29,9 @@ export function GameShell({ slug }: { slug: string }) {
   const [round, setRound] = useState(0);
   const [loggedIn, setLoggedIn] = useState(false);
   const awardedRef = useRef(false);
+
+  // Register this mini-game with the site-wide Byte assistant (generic per-game hints).
+  useRegisterByte(slug);
 
   useEffect(() => {
     let alive = true;
@@ -142,8 +145,6 @@ export function GameShell({ slug }: { slug: string }) {
 
         <GameComponent key={round} onWin={onWin} />
       </div>
-
-      <AIMentor game={slug} />
 
       <AnimatePresence>
         {result && (

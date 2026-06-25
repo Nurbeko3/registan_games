@@ -44,3 +44,33 @@ export async function askByteAI(ctx: MentorContext): Promise<string | null> {
     return null;
   }
 }
+
+export interface ChatTurn { role: 'user' | 'byte'; text: string }
+
+export interface ChatRequest {
+  message: string;
+  page?: string;
+  locale?: 'uz' | 'ru' | 'en';
+  history?: ChatTurn[];
+}
+
+/**
+ * Free-form "Ask Byte" chat for the site-wide assistant. Returns Byte's reply,
+ * or null when the backend is absent/disabled/failed (caller shows a friendly
+ * offline message). Never throws.
+ */
+export async function askByteChat(req: ChatRequest): Promise<string | null> {
+  if (!API_URL) return null;
+  try {
+    const res = await fetch(`${API_URL}/assistant`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { ok?: boolean; reply?: string };
+    return data?.ok && typeof data.reply === 'string' ? data.reply : null;
+  } catch {
+    return null;
+  }
+}

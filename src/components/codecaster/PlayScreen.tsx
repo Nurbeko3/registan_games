@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
-import { AIMentor } from '@/components/AIMentor';
+import { useRegisterByte } from '@/lib/mentor/context';
 import { Icon } from '@/components/ui/Icon';
 import { DungeonView } from './DungeonView';
 import { CodePane, type RunState } from './CodePane';
@@ -63,6 +63,15 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
   const [hintsRevealed, setHintsRevealed] = useState(0);
   const [feedback, setFeedback] = useState<FeedbackPayload | null>(null);
   const [pane, setPane] = useState<Pane>('world');
+
+  // Expose this level's live context to the site-wide Byte assistant, so its
+  // "Hint" action reasons about the student's actual code/error/objective.
+  useRegisterByte('codecaster', () => ({
+    level: level.id,
+    objective: t(level.objective),
+    code,
+    error: error ? t(error.bodyKey, error.vars) : undefined,
+  }));
 
   const runnerRef = useRef<CodecasterRunner | null>(null);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -284,16 +293,6 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
           </section>
         </div>
       </div>
-
-      <AIMentor
-        game="codecaster"
-        getContext={() => ({
-          level: level.id,
-          objective: t(level.objective),
-          code,
-          error: error ? t(error.bodyKey, error.vars) : undefined,
-        })}
-      />
 
       <FeedbackModal
         feedback={feedback}

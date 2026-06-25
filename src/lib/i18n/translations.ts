@@ -254,6 +254,8 @@ const en: Dict = {
   'mentor.sub': 'Your coding buddy', 'mentor.hint': '💡 Hint', 'mentor.cheer': 'Cheer me on!',
   'mentor.askHint': 'Give me a hint!', 'mentor.open': 'Open Byte, your AI mentor',
   'mentor.aiBadge': 'Byte AI', 'mentor.thinking': 'Byte is thinking…',
+  'mentor.close': 'Close', 'mentor.send': 'Send', 'mentor.placeholder': 'Ask Byte anything…',
+  'mentor.offline': "Hmm, I can't reach my brain right now — try again in a moment! 🤖",
   // cloud save
 
   // account / auth (username + auto-password)
@@ -680,6 +682,8 @@ const ru: Dict = {
   'mentor.sub': 'Твой помощник по коду', 'mentor.hint': '💡 Подсказка', 'mentor.cheer': 'Подбодри меня!',
   'mentor.askHint': 'Дай подсказку!', 'mentor.open': 'Открыть Байта, твоего ИИ-наставника',
   'mentor.aiBadge': 'Байт ИИ', 'mentor.thinking': 'Байт думает…',
+  'mentor.close': 'Закрыть', 'mentor.send': 'Отправить', 'mentor.placeholder': 'Спроси Байта о чём угодно…',
+  'mentor.offline': 'Хм, сейчас не могу подключиться к мозгу — попробуй ещё раз чуть позже! 🤖',
 
   'auth.title': 'Аккаунт', 
   'auth.syncedSub': 'Твой прогресс сохранён и синхронизирован между устройствами.',
@@ -1095,6 +1099,8 @@ const uz: Dict = {
   'mentor.sub': 'Kod bo‘yicha do‘sting', 'mentor.hint': '💡 Maslahat', 'mentor.cheer': 'Meni qo‘llab-quvvatla!',
   'mentor.askHint': 'Menga maslahat ber!', 'mentor.open': 'Bayt — sizning SI ustozingizni ochish',
   'mentor.aiBadge': 'Bayt SI', 'mentor.thinking': 'Bayt o‘ylayapti…',
+  'mentor.close': 'Yopish', 'mentor.send': 'Yuborish', 'mentor.placeholder': 'Bayt’dan istalgan narsani so‘ra…',
+  'mentor.offline': 'Hmm, hozir miyamga ulanolmayapman — birozdan keyin yana urinib ko‘r! 🤖',
 
   'auth.title': 'Hisob', 
   'auth.syncedSub': 'Progressingiz saqlangan va qurilmalar o‘rtasida sinxronlangan.',
