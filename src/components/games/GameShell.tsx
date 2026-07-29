@@ -16,6 +16,7 @@ import { Confetti } from '@/components/ui/Confetti';
 import { GuestRewardNudge } from '@/components/ui/GuestRewardNudge';
 import { useT } from '@/lib/i18n';
 import { GAME_REGISTRY } from './registry';
+import { studentRankForLevel } from '@/lib/studentRanks';
 
 export function GameShell({ slug }: { slug: string }) {
   const t = useT();
@@ -186,7 +187,8 @@ export function GameShell({ slug }: { slug: string }) {
                   animate={shouldReduceMotion ? {} : { scale: 1 }}
                   className="mt-3 font-display text-lg font-extrabold text-bubble-600"
                 >
-                  {t('gs.levelUp', { n: result.newLevel })}
+                  {t('gs.levelUp', { n: result.newLevel })} · {studentRankForLevel(result.newLevel).emoji}{' '}
+                  {t(studentRankForLevel(result.newLevel).titleKey)}
                 </motion.p>
               )}
               {result.newAchievements.length > 0 && (

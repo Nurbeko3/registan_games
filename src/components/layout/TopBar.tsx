@@ -12,6 +12,7 @@ import { Stat } from '@/components/ui/Bits';
 import { Icon } from '@/components/ui/Icon';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '@/lib/i18n';
+import { studentRankForLevel } from '@/lib/studentRanks';
 
 /** Persistent player HUD: avatar, level, XP bar, coins, streak. */
 export function TopBar({ showBack = false }: { showBack?: boolean }) {
@@ -23,6 +24,7 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
   const avatarId = useGame((s) => s.avatarId);
   const xp = useGame((s) => s.xp);
   const ls = levelState(xp);
+  const rank = studentRankForLevel(ls.level);
   const mustLogIn = useMustLogIn();
   const [loggedIn, setLoggedIn] = useState(false);
   const [student, setStudent] = useState('');
@@ -94,7 +96,7 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
             <Stat icon={<Icon name="coin" className="h-4 w-4" />} value={coins} label={t('common.coins')} />
             <Link href="/rewards" className="flex items-center gap-2 rounded-full bg-white px-2.5 py-1.5 shadow-card" title={t('topbar.profile')}>
               <AvatarBadge avatar={avatarId} className="h-7 w-7 text-lg" rounded="rounded-full" />
-              <span className="hidden font-display font-extrabold sm:inline">{t('common.lv')} {ls.level}</span>
+              <span className="hidden font-display font-extrabold sm:inline">{rank.emoji} {t('common.lv')} {ls.level}</span>
             </Link>
           </>
         )}
@@ -109,7 +111,7 @@ export function TopBar({ showBack = false }: { showBack?: boolean }) {
           className="group mx-auto flex max-w-4xl items-center gap-2 px-4 pb-2"
         >
           <span className="shrink-0 rounded-full bg-grape px-2 py-0.5 font-display text-[11px] font-extrabold text-white shadow-card">
-            {t('common.lv')} {ls.level}
+            {rank.emoji} {t(rank.titleKey)}
           </span>
           <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-grape-100 ring-1 ring-grape-100 transition group-hover:ring-grape-200">
             <motion.div

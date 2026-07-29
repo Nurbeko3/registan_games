@@ -12,6 +12,7 @@ import { ACCOUNT_SESSION_EVENT, accountLogout, accountResume, readSession } from
 import { Icon } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
 import { DetectiveRankBadge } from '@/components/case/DetectiveRankBadge';
+import { StudentRankCard } from '@/components/StudentRankCard';
 
 export default function RewardsPage() {
   const hydrated = useHydrated();
@@ -105,6 +106,8 @@ function RewardsContent() {
           </div>
         </div>
       </section>
+
+      <StudentRankCard level={ls.level} />
 
       <OfflineNameCard />
 

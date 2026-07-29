@@ -116,6 +116,9 @@ const gameIcons: Record<string, IconName> = {
   'pattern-pop': 'pattern',
   'loop-output': 'loop',
   'quick-math': 'calculator',
+  'variable-vault': 'ticket',
+  'if-else-quest': 'compass',
+  'list-lab': 'file',
 };
 
 const worldIcons: Record<string, IconName> = {

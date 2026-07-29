@@ -56,7 +56,7 @@ export const ZONES: Zone[] = [
     description: 'The champion’s world — for true code heroes!',
     color: 'from-mango to-bubble',
     unlockStars: 20,
-    games: ['output-oracle'],
+    games: ['variable-vault', 'if-else-quest', 'list-lab', 'output-oracle'],
     finale: true,
   },
 ];

@@ -16,6 +16,7 @@ import { TrainRobot } from './TrainRobot';
 import { SummitSort } from './SummitSort';
 import { BuildPage } from './BuildPage';
 import { OutputOracle } from './OutputOracle';
+import { IfElseQuest, ListLab, VariableVault } from './PythonConceptGames';
 
 /** Maps a game slug to its playable component. */
 export const GAME_REGISTRY: Record<string, ComponentType<GameProps>> = {
@@ -35,4 +36,7 @@ export const GAME_REGISTRY: Record<string, ComponentType<GameProps>> = {
   'pattern-pop': PatternPop,
   'loop-output': LoopOutput,
   'quick-math': QuickMath,
+  'variable-vault': VariableVault,
+  'if-else-quest': IfElseQuest,
+  'list-lab': ListLab,
 };

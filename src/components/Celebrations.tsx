@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useGame, type Celebration, type LevelCelebration } from '@/store/useGame';
 import { Confetti } from '@/components/ui/Confetti';
 import { useT } from '@/lib/i18n';
+import { isRankPromotion, studentRankForLevel } from '@/lib/studentRanks';
 
 function isLevelCelebration(c: Celebration): c is LevelCelebration {
   return 'kind' in c && c.kind === 'level';
@@ -17,10 +18,15 @@ export function Celebrations() {
   const dismiss = useGame((s) => s.dismissCelebration);
   const current = celebrations[0];
   const isLevel = current ? isLevelCelebration(current) : false;
-  const emoji = !current ? '' : isLevelCelebration(current) ? '🚀' : current.emoji;
-  const label = !current ? '' : isLevelCelebration(current) ? t('level.unlocked') : t('ach.unlocked');
+  const currentLevel = current && isLevelCelebration(current) ? current.level : null;
+  const promoted = currentLevel !== null && isRankPromotion(currentLevel);
+  const levelRank = currentLevel !== null ? studentRankForLevel(currentLevel) : null;
+  const emoji = !current ? '' : isLevelCelebration(current) ? levelRank!.emoji : current.emoji;
+  const label = !current ? '' : isLevelCelebration(current) ? t(promoted ? 'rank.promoted' : 'level.unlocked') : t('ach.unlocked');
   const title = !current ? '' : isLevelCelebration(current) ? t('level.title', { n: current.level }) : t(current.titleKey);
-  const body = !current ? '' : isLevelCelebration(current) ? t('level.body') : t(current.descriptionKey);
+  const body = !current ? '' : isLevelCelebration(current)
+    ? t(promoted ? 'rank.promotedBody' : 'level.body', { rank: levelRank ? t(levelRank.titleKey) : '' })
+    : t(current.descriptionKey);
 
   return (
     <AnimatePresence>
@@ -60,6 +66,9 @@ export function Celebrations() {
             <h2 className="mt-1 font-display text-2xl font-extrabold">
               {title}
             </h2>
+            {isLevel && levelRank && (
+              <p className="mt-1 font-display text-lg font-extrabold text-grape">{t(levelRank.titleKey)}</p>
+            )}
             <p className="mt-1 text-ink-soft">
               {body}
             </p>
