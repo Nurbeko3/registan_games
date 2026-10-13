@@ -20,7 +20,7 @@ export interface AccountUser {
   state: Record<string, unknown>;
 }
 
-export type AuthReason = 'cloud' | 'bad' | 'unknown';
+export type AuthReason = 'cloud' | 'bad' | 'rate_limited' | 'unknown';
 export interface LoginResult { ok: boolean; reason?: AuthReason; user?: AccountUser }
 
 const SESSION_KEY = 'kcq.session'; // { token, username } — local only
@@ -99,7 +99,7 @@ export async function accountLogin(username: string, password: string): Promise<
   if (!isCloudEnabled()) return { ok: false, reason: 'cloud' };
   const { data, error } = await supabase!.rpc('kcq_login', { p_username: username.trim(), p_password: password });
   if (error) return { ok: false, reason: 'unknown' };
-  if (!data?.ok) return { ok: false, reason: 'bad' };
+  if (!data?.ok) return { ok: false, reason: data?.reason === 'rate_limited' ? 'rate_limited' : 'bad' };
 
   const u = data.user as AccountUser;
   writeSession(data.token as string, u.username);

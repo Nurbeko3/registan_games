@@ -57,7 +57,9 @@ export type Category =
   | 'algorithms'
   | 'web'
   | 'ai'
-  | 'hardware';
+  | 'hardware'
+  | 'os'
+  | 'ergonomics';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -74,7 +76,9 @@ export const CATEGORY_META: Record<Category, { label: string; emoji: string }> =
   algorithms: { label: 'Algorithms', emoji: '🪜' },
   web: { label: 'Web Dev', emoji: '🌐' },
   ai: { label: 'AI Basics', emoji: '🤖' },
-  hardware: { label: 'Железо', emoji: '🖥️' },
+  hardware: { label: 'Hardware', emoji: '🖥️' },
+  os: { label: 'Operating systems', emoji: '🪟' },
+  ergonomics: { label: 'Ergonomics', emoji: '🪑' },
 };
 
 interface BaseQuestion {

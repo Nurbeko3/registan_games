@@ -115,7 +115,7 @@ function QuestionsManager({ admin }: { admin: AdminInfo }) {
       ['id', 'Bo‘sh qoldiring — avtomatik yaratiladi (yoki o‘zingiz noyob kod bering)'],
       ['grade', 'Sinf: 1 dan 11 gacha (majburiy)'],
       ['difficulty', 'Qiyinlik: easy / medium / hard'],
-      ['category', 'Bo‘lim: hardware, programming, logic, math, algorithms, web, ai'],
+      ['category', 'Bo‘lim: hardware, os, ergonomics, programming, logic, math, algorithms, web, ai'],
       ['type', 'Savol turi: mcq (variantli) yoki truefalse (to‘g‘ri/noto‘g‘ri)'],
       ['emoji', 'Savol belgisi, masalan 🖥️ (ixtiyoriy)'],
       ['prompt_uz / ru / en', 'Savol matni 3 tilda. Kamida bittasini to‘ldiring — qolganlari avtomatik nusxalanadi'],

@@ -14,6 +14,10 @@ import type { ArenaQuestion, Category, Difficulty, Grade, PreparedQuestion } fro
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/config';
 
 
+/** Locale-neutral true/false option tokens (rendered via `arena.tfTrue/False`). */
+export const TF_TRUE = 'True';
+export const TF_FALSE = 'False';
+
 /** Fisher–Yates shuffle returning a new array (never mutates the input). */
 export function shuffle<T>(arr: readonly T[]): T[] {
   const a = [...arr];
@@ -94,11 +98,11 @@ export function prepare(q: ArenaQuestion): PreparedQuestion {
       return { q, options, correctIndex: options.indexOf(correctText) };
     }
     case 'truefalse': {
-      // present in a random order; correctIndex points at the right one
-      const trueFirst = Math.random() < 0.5;
-      const labels = q.answer ? ['True', 'False'] : ['True', 'False'];
-      const options = trueFirst ? labels : [...labels].reverse();
-      const correctIndex = options.indexOf(q.answer ? labels[0] : labels[1]);
+      // Present in a random order; correctIndex points at the right one. The
+      // options are locale-neutral tokens — QuestionRenderer translates them.
+      const labels = [TF_TRUE, TF_FALSE];
+      const options = Math.random() < 0.5 ? labels : [...labels].reverse();
+      const correctIndex = options.indexOf(q.answer ? TF_TRUE : TF_FALSE);
       return { q, options, correctIndex };
     }
     case 'order':

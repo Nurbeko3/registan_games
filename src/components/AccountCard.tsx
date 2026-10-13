@@ -38,7 +38,7 @@ export function AccountCard() {
   if (!isCloudEnabled()) return null;
 
   const errText = (r?: AuthReason) =>
-    r === 'bad' ? t('auth.errBad') : r === 'cloud' ? t('auth.offline') : t('auth.errUnknown');
+    r === 'bad' ? t('auth.errBad') : r === 'rate_limited' ? t('auth.errRateLimited') : r === 'cloud' ? t('auth.offline') : t('auth.errUnknown');
 
   const onLogin = async () => {
     setErr(null);

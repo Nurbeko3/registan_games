@@ -42,6 +42,9 @@ export async function POST(req: Request) {
 
   const { data, error } = await sb.rpc('kcq_admin_login', { p_email: email, p_password: password });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (data?.reason === 'rate_limited') {
+    return NextResponse.json({ ok: false, reason: 'rate_limited' }, { status: 429 });
+  }
   if (!data?.ok) return NextResponse.json({ ok: false }, { status: 401 });
 
   clearAdminLoginRateLimit(rateKey);

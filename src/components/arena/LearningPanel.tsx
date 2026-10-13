@@ -5,6 +5,7 @@ import { CATEGORY_META, type LearnState, type PreparedQuestion } from '@/lib/are
 import { Confetti } from '@/components/ui/Confetti';
 import { useT } from '@/lib/i18n';
 import { QuestionRenderer } from './QuestionRenderer';
+import { TF_TRUE } from '@/lib/arena/questionEngine';
 
 const DIFF_STYLE: Record<string, string> = {
   easy: 'bg-mint/20 text-mint-600',
@@ -12,12 +13,15 @@ const DIFF_STYLE: Record<string, string> = {
   hard: 'bg-bubble/20 text-bubble-600',
 };
 
-function correctAnswer(prepared: PreparedQuestion): string {
+function correctAnswer(prepared: PreparedQuestion, t: ReturnType<typeof useT>): string {
   const { q } = prepared;
   switch (q.type) {
+    case 'truefalse': {
+      const opt = prepared.correctIndex === undefined ? undefined : prepared.options?.[prepared.correctIndex];
+      return opt === undefined ? '' : t(opt === TF_TRUE ? 'arena.tfTrue' : 'arena.tfFalse');
+    }
     case 'mcq':
     case 'code-fill':
-    case 'truefalse':
       return prepared.correctIndex === undefined ? '' : prepared.options?.[prepared.correctIndex] ?? '';
     case 'debug':
       return q.lines[q.buggyLine] ?? '';
@@ -48,8 +52,10 @@ export function LearningPanel({
 }) {
   const t = useT();
   const { q } = prepared;
-  const cat = CATEGORY_META[q.category];
-  const catLabel = q.category === 'hardware' ? t('arena.cat.hardware') : cat.label;
+  // Admin-imported questions may carry a category this build doesn't know.
+  const cat = CATEGORY_META[q.category] ?? { label: String(q.category), emoji: '📘' };
+  const catKey = `arena.cat.${q.category}`;
+  const catLabel = t(catKey) === catKey ? cat.label : t(catKey);
 
   return (
     <motion.div
@@ -118,7 +124,7 @@ export function LearningPanel({
               <div className="text-6xl">💡</div>
               <p className="mt-2 font-display text-2xl font-extrabold text-grape">{t('arena.learn.almost')}</p>
               <p className="mt-4 text-sm font-bold uppercase tracking-wide text-ink-faint">{t('arena.learn.correctAnswer')}</p>
-              <p className="mt-2 rounded-2xl bg-mint/15 p-4 font-display text-2xl font-extrabold text-mint-700">{correctAnswer(prepared)}</p>
+              <p className="mt-2 rounded-2xl bg-mint/15 p-4 font-display text-2xl font-extrabold text-mint-700">{correctAnswer(prepared, t)}</p>
               {q.explain && (
                 <div className="mt-3 flex items-start gap-2 rounded-2xl bg-sun/15 p-4 text-left">
                   <span className="text-xl leading-none">💡</span>

@@ -12,9 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The core game is **frontend-only**: no backend, no auth, no database required. Progress lives in `localStorage`. Cloud is **optional and additive** — a **self-hosted backend** (`backend/`: Fastify + Prisma + Socket.io, deployed on Render with Neon Postgres) powers student accounts, cloud save, leaderboards, the Byte AI mentor, the admin classroom, and realtime multiplayer (Arena / Party / Case Files). It **replaced the earlier Supabase layer behind a supabase-js-shaped shim**, so game code still imports from `src/lib/supabase/*` and uses `supabase.rpc/from/channel` call shapes. Cloud is enabled solely by `NEXT_PUBLIC_API_URL`; when it's absent every cloud feature must no-op gracefully and the game keeps working.
 
-### Two repos in one folder
+### Two sibling repos
 
-`backend/` is **gitignored from this repo and is its own git repository**, deployed separately (Render blueprint `backend/render.yaml`). Root `git status`/commits never include it — backend changes are committed inside `backend/` itself. Env: `.env.production` (committed, non-secret) points production at the Render URL; the local gitignored `.env` carries `NEXT_PUBLIC_API_URL=http://localhost:8080` and server-only secrets (`ADMIN_*`, `ARENA_AUTHORITY_*`). There is deliberately **one** `.env` — no `.env.example`/`.env.local` split in the frontend.
+The backend lives **outside this repo**, as a sibling git repository at `../backend-REGISTAN-GAMES/` (workspace layout: `registan-games/{registan_games, backend-REGISTAN-GAMES}`). It's deployed separately (Render blueprint `../backend-REGISTAN-GAMES/render.yaml`), and backend changes are committed in that repo. Throughout this file, `backend/…` paths mean that sibling repo. (`backend/` is still listed in `.gitignore` from when it was nested here.) Env: `.env.production` (committed, non-secret) points production at the Render URL; the local gitignored `.env` carries `NEXT_PUBLIC_API_URL=http://localhost:8080` and server-only secrets (`ADMIN_*`, `ARENA_AUTHORITY_*`). There is deliberately **one** `.env` — no `.env.example`/`.env.local` split in the frontend.
 
 ## Commands
 
@@ -29,14 +29,14 @@ npm test          # vitest run (one-shot); npx vitest for watch mode
 
 **No ESLint** is configured — both `npm run lint` and `npm run typecheck` just run `tsc --noEmit`. Typecheck is the primary correctness gate; run it after non-trivial changes. The `@/*` import alias maps to `src/*` (mirrored in `vitest.config.ts`).
 
-Vitest (~558 tests, 24 files, ~2s) covers the pure logic that's deliberately framework-free: leveling (`leveling.test.ts` + `caseLeveling.test.ts`), the `useGame` store (`useGame.test.ts` + `.shop` + `.codecaster` + `.cases` + `.progress`), the arena engine/`eventQueue`/`matchService`/`questionImport`, the **Case Files** logic (`src/lib/caseFiles/caseFiles.test.ts` + `src/data/cases/*.test.ts`, which prove every case is answerable and its trilingual i18n is complete), and the whole **Codecaster** layer (`src/lib/codecaster/*.test.ts` — engine, grading, errors, staticChecks, pyrunner; plus `src/data/codecaster/levels/levels.test.ts` which proves every level is solvable). Run one file with `npx vitest run src/lib/codecaster/engine.test.ts` (or `npx vitest -t "<name>"` for a single case). The React/UI layers are untested — keep new testable logic in the pure modules.
+Vitest (24 files, ~2s) covers the pure logic that's deliberately framework-free: leveling (`leveling.test.ts` + `caseLeveling.test.ts`), the `useGame` store (`useGame.test.ts` + `.shop` + `.codecaster` + `.cases` + `.progress`), the arena engine/`eventQueue`/`matchService`/`questionImport`, the **Case Files** logic (`src/lib/caseFiles/caseFiles.test.ts` + `src/data/cases/*.test.ts`, which prove every case is answerable and its trilingual i18n is complete), and the whole **Codecaster** layer (`src/lib/codecaster/*.test.ts` — engine, grading, errors, staticChecks, pyrunner; plus `src/data/codecaster/levels/levels.test.ts` which proves every level is solvable). Run one file with `npx vitest run src/lib/codecaster/engine.test.ts` (or `npx vitest -t "<name>"` for a single case). The React/UI layers are untested — keep new testable logic in the pure modules.
 
 `scripts/qa-party-rpc.mjs` and `scripts/qa-case-rpc.mjs` are **legacy Supabase-era probes**: they drive the old Postgres RPCs with real `supabase-js` and `NEXT_PUBLIC_SUPABASE_*` env from `.env.local` — they have not been ported to the new backend and won't run against it.
 
-### Backend (`backend/`, separate repo)
+### Backend (`../backend-REGISTAN-GAMES/`, separate repo)
 
 ```bash
-cd backend
+cd ../backend-REGISTAN-GAMES
 npm run dev          # tsx watch → http://localhost:8080 (probe: GET /health → { ok, db })
 npm run typecheck    # tsc --noEmit
 npx prisma db push   # sync prisma/schema.prisma → Neon (needs DATABASE_URL + DIRECT_URL in backend/.env)
@@ -57,6 +57,8 @@ HTTP surface: `POST /rpc/:fn` — one dispatcher over the handler map in `src/rp
 
 Note: live arena/party *gameplay* still runs over realtime presence/broadcast; the tables are the canonical-state/recovery fallback, not the fast path.
 
+**Realtime trust model** (`backend/src/realtime/io.ts`): only `kcq-(arena|room|case)-<code>` channels are accepted; a socket must have joined a channel to broadcast into it; payload size and per-socket rate are capped. Each presence key is bound to a per-browser secret (`keySecret()` in the shim, stored in `localStorage['kcq.rt.<key>']`), so nobody can join under another player's/host's id. The **server overwrites `payload.__from`** with the sender's presence key — receivers gate host-only events (arena `start`/`settings`/`score`, case `reveal`/`results`) on `__from === hostId`, so never trust a client-set `__from` or remove those checks.
+
 ## Architecture
 
 ### Single source of truth: `src/store/useGame.ts`
@@ -67,7 +69,7 @@ One Zustand store (persisted under key `kcq.v2`) holds **all** player progress: 
 - **Shop purchases are login-gated when cloud is on.** `buyAvatar`/`buyTheme` bail early via `purchasesLocked()` = `isCloudEnabled() && !hasStudentSession()` — so with cloud configured you must be signed into a student account to spend coins (offline keeps buying free). `hasStudentSession()` reads `localStorage['kcq.session']` inline to avoid a circular import with `src/lib/supabase/account.ts`; `/shop` mirrors the same gate in the UI and calls `accountSave()` after a successful buy.
 - **Achievements are evaluated, never manually granted.** Actions build a draft state, call `buildSnapshot()`, then filter `ACHIEVEMENTS` by `a.check(snap)`. Each achievement is a pure `check(snapshot)` predicate in `src/data/achievements.ts`. To add an achievement, add a data entry — do not write granting logic.
 - **Hydration safety**: `hydrated` and `celebrations` are transient (excluded via `partialize`). `onRehydrateStorage` flips `hydrated` once localStorage loads. Use `useHydrated()` and gate any locale/progress-dependent render on it to avoid SSR/client mismatch (see the i18n hooks for the pattern).
-- Leveling/streak math is pure functions in `src/lib/leveling.ts` (`levelForXp`, `totalXpForLevel`, `nextStreak`). XP curve: `50*(L-1)*L`.
+- Leveling/streak math is pure functions in `src/lib/leveling.ts` (`levelForXp`, `totalXpForLevel`, `nextStreak`). XP curve: `50*(L-1)*L`. Student ranks (`src/lib/studentRanks.ts`, level-banded `STUDENT_RANKS`, shown by `StudentRankCard`) are derived from level and aren't stored.
 
 ### Data-driven content: `src/data/`
 
@@ -92,7 +94,7 @@ A realtime top-down arena shooter where elimination opens a "Learning Pod" — a
 - **`network/roomService.ts`** — lobby orchestration on top of the transport (presence → player list, host broadcasts settings + start, ready/team toggles). Two host models: custom rooms have a fixed host (creator); quick-match **elects** the lowest-present id as host.
 - **`network/useArenaRoom.ts`** — the React binding: connects on mount, exposes live `RoomState` + lobby actions, leaves on unmount.
 - **`network/matchService.ts` + `eventQueue.ts`** — the in-match netcode (powers embodied 1v1 multiplayer). During play it ships only **events** (`MOVE`/`SHOOT`/`HIT`/`RESPAWN`/`ANSWERED`/`SCORE`/`MATCH_END`), never full state: `OutboundQueue` coalesces `move` (latest-wins) and batches the rest, flushed at a fixed ~12 Hz over the **same** transport/channel as the room. Persistence to `arena_matches`/`arena_match_events` is cloud-only and never blocks gameplay.
-- **`questionEngine.ts` + `localize.ts` + the question bank** — questions are the **trilingual** `LocalizedQuestion` shape (`prompt`/`options`/`explain` each carry `uz`/`ru`/`en`) and are also `grade`-tagged (1–11 Uzbek school class, orthogonal to `difficulty`, which still drives matchmaking). The static bank is `src/data/arenaQuestions.ts` (`ARENA_QUESTIONS_L10N`); admin-imported rows (`cloudQuestions.ts`, migration 0012) share the exact shape and merge in. `localize()` flattens one locale into the runtime question; `questionEngine.ts` scales difficulty to player level, avoids repeats, and **re-shuffles option order every time** (anti-cheat-by-memorization). `questionImport.ts` parses the trilingual Excel upload for `/admin/arena` — **no AI translation**, the spreadsheet carries all three languages.
+- **`questionEngine.ts` + `localize.ts` + the question bank** — questions are the **trilingual** `LocalizedQuestion` shape (`prompt`/`options`/`explain` each carry `uz`/`ru`/`en`) and are also `grade`-tagged (1–11 Uzbek school class, orthogonal to `difficulty`, which still drives matchmaking). The static bank is `src/data/arenaQuestions.ts` (`ARENA_QUESTIONS_L10N`), assembled from `src/data/arenaBank/` by grade — `primary.ts` (1–4), the original grade-5 hardware set + `computer.ts` (5–7: internals, OS, ergonomics), `web.ts` (7–11: HTML/CSS = `web`, JS = `programming`) — authored with the compact builders in `arenaBank/builders.ts` (correct option first; the engine shuffles). `src/data/arenaQuestions.test.ts` validates every entry (unique ids, all 3 locales filled, no Cyrillic in uz/en, unique options, answerable after `localize`+`prepare`, ≥12 per grade), so a malformed new question fails `npm test`. Admin-imported rows (`cloudQuestions.ts`, migration 0012) share the exact shape and merge in. `localize()` flattens one locale into the runtime question; `questionEngine.ts` scales difficulty to player level, avoids repeats, and **re-shuffles option order every time** (anti-cheat-by-memorization). `questionImport.ts` parses the trilingual Excel upload for `/admin/arena` — **no AI translation**, the spreadsheet carries all three languages.
 
 The presence+broadcast pattern originated in `src/lib/party/useParty.ts` (a simpler shared-quiz "party" feature) and was lifted into the arena services — keep them consistent.
 

@@ -14,6 +14,9 @@
 
 import type { Difficulty, Grade } from '@/lib/arena/types';
 import type { LocalizedQuestion } from '@/lib/arena/localize';
+import { PRIMARY_QUESTIONS } from './arenaBank/primary';
+import { COMPUTER_QUESTIONS } from './arenaBank/computer';
+import { WEB_QUESTIONS } from './arenaBank/web';
 
 /** Compact builder for an mcq hardware question. Each locale array is
  *  `[prompt, option0, option1, option2, option3, explain]`; option 0 is correct. */
@@ -40,7 +43,8 @@ function hw(
   };
 }
 
-export const ARENA_QUESTIONS_L10N: LocalizedQuestion[] = [
+/** Grade-5 hardware starter set (the bank's original 30 questions). */
+const HARDWARE_QUESTIONS: LocalizedQuestion[] = [
   hw('hw-1', 5, 'easy', '🧠',
     ['Kompyuterning "miyasi" nima deyiladi?', 'Protsessor (CPU)', 'Monitor', 'Klaviatura', 'Sichqoncha', 'Protsessor hisob-kitob qiladi. U kompyuterning miyasidek ishlaydi.'],
     ['Как называется «мозг» компьютера?', 'Процессор (CPU)', 'Монитор', 'Клавиатура', 'Мышь', 'Процессор (CPU) выполняет все вычисления — это «мозг» компьютера.'],
@@ -161,4 +165,15 @@ export const ARENA_QUESTIONS_L10N: LocalizedQuestion[] = [
     ['Kichik ko‘chma xotira qurilmasi nima deyiladi?', 'USB fleshka', 'Protsessor', 'Monitor', 'Karnay', 'USB fleshka fayllarni olib yurish uchun kichik qurilma.'],
     ['Как называется переносное устройство хранения данных?', 'Флешка (USB)', 'Процессор', 'Монитор', 'Колонки', 'Флешка (USB) — компактное устройство для переноса файлов.'],
     ['What is a small portable storage device called?', 'USB flash drive', 'Processor', 'Monitor', 'Speakers', 'A USB flash drive is a small device for carrying files.']),
+];
+
+/** The full static bank, by school grade:
+ *   1–4  primary basics (arenaBank/primary)
+ *   5–7  computer internals, how it works, OS, ergonomics (here + arenaBank/computer)
+ *   7–11 HTML, CSS, JavaScript (arenaBank/web) */
+export const ARENA_QUESTIONS_L10N: LocalizedQuestion[] = [
+  ...PRIMARY_QUESTIONS,
+  ...HARDWARE_QUESTIONS,
+  ...COMPUTER_QUESTIONS,
+  ...WEB_QUESTIONS,
 ];

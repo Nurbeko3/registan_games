@@ -26,6 +26,7 @@ const en: Dict = {
   'loadout.prev': 'Previous blaster', 'loadout.next': 'Next blaster',
   // arena host role modal
   'arena.hostRole.title': 'Host role',
+  'arena.tfTrue': 'True', 'arena.tfFalse': 'False',
   'arena.hostRole.sub': 'How will you run the room?',
   'arena.hostRole.observer': 'Observer',
   'arena.hostRole.observerDesc': "You don't play. Students battle — you watch and start the match.",
@@ -251,6 +252,7 @@ const en: Dict = {
   'arena.learn.correctAnswer': 'Correct answer',
   'arena.learn.why': 'Why?',
   'arena.cat.hardware': 'Hardware',
+  'arena.cat.os': 'Operating systems', 'arena.cat.ergonomics': 'Ergonomics', 'arena.cat.programming': 'Programming', 'arena.cat.logic': 'Logic', 'arena.cat.math': 'Math', 'arena.cat.algorithms': 'Algorithms', 'arena.cat.web': 'Web', 'arena.cat.ai': 'AI basics',
   'arena.q.tap': 'Tap the steps in order…', 'arena.q.reset': '↺ Reset', 'arena.q.check': 'Check ✓',
   'arena.q.your': 'Your number:',
   // match results
@@ -282,6 +284,7 @@ const en: Dict = {
   'auth.offline': 'Sign-in needs the internet. Your progress is safe on this device.',
   
   'auth.errBad': 'Wrong username or password.',
+  'auth.errRateLimited': 'Too many tries. Wait 15 minutes and try again.',
 
   'auth.errUnknown': 'Something went wrong. Please try again.',
   
@@ -502,6 +505,7 @@ const ru: Dict = {
   'loadout.prev': 'Предыдущий бластер', 'loadout.next': 'Следующий бластер',
   // arena host role modal
   'arena.hostRole.title': 'Роль хоста',
+  'arena.tfTrue': 'Верно', 'arena.tfFalse': 'Неверно',
   'arena.hostRole.sub': 'Как вы будете управлять комнатой?',
   'arena.hostRole.observer': 'Наблюдатель',
   'arena.hostRole.observerDesc': 'Вы не играете. Ученики сражаются — вы наблюдаете и запускаете матч.',
@@ -712,6 +716,7 @@ const ru: Dict = {
   'arena.learn.correctAnswer': 'Правильный ответ',
   'arena.learn.why': 'Почему?',
   'arena.cat.hardware': 'Железо',
+  'arena.cat.os': 'Операционные системы', 'arena.cat.ergonomics': 'Эргономика', 'arena.cat.programming': 'Программирование', 'arena.cat.logic': 'Логика', 'arena.cat.math': 'Математика', 'arena.cat.algorithms': 'Алгоритмы', 'arena.cat.web': 'Веб', 'arena.cat.ai': 'Основы ИИ',
   'arena.q.tap': 'Нажимай шаги по порядку…', 'arena.q.reset': '↺ Сброс', 'arena.q.check': 'Проверить ✓',
   'arena.q.your': 'Твоё число:',
   'arena.res.victory': 'Победа!', 'arena.res.effort': 'Отличная игра!',
@@ -739,6 +744,7 @@ const ru: Dict = {
   'auth.offline': 'Для входа нужен интернет. Прогресс в безопасности на этом устройстве.',
   
   'auth.errBad': 'Неверное имя или пароль.',
+  'auth.errRateLimited': 'Слишком много попыток. Подожди 15 минут и попробуй снова.',
 
   'auth.errUnknown': 'Что-то пошло не так. Попробуй ещё раз.',
   
@@ -950,6 +956,7 @@ const uz: Dict = {
   'loadout.prev': 'Oldingi qurol', 'loadout.next': 'Keyingi qurol',
   // arena host role modal
   'arena.hostRole.title': 'Host roli',
+  'arena.tfTrue': 'To‘g‘ri', 'arena.tfFalse': 'Noto‘g‘ri',
   'arena.hostRole.sub': 'Xonani qanday boshqarasiz?',
   'arena.hostRole.observer': 'Kuzatuvchi',
   'arena.hostRole.observerDesc': 'Siz o’ynamaysiz. O’quvchilar jang qiladi — siz kuzatasiz va matchni boshlaysiz.',
@@ -1160,6 +1167,7 @@ const uz: Dict = {
   'arena.learn.correctAnswer': 'To‘g‘ri javob',
   'arena.learn.why': 'Nega?',
   'arena.cat.hardware': 'Qurilmalar',
+  'arena.cat.os': 'Operatsion tizimlar', 'arena.cat.ergonomics': 'Ergonomika', 'arena.cat.programming': 'Dasturlash', 'arena.cat.logic': 'Mantiq', 'arena.cat.math': 'Matematika', 'arena.cat.algorithms': 'Algoritmlar', 'arena.cat.web': 'Veb', 'arena.cat.ai': 'SI asoslari',
   'arena.q.tap': 'Qadamlarni tartib bilan bosing…', 'arena.q.reset': '↺ Tozalash', 'arena.q.check': 'Tekshirish ✓',
   'arena.q.your': 'Sizning soningiz:',
   'arena.res.victory': 'G‘alaba!', 'arena.res.effort': 'Zo‘r harakat!',
@@ -1187,6 +1195,7 @@ const uz: Dict = {
   'auth.offline': 'Kirish uchun internet kerak. Progressingiz bu qurilmada xavfsiz.',
   
   'auth.errBad': 'Login yoki parol noto‘g‘ri.',
+  'auth.errRateLimited': 'Juda ko‘p urinish. 15 daqiqa kutib, qayta urinib ko‘ring.',
 
   'auth.errUnknown': 'Nimadir xato ketdi. Qaytadan urinib ko‘ring.',
   

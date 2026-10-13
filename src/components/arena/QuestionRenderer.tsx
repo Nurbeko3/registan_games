@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import type { PreparedQuestion } from '@/lib/arena/types';
+import { TF_TRUE } from '@/lib/arena/questionEngine';
 
 /** Renders any of the six BATTLE LEARN ARENA question types and reports the
  *  player's response back up. The parent (LearningPanel) decides what happens
@@ -43,7 +44,7 @@ export function QuestionRenderer({
               onClick={() => onAnswer(i)}
               className="min-h-[64px] rounded-2xl bg-white px-4 py-4 text-center font-display text-xl font-extrabold shadow-card hover:bg-grape-50"
             >
-              {opt}
+              {q.type === 'truefalse' ? t(opt === TF_TRUE ? 'arena.tfTrue' : 'arena.tfFalse') : opt}
             </motion.button>
           ))}
         </div>

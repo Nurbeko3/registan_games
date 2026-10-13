@@ -40,6 +40,24 @@ function getSocket(): Socket {
 }
 
 type Json = Record<string, unknown>;
+
+/** Secret proving this browser owns a realtime presence key. The server binds
+ *  each key to the first secret that claims it, so nobody can join a room under
+ *  someone else's (public) player/host id. Kept in localStorage so a refresh —
+ *  which reuses the saved player id — can reclaim the same key. */
+function keySecret(presenceKey: string): string {
+  const storageKey = `kcq.rt.${presenceKey}`;
+  try {
+    const existing = localStorage.getItem(storageKey);
+    if (existing) return existing;
+  } catch { /* storage blocked — fall through to an in-memory secret */ }
+  const fresh = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+  try { localStorage.setItem(storageKey, fresh); } catch { /* ignore */ }
+  return fresh;
+}
+
 type RpcResponse = { data: unknown; error: { message: string } | null };
 
 async function rpc(fn: string, args?: Json): Promise<RpcResponse> {
@@ -87,6 +105,7 @@ type AnyHandler = (payload: Record<string, unknown>) => void;
 interface SyncMsg { channel: string; state: Record<string, Json> }
 interface BroadcastMsg { channel: string; event: string; payload: Json }
 interface DbChangeMsg { channel: string; table: string; eventType: string; new: Json }
+interface DeniedMsg { channel: string; reason: string }
 
 class BackendChannel {
   private presenceHandlers: AnyHandler[] = [];
@@ -96,8 +115,16 @@ class BackendChannel {
   private meta: Json = {};
   private joined = false;
   private socket: Socket | null = null;
+  private statusCb: ((status: string) => void) | undefined;
+  private readonly secret: string;
 
-  constructor(private name: string, private presenceKey: string) {}
+  constructor(private name: string, private presenceKey: string) {
+    this.secret = keySecret(presenceKey);
+  }
+
+  private joinMsg() {
+    return { channel: this.name, presenceKey: this.presenceKey, keySecret: this.secret, meta: this.meta };
+  }
 
   private onSync = (m: SyncMsg) => {
     if (m.channel !== this.name) return;
@@ -115,9 +142,13 @@ class BackendChannel {
     }
   };
   private onConnect = () => {
-    if (this.joined) {
-      this.socket?.emit('channel:join', { channel: this.name, presenceKey: this.presenceKey, meta: this.meta });
-    }
+    if (this.joined) this.socket?.emit('channel:join', this.joinMsg());
+  };
+  /** Server refused the join (presence key owned by another client, or too
+   *  many channels) — surface it like supabase-js does. */
+  private onDenied = (m: DeniedMsg) => {
+    if (m.channel !== this.name) return;
+    this.statusCb?.('CHANNEL_ERROR');
   };
 
   /** supabase: channel.on('presence'|'broadcast'|'postgres_changes', filter, cb) */
@@ -135,9 +166,11 @@ class BackendChannel {
     s.on('broadcast', this.onBroadcast as never);
     s.on('db:change', this.onDbChange as never);
     s.on('connect', this.onConnect);
+    s.on('channel:denied', this.onDenied as never);
+    this.statusCb = cb;
 
     const join = () => {
-      s.emit('channel:join', { channel: this.name, presenceKey: this.presenceKey, meta: this.meta });
+      s.emit('channel:join', this.joinMsg());
       this.joined = true;
       cb?.('SUBSCRIBED');
     };
@@ -174,7 +207,9 @@ class BackendChannel {
       s.off('broadcast', this.onBroadcast as never);
       s.off('db:change', this.onDbChange as never);
       s.off('connect', this.onConnect);
+      s.off('channel:denied', this.onDenied as never);
     }
+    this.statusCb = undefined;
     this.joined = false;
     return Promise.resolve('ok' as const);
   }

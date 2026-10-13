@@ -225,8 +225,13 @@ export function useCaseRoom(code: string, opts: UseCaseRoomOptions) {
         rebuildPlayers();
       });
 
+    // The backend stamps `__from` with the sender's presence key (clients can't
+    // forge it), so only the host may drive reveal/results.
+    const fromHost = (payload: Record<string, unknown> | undefined) =>
+      !!payload && typeof payload.__from === 'string' && payload.__from === hostId.current;
     // host → all: the just-closed question's correct option (teaching moment)
     channel.on('broadcast', { event: 'reveal' }, ({ payload }) => {
+      if (!fromHost(payload)) return;
       const qi = Number(payload?.qIndex);
       const opt = Number(payload?.correctOption);
       if (Number.isInteger(opt)) setRevealCorrect(opt);
@@ -234,6 +239,7 @@ export function useCaseRoom(code: string, opts: UseCaseRoomOptions) {
     });
     // host → all: final per-player results
     channel.on('broadcast', { event: 'results' }, ({ payload }) => {
+      if (!fromHost(payload)) return;
       if (payload?.results) setResults(payload.results as Record<string, CasePlayerResult>);
     });
 

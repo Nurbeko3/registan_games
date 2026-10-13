@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +11,15 @@ import { AvatarBadge } from '@/components/ui/AvatarBadge';
 import { useParty } from '@/lib/party/useParty';
 import { Confetti } from '@/components/ui/Confetti';
 import { useT } from '@/lib/i18n';
+
+function shuffledIndices(n: number): number[] {
+  const a = Array.from({ length: n }, (_, i) => i);
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function PartyRoomPage() {
   return (
@@ -32,6 +41,16 @@ function Room() {
 
   const party = useParty(code, { name: playerName || 'Player', avatar: getAvatar(avatarId).emoji, isHost });
   const { phase, players, question, qIndex, total, selected, startGame, answer, myId, questionMs } = party;
+
+  // PARTY_QUIZ stores the correct option first, so show the options in a fresh
+  // random order per question (otherwise "always tap the top one" wins). Each
+  // button still answers with its ORIGINAL index, which the server scores.
+  const optionCount = question?.options.length ?? 0;
+  const displayOrder = useMemo(
+    () => shuffledIndices(optionCount),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reshuffle per question only
+    [qIndex, optionCount],
+  );
 
   return (
     <main id="main" className="min-h-screen dotted pb-8">
@@ -96,7 +115,8 @@ function Room() {
             </div>
 
             <div className="mt-4 grid gap-2">
-              {question.options.map((opt, i) => {
+              {displayOrder.map((i) => {
+                const opt = question.options[i];
                 const isCorrect = i === question.answer;
                 const isMine = i === selected;
                 let cls = 'bg-white';
