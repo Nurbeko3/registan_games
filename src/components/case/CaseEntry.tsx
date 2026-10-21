@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Stars } from '@/components/ui/Bits';
+import { Notice, PageHeader } from '@/components/ui/Primitives';
 import { isCloudEnabled } from '@/lib/supabase/client';
 import { useT, useLocale } from '@/lib/i18n';
 import { useGame, useHydrated } from '@/store/useGame';
@@ -13,9 +14,8 @@ import { localizeCaseTitle } from '@/data/cases/i18n';
 import { DetectiveRankBadge } from './DetectiveRankBadge';
 
 /**
- * Case Files mode select. Bot Practice ships in INC 3 (offline). Friendly Room +
- * Classroom Tournament are realtime modes wired in later increments — shown here
- * with a "soon" affordance so the surface is discoverable.
+ * Case Files mode select. Bot Practice is offline; Friendly Room + Classroom
+ * Tournament are realtime modes that need the cloud backend.
  */
 export function CaseEntry() {
   const t = useT();
@@ -34,69 +34,60 @@ export function CaseEntry() {
   const dailyStars = hydrated ? (caseRecords[dailyCase.id]?.stars ?? 0) : 0;
 
   return (
-    <main id="main" className="min-h-screen dotted page-pad-bottom">
-      <TopBar showBack />
-      <div className="mx-auto max-w-md px-4 py-6">
-        <div className="flex items-center gap-3">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-grape-50 text-grape" aria-hidden="true">
-            <Icon name="search" className="h-6 w-6" />
-          </span>
-          <div>
-            <h1 className="h-section">{t('case.title')}</h1>
-            <p className="text-sm text-ink-soft">{t('case.sub')}</p>
-          </div>
-        </div>
+    <main id="main" className="page-pad-bottom min-h-screen">
+      <TopBar />
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+        <PageHeader icon="search" title={t('case.title')} description={t('case.sub')} />
 
-        {/* Detective rank progress */}
-        <div className="mt-4">
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr]">
+          {/* Detective rank progress */}
           <DetectiveRankBadge variant="full" />
+
+          {/* Daily Case card */}
+          <button
+            type="button"
+            onClick={() => router.push(`/case/practice?case=${dailyCase.id}`)}
+            className="card card-hover group flex items-center gap-4 text-left focus-visible:ring-2 focus-visible:ring-brand"
+            aria-label={`${t('case.dailyCase')}: ${dailyTitle}`}
+          >
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-100" aria-hidden="true">
+              <Icon name="gift" className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-display text-sm font-bold text-fg">{t('case.dailyCase')}</p>
+                <span className="badge bg-amber-100 text-amber-700">{t('case.dailyTag')}</span>
+              </div>
+              <p className="mt-0.5 truncate text-sm font-semibold text-fg-soft">{dailyTitle}</p>
+              <p className="text-xs text-fg-faint">{t('case.dailyCaseSub')}</p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <Stars count={dailyStars} size="text-sm" />
+              <Icon name="arrowRight" className="h-4 w-4 text-brand transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </div>
+          </button>
         </div>
 
-        {/* Daily Case card */}
-        <button
-          type="button"
-          onClick={() => router.push(`/case/practice?case=${dailyCase.id}`)}
-          className="mt-5 flex w-full items-center gap-4 rounded-3xl border-2 border-sun/60 bg-gradient-to-br from-sun/10 to-mango/10 px-4 py-4 text-left transition hover:border-sun hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape"
-          aria-label={`${t('case.dailyCase')}: ${dailyTitle}`}
-        >
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-sun to-mango text-white" aria-hidden="true">
-            <Icon name="gift" className="h-6 w-6" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="font-display font-extrabold text-ink">{t('case.dailyCase')}</p>
-              <span className="rounded-full bg-sun/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-mango-600" aria-hidden="true">
-                ★
-              </span>
-            </div>
-            <p className="mt-0.5 truncate text-sm font-bold text-ink-faint">{dailyTitle}</p>
-            <p className="text-[11px] font-bold text-ink-faint">{t('case.dailyCaseSub')}</p>
-          </div>
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            <Stars count={dailyStars} size="text-sm" />
-            <Icon name="rocket" className="h-5 w-5 text-mango-600" aria-hidden="true" />
-          </div>
-        </button>
-
-        <div className="mt-5 space-y-3">
+        <p className="eyebrow mt-8">{t('home.modes')}</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <ModeCard
             icon="bot"
-            accent="from-sky to-grape"
+            tone="bg-brand-50 text-brand ring-brand-100"
             title={t('case.mode.bot')}
             desc={t('case.mode.botDesc')}
             onClick={() => router.push('/case/practice')}
           />
           <ModeCard
-            icon="party"
-            accent="from-grape to-bubble"
+            icon="users"
+            tone="bg-violet-50 text-violet-600 ring-violet-100"
             title={t('case.mode.friendly')}
             desc={t('case.mode.friendlyDesc')}
             online
             onClick={cloud ? () => router.push('/case/friendly') : undefined}
           />
           <ModeCard
-            icon="trophy"
-            accent="from-mango to-sun"
+            icon="graduation"
+            tone="bg-warning-50 text-warning-600 ring-warning-100"
             title={t('case.mode.classroom')}
             desc={t('case.mode.classroomDesc')}
             online
@@ -105,10 +96,9 @@ export function CaseEntry() {
         </div>
 
         {mounted && !cloud && (
-          <p className="mt-5 flex items-start gap-2 rounded-2xl bg-cloud px-4 py-3 text-sm font-bold text-ink-soft">
-            <Icon name="signal" className="mt-0.5 h-5 w-5 shrink-0 text-grape" aria-hidden="true" />
+          <Notice className="mt-5" icon="signal" tone="neutral">
             {t('case.needNet')}
-          </p>
+          </Notice>
         )}
       </div>
     </main>
@@ -116,9 +106,9 @@ export function CaseEntry() {
 }
 
 function ModeCard({
-  icon, accent, title, desc, online, soon, onClick,
+  icon, tone, title, desc, online, soon, onClick,
 }: {
-  icon: IconName; accent: string; title: string; desc: string;
+  icon: IconName; tone: string; title: string; desc: string;
   online?: boolean; soon?: boolean; onClick?: () => void;
 }) {
   const t = useT();
@@ -128,32 +118,25 @@ function ModeCard({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex w-full items-center gap-4 rounded-3xl border-2 px-4 py-4 text-left transition ${
-        disabled
-          ? 'cursor-not-allowed border-grape-100/60 bg-white/60'
-          : 'border-grape-100 bg-white hover:border-grape-400 hover:shadow-card'
+      className={`card group flex h-full flex-col text-left transition focus-visible:ring-2 focus-visible:ring-brand ${
+        disabled ? 'cursor-not-allowed opacity-60' : 'card-hover'
       }`}
     >
-      <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${accent} text-white`}>
-        <Icon name={icon} className="h-6 w-6" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="font-display font-extrabold text-ink">{title}</p>
-          {online && (
-            <span className="rounded-full bg-sky/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-600">
-              {t('case.online')}
-            </span>
-          )}
-          {soon && (
-            <span className="rounded-full bg-grape-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-grape">
-              {t('case.shareSoon')}
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 text-sm font-bold text-ink-faint">{desc}</p>
+      <div className="flex items-start justify-between gap-2">
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ring-1 ring-inset ${tone}`}>
+          <Icon name={icon} className="h-5 w-5" />
+        </span>
+        {online && <span className="badge-brand">{t('case.online')}</span>}
+        {soon && <span className="badge-neutral">{t('case.shareSoon')}</span>}
       </div>
-      {!disabled && <Icon name="rocket" className="h-5 w-5 shrink-0 text-grape" />}
+      <p className="mt-4 font-display text-base font-extrabold text-fg">{title}</p>
+      <p className="mt-1 flex-1 text-sm leading-relaxed text-fg-soft">{desc}</p>
+      {!disabled && (
+        <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand">
+          {t('home.openMode')}
+          <Icon name="arrowRight" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        </span>
+      )}
     </button>
   );
 }

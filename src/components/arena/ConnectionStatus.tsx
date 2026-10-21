@@ -8,17 +8,17 @@ import { useT } from '@/lib/i18n';
 export function ConnectionStatus({ connection, kind }: { connection: ConnectionState; kind: 'cloud' | 'local' }) {
   const t = useT();
   const map: Record<ConnectionState, { label: string; dot: string; cls: string }> = {
-    connecting: { label: t('arena.conn.connecting'), dot: 'bg-sun', cls: 'bg-sun/20 text-mango-600' },
+    connecting: { label: t('arena.conn.connecting'), dot: 'bg-amber-500', cls: 'bg-amber-50 text-amber-700' },
     connected: kind === 'cloud'
-      ? { label: t('arena.conn.online'), dot: 'bg-mint', cls: 'bg-mint/20 text-mint-600' }
-      : { label: t('arena.conn.local'), dot: 'bg-sky', cls: 'bg-sky/20 text-sky-600' },
-    error: { label: t('arena.conn.offline'), dot: 'bg-ink-faint', cls: 'bg-ink/10 text-ink-faint' },
-    offline: { label: t('arena.conn.offline'), dot: 'bg-ink-faint', cls: 'bg-ink/10 text-ink-faint' },
+      ? { label: t('arena.conn.online'), dot: 'bg-success-500', cls: 'bg-success-50 text-success-700' }
+      : { label: t('arena.conn.local'), dot: 'bg-info-500', cls: 'bg-info-50 text-info-700' },
+    error: { label: t('arena.conn.offline'), dot: 'bg-fg-faint', cls: 'bg-surface-3 text-fg-soft' },
+    offline: { label: t('arena.conn.offline'), dot: 'bg-fg-faint', cls: 'bg-surface-3 text-fg-soft' },
   };
   const s = map[connection];
   return (
-    <span className={`chip ${s.cls} inline-flex items-center gap-1.5`}>
-      <span className={`h-2 w-2 rounded-full ${s.dot} ${connection === 'connecting' ? 'animate-pulse' : ''}`} />
+    <span className={`chip ${s.cls}`} role="status">
+      <span className={`h-1.5 w-1.5 rounded-full ${s.dot} ${connection === 'connecting' ? 'animate-pulse' : ''}`} />
       {s.label}
     </span>
   );

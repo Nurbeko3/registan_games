@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   parseSheetRows,
   TEMPLATE_HEADERS,
@@ -11,8 +10,9 @@ import {
   type ParseError,
 } from '@/lib/arena/questionImport';
 import { GRADES } from '@/lib/arena/types';
-
-interface AdminInfo { id: string; email: string; name: string; role: 'super' | 'admin' }
+import { Icon } from '@/components/ui/Icon';
+import { EmptyState, Notice, PageHeader, StatCard } from '@/components/ui/Primitives';
+import { AdminGate, AdminShell, TableSkeleton } from '@/components/admin/AdminShell';
 
 /** One row as returned by kcq_admin_arena_q_list (to_jsonb of the table row). */
 interface QRow {
@@ -30,50 +30,26 @@ interface QRow {
 }
 
 export default function AdminArenaQuestionsPage() {
-  const [admin, setAdmin] = useState<AdminInfo | null | undefined>(undefined);
-
-  useEffect(() => {
-    fetch('/api/admin/me')
-      .then((r) => r.json())
-      .then((d) => setAdmin(d.ok ? d.admin : null))
-      .catch(() => setAdmin(null));
-  }, []);
-
-  if (admin === undefined) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-ink">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
-      </div>
-    );
-  }
-
-  if (admin === null) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-gradient-to-br from-ink to-grape-600 p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-toy text-center"
-        >
-          <div className="text-4xl">🔒</div>
-          <h1 className="mt-2 font-display text-xl font-extrabold">Kirish kerak</h1>
-          <p className="mt-1 text-sm text-ink-soft">
-            Bu sahifadan foydalanish uchun admin sifatida tizimga kiring.
-          </p>
-          <Link href="/admin" className="btn-primary mt-5 block">Admin panelga kirish</Link>
-        </motion.div>
-      </div>
-    );
-  }
-
-  return <QuestionsManager admin={admin} />;
+  return (
+    <AdminGate>
+      {(admin, logout) => (
+        <AdminShell admin={admin} onLogout={() => void logout()}>
+          <QuestionsManager />
+        </AdminShell>
+      )}
+    </AdminGate>
+  );
 }
 
-function QuestionsManager({ admin }: { admin: AdminInfo }) {
+const DIFFICULTY_BADGE: Record<string, string> = { easy: 'badge-success', medium: 'badge-warning', hard: 'badge-danger' };
+
+function QuestionsManager() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [questions, setQuestions] = useState<QRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [gradeFilter, setGradeFilter] = useState<number | 'all'>('all');
+  const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [query, setQuery] = useState('');
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
@@ -98,10 +74,14 @@ function QuestionsManager({ admin }: { admin: AdminInfo }) {
     return counts;
   }, [questions]);
 
-  const shown = useMemo(
-    () => (gradeFilter === 'all' ? questions : questions.filter((q) => q.grade === gradeFilter)),
-    [questions, gradeFilter],
-  );
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return questions.filter((row) =>
+      (gradeFilter === 'all' || row.grade === gradeFilter)
+      && (difficultyFilter === 'all' || row.difficulty === difficultyFilter)
+      && (!q || [row.prompt_uz, row.prompt_ru, row.prompt_en, row.category].some((s) => (s ?? '').toLowerCase().includes(q))),
+    );
+  }, [questions, gradeFilter, difficultyFilter, query]);
 
   // ── Excel template (3 languages per question) ──────────────────────────────
   const downloadTemplate = async () => {
@@ -183,28 +163,21 @@ function QuestionsManager({ admin }: { admin: AdminInfo }) {
     void load();
   };
 
-  return (
-    <div className="min-h-screen bg-cloud">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-grape-100 bg-white px-4 py-3">
-        <div className="flex items-center gap-2 font-display font-extrabold">
-          ⚔️ Arena savollari
-          <span className="hidden text-sm font-bold text-ink-faint sm:inline">{admin.email}</span>
-        </div>
-        <Link href="/admin" className="btn-ghost px-3 py-1.5 text-sm">← Admin panel</Link>
-      </header>
+  const gradesCovered = Object.keys(byGrade).length;
 
-      <main className="mx-auto max-w-4xl px-4 py-6 space-y-5">
-        {/* Import */}
-        <section className="card">
-          <h2 className="font-display text-xl font-extrabold">Excel orqali savol qo‘shish</h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            Avval namunani yuklab oling, savollarni 3 tilda (o‘zbek, rus, ingliz) to‘ldiring, so‘ng faylni yuklang.
-            Bironta til bo‘sh qolsa, u avtomatik to‘ldirilgan tildan nusxalanadi.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={downloadTemplate} className="btn-ghost">📄 Namuna Excelni yuklab olish</button>
-            <button onClick={() => fileRef.current?.click()} disabled={importing} className="btn-primary disabled:opacity-50">
-              {importing ? 'Yuklanmoqda…' : '⬆️ Excel faylni import qilish'}
+  return (
+    <>
+      <PageHeader
+        eyebrow="Arena"
+        title="Arena savollari"
+        description="Uch tilli savollar bankini Excel orqali to‘ldiring. Import qilingan savollar saytdagi asosiy savollarga qo‘shiladi."
+        actions={
+          <>
+            <button type="button" onClick={downloadTemplate} className="btn-secondary btn-sm">
+              <Icon name="download" className="h-3.5 w-3.5" />Namuna (Excel)
+            </button>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={importing} className="btn-primary btn-sm">
+              <Icon name="upload" className="h-3.5 w-3.5" />{importing ? 'Yuklanmoqda…' : 'Excel import'}
             </button>
             <input
               ref={fileRef}
@@ -213,89 +186,160 @@ function QuestionsManager({ admin }: { admin: AdminInfo }) {
               hidden
               onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }}
             />
-          </div>
+          </>
+        }
+      />
 
+      <div className="mt-6 space-y-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Import qilingan savollar" value={loading ? '—' : questions.length} icon="help" tone="brand" />
+          <StatCard label="Qamrab olingan sinflar" value={loading ? '—' : `${gradesCovered}/${GRADES.length}`} icon="graduation" tone="success" />
+          <StatCard label="Variantli (mcq)" value={loading ? '—' : questions.filter((q) => q.type !== 'truefalse').length} icon="layers" />
+          <StatCard label="To‘g‘ri / noto‘g‘ri" value={loading ? '—' : questions.filter((q) => q.type === 'truefalse').length} icon="checkCircle" />
+        </div>
+
+        <AnimatePresence>
           {msg && (
-            <p className={`mt-3 rounded-xl px-3 py-2 text-sm font-bold ${msg.kind === 'ok' ? 'bg-mint/15 text-mint-700' : 'bg-bubble/15 text-bubble-600'}`}>
-              {msg.text}
-            </p>
+            <motion.div key="msg" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <Notice tone={msg.kind === 'ok' ? 'success' : 'danger'} action={<button type="button" onClick={() => setMsg(null)} className="btn-subtle btn-sm">Yopish</button>}>
+                {msg.text}
+              </Notice>
+            </motion.div>
           )}
           {parseErrors.length > 0 && (
-            <div className="mt-3 rounded-xl bg-mango/10 p-3 text-sm">
-              <p className="font-extrabold text-mango-700">O‘tkazib yuborilgan qatorlar:</p>
-              <ul className="mt-1 space-y-0.5 text-ink-soft">
-                {parseErrors.slice(0, 10).map((e) => (
-                  <li key={e.row}>{e.row}-qator: {e.message}</li>
+            <motion.div key="errs" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <Notice tone="warning" action={<button type="button" onClick={() => setParseErrors([])} className="btn-subtle btn-sm">Yopish</button>}>
+                <p className="font-bold">O‘tkazib yuborilgan qatorlar</p>
+                <ul className="mt-1 space-y-0.5 text-xs">
+                  {parseErrors.slice(0, 10).map((e) => (
+                    <li key={e.row}>{e.row}-qator: {e.message}</li>
+                  ))}
+                  {parseErrors.length > 10 && <li>… va yana {parseErrors.length - 10} ta</li>}
+                </ul>
+              </Notice>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <Notice tone="brand" icon="info">
+          Namunani yuklab oling, savollarni 3 tilda (o‘zbek, rus, ingliz) to‘ldiring, so‘ng faylni yuklang. Bironta til bo‘sh qolsa, u to‘ldirilgan tildan nusxalanadi.
+        </Notice>
+
+        {/* table */}
+        <section className="panel">
+          <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 lg:flex-row lg:items-center lg:px-5">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-base font-extrabold text-fg">Savollar <span className="font-semibold text-fg-faint">({questions.length})</span></h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-faint" />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Qidirish…" aria-label="Savolni qidirish" className="input h-9 min-h-0 w-44 py-0 pl-9 sm:w-56" />
+              </div>
+              <select
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                aria-label="Sinf"
+                className="input h-9 min-h-0 w-auto py-0"
+              >
+                <option value="all">Barcha sinflar</option>
+                {GRADES.map((g) => (
+                  <option key={g} value={g}>{g}-sinf{byGrade[g] ? ` (${byGrade[g]})` : ''}</option>
                 ))}
-              </ul>
+              </select>
+              <select
+                value={difficultyFilter}
+                onChange={(e) => setDifficultyFilter(e.target.value as typeof difficultyFilter)}
+                aria-label="Qiyinlik"
+                className="input h-9 min-h-0 w-auto py-0"
+              >
+                <option value="all">Barcha qiyinliklar</option>
+                <option value="easy">Oson</option>
+                <option value="medium">O‘rta</option>
+                <option value="hard">Qiyin</option>
+              </select>
+              {questions.length > 0 && (
+                <button type="button" onClick={clearAll} className="btn-danger-soft btn-sm">
+                  <Icon name="trash" className="h-3.5 w-3.5" />Hammasini o‘chirish
+                </button>
+              )}
+            </div>
+          </div>
+
+          {loading ? (
+            <TableSkeleton rows={6} cols={5} />
+          ) : questions.length === 0 ? (
+            <EmptyState
+              icon="upload"
+              tone="brand"
+              title="Hali import qilingan savol yo‘q"
+              description="Namunani yuklab oling va to‘ldirilgan faylni import qiling."
+              action={
+                <>
+                  <button type="button" onClick={downloadTemplate} className="btn-secondary btn-sm"><Icon name="download" className="h-3.5 w-3.5" />Namuna (Excel)</button>
+                  <button type="button" onClick={() => fileRef.current?.click()} className="btn-primary btn-sm"><Icon name="upload" className="h-3.5 w-3.5" />Excel import</button>
+                </>
+              }
+              className="!rounded-none !border-0 !shadow-none"
+            />
+          ) : shown.length === 0 ? (
+            <EmptyState icon="search" title="Mos savol topilmadi" description="Filtrlarni o‘zgartirib ko‘ring." className="!rounded-none !border-0 !shadow-none" />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table min-w-[760px]">
+                <thead>
+                  <tr>
+                    <th className="w-[46%]">Savol</th>
+                    <th>Sinf</th>
+                    <th>Qiyinlik</th>
+                    <th>Bo‘lim</th>
+                    <th>Javob</th>
+                    <th className="text-right">Amal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((q) => <QuestionRow key={q.id} q={q} onDelete={() => remove(q.id)} />)}
+                </tbody>
+              </table>
             </div>
           )}
+          {!loading && questions.length > 0 && (
+            <div className="border-t border-border px-4 py-2.5 text-xs text-fg-faint sm:px-5">{shown.length} / {questions.length} ta savol</div>
+          )}
         </section>
-
-        {/* Grade filter + list */}
-        <section className="card">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-display text-xl font-extrabold">
-              Import qilingan savollar <span className="text-ink-faint">({questions.length})</span>
-            </h2>
-            {questions.length > 0 && (
-              <button onClick={clearAll} className="text-sm font-bold text-bubble-600 hover:underline">Hammasini o‘chirish</button>
-            )}
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <GradePill active={gradeFilter === 'all'} onClick={() => setGradeFilter('all')} label="Hammasi" count={questions.length} />
-            {GRADES.map((g) => (
-              <GradePill key={g} active={gradeFilter === g} onClick={() => setGradeFilter(g)} label={`${g}-sinf`} count={byGrade[g] ?? 0} />
-            ))}
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {loading ? (
-              <p className="text-sm text-ink-faint">Yuklanmoqda…</p>
-            ) : shown.length === 0 ? (
-              <p className="rounded-xl bg-cloud px-3 py-6 text-center text-sm font-bold text-ink-faint">
-                {questions.length === 0
-                  ? 'Hali import qilingan savol yo‘q. Yuqoridagi namunadan boshlang.'
-                  : 'Bu sinf uchun savol yo‘q.'}
-              </p>
-            ) : (
-              shown.map((q) => <QuestionItem key={q.id} q={q} onDelete={() => remove(q.id)} />)
-            )}
-          </div>
-        </section>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
 
-function GradePill({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: number }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full px-3 py-1 text-xs font-extrabold shadow-card transition ${active ? 'bg-grape text-white' : 'bg-white hover:bg-grape-50'}`}
-    >
-      {label}{count > 0 && <span className={`ml-1 ${active ? 'text-white/70' : 'text-ink-faint'}`}>{count}</span>}
-    </button>
-  );
-}
-
-function QuestionItem({ q, onDelete }: { q: QRow; onDelete: () => void }) {
+function QuestionRow({ q, onDelete }: { q: QRow; onDelete: () => void }) {
   const correct = q.type === 'truefalse'
     ? (q.bool_answer ? 'TRUE' : 'FALSE')
     : (q.options_uz && q.answer != null ? q.options_uz[q.answer] : '—');
+  const langs: [string, string][] = [['uz', q.prompt_uz], ['ru', q.prompt_ru], ['en', q.prompt_en]];
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-grape-100 bg-white p-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-grape-50 text-lg">{q.emoji || '❓'}</span>
-      <div className="min-w-0 flex-1">
-        <p className="font-display font-extrabold text-ink">{q.prompt_uz || q.prompt_ru || q.prompt_en}</p>
-        <p className="mt-0.5 text-xs font-bold text-ink-faint">
-          {q.grade}-sinf · {q.difficulty} · {q.category} · ✅ {correct}
-        </p>
-      </div>
-      <button onClick={onDelete} aria-label="O‘chirish" className="shrink-0 rounded-lg px-2 py-1 text-sm font-bold text-bubble-600 hover:bg-bubble/10">
-        🗑️
-      </button>
-    </div>
+    <tr>
+      <td>
+        <div className="grid gap-1">
+          {langs.map(([code, text]) => (
+            <p key={code} className={`flex min-w-0 items-start gap-2 ${code === 'uz' ? 'text-sm font-bold text-fg' : 'text-xs text-fg-soft'}`}>
+              <span className="mt-0.5 w-5 shrink-0 text-2xs font-bold uppercase tracking-wide text-fg-faint">{code}</span>
+              <span className="line-clamp-2">{text || '—'}</span>
+            </p>
+          ))}
+        </div>
+      </td>
+      <td className="whitespace-nowrap"><span className="badge-brand">{q.grade}-sinf</span></td>
+      <td className="whitespace-nowrap"><span className={DIFFICULTY_BADGE[q.difficulty] ?? 'badge-neutral'}>{q.difficulty}</span></td>
+      <td className="whitespace-nowrap text-xs font-semibold text-fg-soft">{q.category}</td>
+      <td className="max-w-[12rem]">
+        <span className="line-clamp-2 text-xs font-semibold text-fg">{q.type === 'truefalse' ? <span className="badge-neutral">{correct}</span> : correct}</span>
+      </td>
+      <td className="text-right">
+        <button type="button" onClick={onDelete} aria-label="O‘chirish" className="btn-subtle btn-sm text-danger hover:bg-danger-50 hover:text-danger-700">
+          <Icon name="trash" className="h-3.5 w-3.5" />
+        </button>
+      </td>
+    </tr>
   );
 }

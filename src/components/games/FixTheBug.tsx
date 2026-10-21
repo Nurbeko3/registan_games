@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
+import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
 
 interface Puzzle { lines: string[]; bug: number; fix: string }
@@ -51,46 +52,52 @@ export function FixTheBug({ onWin }: GameProps) {
     }, 1100);
   };
 
+  const ok = picked !== null && picked === puzzle.bug;
+
   return (
     <div className="card">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-lg font-extrabold text-ink-soft">{t('mg.bug.instr')}</p>
-        <span className="chip bg-grape-50 text-grape text-sm">{step + 1}/{order.length}</span>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-fg-soft">{t('mg.bug.instr')}</p>
+        <span className="chip bg-brand-50 text-brand-700 tabular-nums">{step + 1}/{order.length}</span>
       </div>
-      <div className="mx-auto mt-5 max-w-2xl overflow-hidden rounded-2xl bg-ink p-2 font-mono text-lg">
+      <div className="mt-3 overflow-hidden rounded-xl border border-border bg-fg p-1.5 font-mono text-[15px] dark:bg-bg-subtle">
         {puzzle.lines.map((line, i) => {
           const isBug = i === puzzle.bug;
           const state =
             picked === null
-              ? ''
-              : i === picked
-              ? isBug
-                ? 'bg-mint/30'
-                : 'bg-bubble/30'
+              ? 'text-success-300 hover:bg-white/[0.06]'
               : isBug
-              ? 'bg-mint/30'
-              : '';
+                ? 'bg-success-500/25 text-success-200'
+                : i === picked
+                  ? 'bg-danger-500/25 text-danger-200'
+                  : 'text-success-300/60';
           return (
             <motion.button
               key={i}
+              type="button"
               onClick={() => choose(i)}
-              whileHover={{ x: picked === null ? 4 : 0 }}
-              className={`flex w-full items-center gap-4 rounded-xl px-4 py-4 text-left text-mint ${state}`}
+              disabled={picked !== null}
+              whileHover={{ x: picked === null ? 3 : 0 }}
+              className={`flex w-full items-center gap-4 rounded-lg px-3 py-3 text-left transition ${state}`}
             >
-              <span className="select-none text-white/30">{i + 1}</span>
+              <span className="w-4 select-none text-right text-white/25">{i + 1}</span>
               <span className="whitespace-pre">{line}</span>
             </motion.button>
           );
         })}
       </div>
       {picked !== null && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-4 rounded-xl bg-cloud p-4 text-center text-lg font-extrabold"
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          role="status"
+          className={`mt-4 flex items-start gap-3 rounded-xl border px-3.5 py-3 text-sm font-medium ${
+            ok ? 'border-success-100 bg-success-50 text-success-700' : 'border-danger-100 bg-danger-50 text-danger-700'
+          }`}
         >
-          {picked === puzzle.bug ? '✅ ' : '❌ '} {puzzle.fix}
-        </motion.p>
+          <Icon name={ok ? 'checkCircle' : 'warning'} className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{puzzle.fix}</span>
+        </motion.div>
       )}
     </div>
   );

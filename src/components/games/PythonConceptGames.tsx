@@ -162,30 +162,30 @@ function PythonConceptGame({ onWin, accent, questions }: ConceptGameProps) {
   };
 
   return (
-    <section className="overflow-hidden rounded-xl2 bg-white shadow-card ring-1 ring-grape-100">
-      <div className={`h-2 bg-gradient-to-r ${accent}`} />
+    <section className="card overflow-hidden !p-0">
+      <div className={`h-1 bg-gradient-to-r ${accent}`} />
       <div className="p-4 sm:p-6">
         <div className="flex items-center justify-between gap-3">
-          <p className="font-display text-sm font-extrabold text-ink-soft">
+          <p className="eyebrow">
             {t('mg.python.step', { current: step + 1, total: rounds.length })}
           </p>
           <div className="flex gap-1" aria-hidden>
             {rounds.map((_, index) => (
               <span
                 key={index}
-                className={`h-2 w-7 rounded-full transition-colors ${
-                  index < step ? 'bg-mint' : index === step ? 'bg-grape' : 'bg-grape-100'
+                className={`h-1.5 w-6 rounded-full transition-colors ${
+                  index < step ? 'bg-success-500' : index === step ? 'bg-brand' : 'bg-border'
                 }`}
               />
             ))}
           </div>
         </div>
 
-        <h2 className="mt-5 font-display text-xl font-extrabold sm:text-2xl">
+        <h2 className="mt-4 font-display text-lg font-extrabold text-fg sm:text-xl">
           {t(question.promptKey)}
         </h2>
 
-        <pre className="mt-4 overflow-x-auto rounded-2xl bg-[#171526] p-4 font-mono text-base leading-7 text-mint sm:p-5 sm:text-lg">
+        <pre className="mt-4 overflow-x-auto rounded-xl border border-border bg-fg p-4 font-mono text-[15px] leading-7 text-success-300 dark:bg-bg-subtle sm:text-base">
           <code>{question.code.join('\n')}</code>
         </pre>
 
@@ -194,12 +194,12 @@ function PythonConceptGame({ onWin, accent, questions }: ConceptGameProps) {
             const isAnswer = index === question.answer;
             const isPicked = index === picked;
             const state = !answered
-              ? 'bg-cloud ring-1 ring-grape-100 hover:bg-grape-50'
+              ? 'border-border bg-surface text-fg hover:border-brand-300 hover:bg-brand-50'
               : isAnswer
-                ? 'bg-mint/15 text-mint-600 ring-2 ring-mint'
+                ? 'border-success-300 bg-success-50 text-success-700'
                 : isPicked
-                  ? 'bg-bubble/10 text-bubble-600 ring-2 ring-bubble'
-                  : 'bg-cloud text-ink-faint opacity-60 ring-1 ring-grape-100';
+                  ? 'border-danger-300 bg-danger-50 text-danger-700'
+                  : 'border-border bg-surface text-fg-faint opacity-60';
             return (
               <motion.button
                 key={option}
@@ -207,7 +207,7 @@ function PythonConceptGame({ onWin, accent, questions }: ConceptGameProps) {
                 whileTap={{ scale: 0.985 }}
                 disabled={answered}
                 onClick={() => choose(index)}
-                className={`flex min-h-14 items-center justify-between rounded-2xl px-4 py-3 text-left font-mono text-base font-bold transition sm:text-lg ${state}`}
+                className={`flex min-h-14 items-center justify-between rounded-xl border px-4 py-3 text-left font-mono text-[15px] font-bold transition sm:text-base ${state}`}
               >
                 <span className="min-w-0 break-words">{question.optionKeys ? t(option) : option}</span>
                 {answered && isAnswer && <Check className="ml-3 h-5 w-5 shrink-0" aria-hidden />}
@@ -221,16 +221,16 @@ function PythonConceptGame({ onWin, accent, questions }: ConceptGameProps) {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`mt-4 rounded-2xl p-4 ${correct ? 'bg-mint/10' : 'bg-sun/20'}`}
+            className={`mt-4 rounded-xl border p-4 ${correct ? 'border-success-100 bg-success-50' : 'border-amber-200 bg-amber-50'}`}
             role="status"
           >
-            <p className="font-display font-extrabold">
+            <p className={`font-display font-extrabold ${correct ? 'text-success-700' : 'text-amber-800'}`}>
               {correct ? t('mg.python.correct') : t('mg.python.learn')}
             </p>
-            <p className="mt-1 leading-relaxed text-ink-soft">{t(question.explanationKey)}</p>
+            <p className="mt-1 text-sm leading-relaxed text-fg-soft">{t(question.explanationKey)}</p>
             <button type="button" onClick={next} className="btn-primary mt-4 w-full sm:w-auto">
               {step === rounds.length - 1 ? t('mg.python.finish') : t('mg.python.next')}
-              <ChevronRight className="h-5 w-5" aria-hidden />
+              <ChevronRight className="h-4 w-4" aria-hidden />
             </button>
           </motion.div>
         )}
@@ -240,13 +240,13 @@ function PythonConceptGame({ onWin, accent, questions }: ConceptGameProps) {
 }
 
 export function VariableVault(props: GameProps) {
-  return <PythonConceptGame {...props} accent="from-sky to-mint" questions={VARIABLES} />;
+  return <PythonConceptGame {...props} accent="from-info-500 to-info-600" questions={VARIABLES} />;
 }
 
 export function IfElseQuest(props: GameProps) {
-  return <PythonConceptGame {...props} accent="from-mango to-bubble" questions={CONDITIONS} />;
+  return <PythonConceptGame {...props} accent="from-warning-500 to-warning-600" questions={CONDITIONS} />;
 }
 
 export function ListLab(props: GameProps) {
-  return <PythonConceptGame {...props} accent="from-grape to-sky" questions={LISTS} />;
+  return <PythonConceptGame {...props} accent="from-brand-500 to-brand-600" questions={LISTS} />;
 }

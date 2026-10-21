@@ -1,26 +1,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { WEAPONS, type WeaponId, getWeapon, getWeaponStats } from '@/lib/arena/weapons';
 import { useT } from '@/lib/i18n';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { WeaponIcon } from './WeaponIcon';
 
-/** A playful, kid-friendly blaster picker: a big "this is your blaster" card with
- *  simple 1–5 dot ratings (no abstract % bars), plus a colorful tap-to-change row. */
-
-/** Per-blaster accent gradient — gives each card its own happy colour. */
-const ACCENT: Record<WeaponId, string> = {
-  'training-rifle': 'from-grape to-grape-400',
-  'energy-rifle': 'from-sky to-grape',
-  'burst-rifle': 'from-grape to-bubble',
-  smg: 'from-mint to-sky',
-  shotgun: 'from-bubble to-mango',
-  sniper: 'from-grape-700 to-grape',
-  support: 'from-sky to-mint',
-  'learning-blaster': 'from-mango to-sun',
-};
-
+/** Blaster picker: a "your blaster" summary card with 1–5 dot ratings, plus a
+ *  horizontally scrolling strip of selectable cards with arrow navigation. */
 export function WeaponLoadout({
   value,
   onChange,
@@ -56,113 +43,97 @@ export function WeaponLoadout({
   }, [value]);
 
   return (
-    <section className={compact ? 'mt-4' : 'mt-5'}>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="font-display font-extrabold">{t('loadout.title')}</p>
-        <span className="rounded-full bg-grape-50 px-2.5 py-1 text-[11px] font-extrabold text-grape">{t('loadout.hint')}</span>
+    <section className={compact ? 'mt-4' : 'mt-6'} aria-label={t('loadout.title')}>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-bold text-fg">{t('loadout.title')}</p>
+        <span className="badge-neutral">{t('loadout.hint')}</span>
       </div>
 
-      {/* ── your blaster (big & friendly) ── */}
-      <div className="rounded-[26px] bg-white p-4 shadow-card ring-1 ring-grape-100/80">
-        <div className="flex items-center gap-3.5">
-          <div className={`grid h-20 w-20 shrink-0 place-items-center rounded-3xl bg-gradient-to-br ${ACCENT[selected.id]} shadow-card`}>
-            <WeaponIcon id={selected.id} className="h-14 w-16 drop-shadow" />
+      <div className="panel">
+        {/* ── selected blaster ── */}
+        <div className="flex items-center gap-4 p-4">
+          <div className="grid h-16 w-20 shrink-0 place-items-center rounded-xl bg-surface-2 ring-1 ring-inset ring-border">
+            <WeaponIcon id={selected.id} className="h-12 w-16" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-2xl leading-none">{selected.emoji}</span>
-              <p className="truncate font-display text-xl font-extrabold leading-tight">{t(selected.nameKey)}</p>
+            <p className="truncate font-display text-base font-extrabold text-fg">{t(selected.nameKey)}</p>
+            <p className="mt-0.5 text-xs text-fg-soft">{t('loadout.sub')}</p>
+            <div className="mt-2.5 grid gap-1.5">
+              <StatRow icon="zap" label={t('loadout.power')} value={stats.power} />
+              <StatRow icon="activity" label={t('loadout.speed')} value={stats.speed} />
+              <StatRow icon="target" label={t('loadout.control')} value={stats.control} />
             </div>
-            <p className="mt-0.5 text-xs font-bold text-ink-soft">{t('loadout.sub')}</p>
           </div>
         </div>
 
-        <div className="mt-3.5 space-y-2.5">
-          <StatRow emoji="💪" label={t('loadout.power')} value={stats.power} />
-          <StatRow emoji="⚡" label={t('loadout.speed')} value={stats.speed} />
-          <StatRow emoji="🎯" label={t('loadout.control')} value={stats.control} />
+        {/* ── strip ── */}
+        <div className="relative border-t border-border px-10 py-3">
+          <Arrow dir="left" disabled={atStart} onClick={() => go(-1)} label={t('loadout.prev')} />
+          <div ref={scrollRef} className="scrollbar-none flex snap-x gap-2 overflow-x-auto" role="radiogroup" aria-label={t('loadout.title')}>
+            {WEAPONS.map((w) => {
+              const active = w.id === value;
+              return (
+                <button
+                  key={w.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  data-active={active}
+                  onClick={() => onChange(w.id)}
+                  className={`relative w-[96px] shrink-0 snap-center rounded-xl border p-2 text-center transition ${
+                    active
+                      ? 'border-brand bg-brand-50 shadow-xs'
+                      : 'border-border bg-surface hover:border-border-strong hover:bg-surface-2'
+                  }`}
+                >
+                  {active && (
+                    <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-brand text-white ring-2 ring-surface">
+                      <Icon name="check" className="h-3 w-3" />
+                    </span>
+                  )}
+                  <div className="grid h-10 w-full place-items-center">
+                    <WeaponIcon id={w.id} className="h-9 w-12" />
+                  </div>
+                  <p className={`mt-1 line-clamp-2 text-[11px] font-bold leading-tight ${active ? 'text-brand-700' : 'text-fg-soft'}`}>{t(w.nameKey)}</p>
+                </button>
+              );
+            })}
+          </div>
+          <Arrow dir="right" disabled={atEnd} onClick={() => go(1)} label={t('loadout.next')} />
         </div>
-      </div>
-
-      {/* ── tap an arrow (or swipe) to change blaster ── */}
-      <div className="relative mt-3 px-9">
-        <Arrow dir="left" disabled={atStart} onClick={() => go(-1)} label={t('loadout.prev')} />
-        <div
-          ref={scrollRef}
-          className="flex snap-x gap-2.5 overflow-x-auto pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {WEAPONS.map((w) => {
-            const active = w.id === value;
-            return (
-              <motion.button
-                key={w.id}
-                data-active={active}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => onChange(w.id)}
-                aria-pressed={active}
-                className={`relative w-[104px] shrink-0 snap-center rounded-2xl p-2.5 text-center transition ${
-                  active
-                    ? 'scale-[1.04] bg-white shadow-card ring-2 ring-grape'
-                    : 'bg-grape-50/70 ring-1 ring-transparent hover:bg-grape-100'
-                }`}
-              >
-                {active && (
-                  <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-grape text-[13px] font-extrabold text-white shadow-card ring-2 ring-white">
-                    ✓
-                  </span>
-                )}
-                <div className={`mx-auto grid h-12 w-full place-items-center rounded-xl bg-gradient-to-br ${ACCENT[w.id]} ${active ? '' : 'opacity-90'}`}>
-                  <WeaponIcon id={w.id} className="h-9 w-12" />
-                </div>
-                <div className="mt-1.5 flex items-center justify-center gap-1">
-                  <span className="text-sm leading-none">{w.emoji}</span>
-                  <p className="line-clamp-2 font-display text-[11px] font-extrabold leading-tight">{t(w.nameKey)}</p>
-                </div>
-              </motion.button>
-            );
-          })}
-        </div>
-        <Arrow dir="right" disabled={atEnd} onClick={() => go(1)} label={t('loadout.next')} />
       </div>
     </section>
   );
 }
 
-/** Big, kid-friendly round arrow that switches to the prev/next blaster. */
 function Arrow({ dir, disabled, onClick, label }: { dir: 'left' | 'right'; disabled: boolean; onClick: () => void; label: string }) {
   return (
-    <motion.button
+    <button
       type="button"
-      whileTap={disabled ? undefined : { scale: 0.88 }}
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`absolute top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-grape shadow-card ring-1 ring-grape-100 transition ${
-        dir === 'left' ? 'left-0' : 'right-0'
-      } ${disabled ? 'cursor-not-allowed opacity-30' : 'hover:bg-grape-50 active:bg-grape-100'}`}
+      className={`absolute top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg border border-border bg-surface text-fg-soft shadow-xs transition ${
+        dir === 'left' ? 'left-1.5' : 'right-1.5'
+      } ${disabled ? 'cursor-not-allowed opacity-30' : 'hover:border-border-strong hover:text-fg'}`}
     >
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-        {dir === 'left' ? <path d="M15 5l-7 7 7 7" /> : <path d="M9 5l7 7-7 7" />}
-      </svg>
-    </motion.button>
+      <Icon name={dir === 'left' ? 'chevronLeft' : 'chevronRight'} className="h-4 w-4" />
+    </button>
   );
 }
 
-/** One stat as an emoji + label + 5 friendly dots (1–5 filled). */
-function StatRow({ emoji, label, value }: { emoji: string; label: string; value: number }) {
+/** One stat as an icon + label + 5 dots (1–5 filled). */
+function StatRow({ icon, label, value }: { icon: IconName; label: string; value: number }) {
   const filled = Math.max(1, Math.min(5, Math.round(value / 20)));
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="flex items-center gap-1.5 text-sm font-extrabold text-ink">
-        <span className="text-base leading-none">{emoji}</span>
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-fg-soft">
+        <Icon name={icon} className="h-3.5 w-3.5 text-fg-faint" />
         {label}
       </span>
-      <span className="flex gap-1">
+      <span className="flex gap-1" aria-label={`${filled}/5`}>
         {Array.from({ length: 5 }).map((_, i) => (
-          <span
-            key={i}
-            className={`h-2.5 w-2.5 rounded-full ${i < filled ? 'bg-gradient-to-r from-grape to-sky' : 'bg-grape-100'}`}
-          />
+          <span key={i} className={`h-1.5 w-3 rounded-full ${i < filled ? 'bg-brand' : 'bg-border'}`} />
         ))}
       </span>
     </div>

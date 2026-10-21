@@ -31,29 +31,34 @@ export function BinaryChallenge({ onWin }: GameProps) {
 
   return (
     <div className="card text-center">
-      <p className="font-bold text-ink-soft">{t('mg.binary.instr')}</p>
-      <p className="mt-1 font-display text-5xl font-extrabold text-grape">{target}</p>
+      <p className="eyebrow">{t('mg.binary.instr')}</p>
+      <p className="mt-2 font-display text-5xl font-extrabold tabular-nums tracking-tight text-brand">{target}</p>
 
-      <motion.div animate={shake ? { x: [-8, 8, -6, 6, 0] } : {}} className="mt-6 flex justify-center gap-3">
+      <motion.div animate={shake ? { x: [-8, 8, -6, 6, 0] } : {}} className="mt-6 flex justify-center gap-2 sm:gap-3">
         {BITS.map((bit, i) => (
           <button
             key={bit}
+            type="button"
             onClick={() => toggle(i)}
-            className={`grid h-20 w-16 place-items-center rounded-2xl font-display text-3xl font-extrabold shadow-card transition ${
-              bits[i] ? 'bg-grape text-white' : 'bg-white text-ink-faint'
+            aria-pressed={bits[i]}
+            className={`grid h-20 w-14 place-items-center rounded-xl border font-display text-3xl font-extrabold tabular-nums transition sm:w-16 ${
+              bits[i]
+                ? 'border-brand bg-brand text-white shadow-sm'
+                : 'border-border bg-surface text-fg-faint hover:border-border-strong hover:bg-surface-2'
             }`}
           >
             {bits[i] ? 1 : 0}
-            <span className="mt-0.5 block text-[10px] font-bold opacity-70">{bit}</span>
+            <span className={`mt-0.5 block text-2xs font-bold ${bits[i] ? 'text-white/70' : 'text-fg-faint'}`}>{bit}</span>
           </button>
         ))}
       </motion.div>
 
-      <p className="mt-4 font-display text-lg font-extrabold">
-        {t('arena.q.your')} <span className={value === target ? 'text-mint' : 'text-bubble-600'}>{value}</span>
+      <p className="mt-5 font-display text-lg font-bold text-fg-soft">
+        {t('arena.q.your')}{' '}
+        <span className={`tabular-nums ${value === target ? 'text-success-600' : 'text-danger'}`}>{value}</span>
       </p>
-      <button onClick={check} className="btn-primary mt-3 w-full">{t('mg.check')}</button>
-      <p className="mt-3 text-lg font-extrabold text-ink-faint">{t('mg.binary.tries', { n: tries })}</p>
+      <button type="button" onClick={check} className="btn-primary mt-3 w-full">{t('mg.check')}</button>
+      <p className="mt-3 text-sm font-semibold text-fg-faint">{t('mg.binary.tries', { n: tries })}</p>
     </div>
   );
 }

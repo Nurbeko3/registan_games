@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { useArenaRoom } from '@/lib/arena/network/useArenaRoom';
 import { TEAM_SIZES, getMode } from '@/data/arenaModes';
 import { ARENA_MAPS, getMap } from '@/data/arenaMaps';
 import { DIFFICULTIES } from './PracticeSetup';
+import { Pills, SettingRow } from './CreateRoomModal';
+import { Icon } from '@/components/ui/Icon';
+import { EmptyState, Spinner, Switch } from '@/components/ui/Primitives';
 import type { RoomSettings } from '@/lib/arena/network/types';
 import { GRADES, type Grade } from '@/lib/arena/types';
 import type { ArenaDifficulty } from '@/lib/arena/engine';
@@ -85,10 +87,12 @@ export function RoomLobby({
   // joiner stays here until the host is confirmed (or it times out → error)
   if (!s || s.phase === 'connecting') {
     return (
-      <div className="mx-auto max-w-md px-4 py-12 text-center">
-        <motion.div animate={{ rotate: [0, 12, -12, 0] }} transition={{ duration: 1.6, repeat: Infinity }} className="text-4xl">🔍</motion.div>
-        <p className="mt-3 font-display font-extrabold text-ink-soft">{t('lobby.lookingForRoom')}</p>
-        <button onClick={leaveRoom} className="btn-ghost mt-5 px-4 py-2 text-sm">← {t('hud.leave')}</button>
+      <div className="mx-auto flex max-w-md flex-col items-center px-4 py-16 text-center">
+        <Spinner className="h-8 w-8" label={t('lobby.lookingForRoom')} />
+        <p className="mt-4 text-sm font-semibold text-fg-soft">{t('lobby.lookingForRoom')}</p>
+        <button type="button" onClick={leaveRoom} className="btn-secondary btn-sm mt-5">
+          <Icon name="arrowLeft" className="h-4 w-4" /> {t('hud.leave')}
+        </button>
       </div>
     );
   }
@@ -100,13 +104,14 @@ export function RoomLobby({
     const joinedBeforeStart = s.roster.length === 0 || s.roster.some((p) => p.netId === s.myId);
     if (!joinedBeforeStart && !s.isHost) {
       return (
-        <div className="mx-auto max-w-md px-4 py-8">
-          <div className="rounded-[28px] border border-grape-100 bg-white p-6 text-center shadow-soft">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-grape-50 text-3xl">⏱</div>
-            <p className="mt-3 font-display text-xl font-extrabold">{t('arena.matchAlreadyStarted')}</p>
-            <p className="mt-2 text-sm font-bold text-ink-soft">{t('arena.matchAlreadyStartedBody')}</p>
-            <button onClick={leaveRoom} className="btn-primary mt-5 w-full">← {t('hud.leave')}</button>
-          </div>
+        <div className="mx-auto max-w-md px-4 py-10">
+          <EmptyState
+            icon="timer"
+            tone="brand"
+            title={t('arena.matchAlreadyStarted')}
+            description={t('arena.matchAlreadyStartedBody')}
+            action={<button type="button" onClick={leaveRoom} className="btn-primary"><Icon name="arrowLeft" className="h-4 w-4" /> {t('hud.leave')}</button>}
+          />
         </div>
       );
     }
@@ -162,13 +167,14 @@ export function RoomLobby({
     const notFound = s.errorReason === 'notfound';
     const hostLeft = s.errorReason === 'hostleft';
     return (
-      <div className="mx-auto max-w-md px-4 py-8">
-        <div className="card text-center">
-          <div className="text-4xl">{hostLeft ? '👋' : notFound ? '🚫' : '📡'}</div>
-          <p className="mt-2 font-display font-extrabold">{hostLeft ? t('arena.hostLeftTitle') : notFound ? t('arena.invalidTitle') : t('arena.cloudTitle')}</p>
-          <p className="mt-1 text-ink-soft">{hostLeft ? t('arena.hostLeftBody') : notFound ? t('arena.invalidBody') : t('arena.cloudBody')}</p>
-          <button onClick={leaveRoom} className="btn-primary mt-4">← {t('hud.leave')}</button>
-        </div>
+      <div className="mx-auto max-w-md px-4 py-10">
+        <EmptyState
+          icon={hostLeft ? 'logout' : notFound ? 'warning' : 'signal'}
+          tone={hostLeft ? 'neutral' : 'danger'}
+          title={hostLeft ? t('arena.hostLeftTitle') : notFound ? t('arena.invalidTitle') : t('arena.cloudTitle')}
+          description={hostLeft ? t('arena.hostLeftBody') : notFound ? t('arena.invalidBody') : t('arena.cloudBody')}
+          action={<button type="button" onClick={leaveRoom} className="btn-primary"><Icon name="arrowLeft" className="h-4 w-4" /> {t('hud.leave')}</button>}
+        />
       </div>
     );
   }
@@ -186,153 +192,124 @@ export function RoomLobby({
   };
 
   return (
-    <div className="mx-auto max-w-md px-4 py-5">
-      <div className="mb-3 flex items-center justify-between">
-        <button onClick={leaveRoom} className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</button>
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <button type="button" onClick={leaveRoom} className="btn-secondary btn-sm">
+          <Icon name="arrowLeft" className="h-4 w-4" /> {t('hud.leave')}
+        </button>
         <ConnectionStatus connection={s.connection} kind={s.kind} />
       </div>
 
-      <div className="rounded-[28px] border border-grape-100 bg-white p-5 text-center shadow-soft">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-grape-50 text-2xl">#</div>
-        <p className="mt-3 text-xs font-bold uppercase tracking-widest text-ink-faint">{t('lobby.roomCode')}</p>
-        <button
-          type="button"
-          onClick={copyCode}
-          className="mt-2 w-full rounded-3xl bg-grape-50 px-4 py-4 font-display text-5xl font-extrabold tracking-[0.22em] text-grape shadow-inner transition hover:bg-grape-100"
-          aria-label={t('lobby.roomCode')}
-        >
-          {code}
-        </button>
-        <p className="mt-2 text-sm font-bold text-ink-soft">{copiedCode ? t('lobby.codeCopied') : t('lobby.shareCode')}</p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:items-start">
+        {/* ── left: code + players + ready ── */}
+        <div className="space-y-4">
+          <div className="card">
+            <p className="eyebrow">{t('lobby.roomCode')}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <code
+                className="flex-1 select-all rounded-xl border border-border bg-surface-2 px-4 py-3 text-center font-mono text-3xl font-bold tracking-[0.3em] text-fg"
+                aria-label={t('lobby.roomCode')}
+              >
+                {code}
+              </code>
+              <button
+                type="button"
+                onClick={copyCode}
+                className={`btn-secondary btn-icon h-[58px] w-[58px] ${copiedCode ? 'text-success-600' : ''}`}
+                aria-label={t('lobby.codeCopied')}
+                title={t('lobby.codeCopied')}
+              >
+                <Icon name={copiedCode ? 'check' : 'copy'} className="h-5 w-5" />
+              </button>
+            </div>
+            <p className={`help ${copiedCode ? 'text-success-600' : ''}`}>{copiedCode ? t('lobby.codeCopied') : t('lobby.shareCode')}</p>
+          </div>
+
+          <PlayerList players={s.players} myId={s.myId} />
+
+          {counting ? (
+            <div className="card text-center">
+              <Spinner className="mx-auto h-6 w-6" label={t('lobby.starting')} />
+              <p className="mt-3 font-display text-lg font-extrabold text-fg">{t('lobby.getReady')}</p>
+              <p className="text-sm text-fg-soft">{t('lobby.starting')}</p>
+            </div>
+          ) : (
+            <ReadyPanel
+              players={s.players}
+              myId={s.myId}
+              isHost={s.isHost}
+              onTeam={room.setTeam}
+              onReady={room.setReady}
+              onStart={room.start}
+            />
+          )}
+        </div>
+
+        {/* ── right: settings (host-editable) + loadout ── */}
+        <div>
+          <div className="card">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-fg">{t('lobby.settings')}</p>
+              {s.isHost ? <span className="badge-brand">{t('lobby.youreHost')}</span> : <span className="badge-neutral"><Icon name="lock" className="h-3 w-3" /> {t('lobby.waitingHost')}</span>}
+            </div>
+
+            <div className="mt-3">
+              <SettingRow label={t('arena.map')}>
+                <Pills
+                  items={ARENA_MAPS.map((m) => ({ id: m.id, label: `${m.name} · ${m.size} · ${m.challenge}` }))}
+                  value={s.settings.mapId}
+                  disabled={!s.isHost}
+                  onPick={(id) => set({ mapId: id })}
+                />
+              </SettingRow>
+
+              <SettingRow label={t('lobby.teamSize')}>
+                <Pills
+                  items={TEAM_SIZES.map((tz) => ({ id: String(tz.perTeam), label: tz.label }))}
+                  value={String(s.settings.perTeam)}
+                  disabled={!s.isHost}
+                  onPick={(id) => set({ perTeam: Number(id) })}
+                />
+              </SettingRow>
+
+              <SettingRow label={t('lobby.botDifficulty')}>
+                <Pills
+                  items={DIFFICULTIES.map((d) => ({ id: d.id, label: d.label }))}
+                  value={s.settings.difficulty}
+                  disabled={!s.isHost}
+                  onPick={(id) => set({ difficulty: id as ArenaDifficulty })}
+                />
+              </SettingRow>
+
+              <SettingRow label={t('arena.grade')}>
+                <Pills
+                  items={[
+                    { id: 'all', label: t('arena.gradeAll') },
+                    ...GRADES.map((g) => ({ id: String(g), label: t('arena.gradeN', { n: g }) })),
+                  ]}
+                  value={s.settings.grade == null ? 'all' : String(s.settings.grade)}
+                  disabled={!s.isHost}
+                  onPick={(id) => set({ grade: id === 'all' ? undefined : (Number(id) as Grade) })}
+                />
+              </SettingRow>
+
+              <SettingRow label={t('lobby.matchLength')}>
+                <MatchLengthInput
+                  durationSec={s.settings.durationSec}
+                  disabled={!s.isHost}
+                  onChange={(sec) => set({ durationSec: sec })}
+                />
+              </SettingRow>
+
+              <div className={`mt-3 rounded-xl border border-border ${s.isHost ? '' : 'pointer-events-none opacity-60'}`}>
+                <Switch checked={s.settings.botFill} onChange={(v) => set({ botFill: v })} label={t('lobby.fillBots')} icon="bot" />
+              </div>
+            </div>
+          </div>
+
+          <WeaponLoadout value={weapon} onChange={setWeapon} compact />
+        </div>
       </div>
-
-      <div className="mt-4">
-        <PlayerList players={s.players} myId={s.myId} />
-      </div>
-
-      {/* settings — editable by host, read-only otherwise */}
-      <div className="card mt-4">
-        <p className="font-display font-extrabold">
-          {t('lobby.settings')} {s.isHost && <span className="text-xs text-grape">{t('lobby.youreHost')}</span>}
-        </p>
-
-        <SettingRow label="Map">
-          <Pills
-            items={ARENA_MAPS.map((m) => ({ id: m.id, label: `${m.emoji} ${m.name} · ${m.size} · ${m.challenge}` }))}
-            value={s.settings.mapId}
-            disabled={!s.isHost}
-            onPick={(id) => set({ mapId: id })}
-          />
-        </SettingRow>
-
-        <SettingRow label={t('lobby.teamSize')}>
-          <Pills
-            items={TEAM_SIZES.map((tz) => ({ id: String(tz.perTeam), label: tz.label }))}
-            value={String(s.settings.perTeam)}
-            disabled={!s.isHost}
-            onPick={(id) => set({ perTeam: Number(id) })}
-          />
-        </SettingRow>
-
-        <SettingRow label={t('lobby.botDifficulty')}>
-          <Pills
-            items={DIFFICULTIES.map((d) => ({ id: d.id, label: `${d.emoji} ${d.label}` }))}
-            value={s.settings.difficulty}
-            disabled={!s.isHost}
-            onPick={(id) => set({ difficulty: id as ArenaDifficulty })}
-          />
-        </SettingRow>
-
-        <SettingRow label={t('arena.grade')}>
-          <Pills
-            items={[
-              { id: 'all', label: t('arena.gradeAll') },
-              ...GRADES.map((g) => ({ id: String(g), label: t('arena.gradeN', { n: g }) })),
-            ]}
-            value={s.settings.grade == null ? 'all' : String(s.settings.grade)}
-            disabled={!s.isHost}
-            onPick={(id) => set({ grade: id === 'all' ? undefined : (Number(id) as Grade) })}
-          />
-        </SettingRow>
-
-        <SettingRow label={t('lobby.matchLength')}>
-          <MatchLengthInput
-            durationSec={s.settings.durationSec}
-            disabled={!s.isHost}
-            onChange={(sec) => set({ durationSec: sec })}
-          />
-        </SettingRow>
-
-        <SettingRow label={t('lobby.fillBots')}>
-          <button
-            disabled={!s.isHost}
-            onClick={() => set({ botFill: !s.settings.botFill })}
-            className={`rounded-full px-4 py-1.5 text-sm font-extrabold shadow-card transition disabled:opacity-60 ${
-              s.settings.botFill ? 'bg-mint text-white' : 'bg-white text-ink-faint'
-            }`}
-          >
-            {s.settings.botFill ? 'ON' : 'OFF'}
-          </button>
-        </SettingRow>
-      </div>
-
-      <WeaponLoadout value={weapon} onChange={setWeapon} compact />
-
-      <div className="mt-4">
-        {counting ? (
-          <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="card text-center">
-            <p className="font-display text-2xl font-extrabold text-grape">{t('lobby.getReady')}</p>
-            <p className="text-ink-soft">{t('lobby.starting')}</p>
-          </motion.div>
-        ) : (
-          <ReadyPanel
-            players={s.players}
-            myId={s.myId}
-            isHost={s.isHost}
-            onTeam={room.setTeam}
-            onReady={room.setReady}
-            onStart={room.start}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="mt-3">
-      <p className="mb-1.5 text-xs font-bold text-ink-faint">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-function Pills({
-  items,
-  value,
-  disabled,
-  onPick,
-}: {
-  items: { id: string; label: string }[];
-  value: string;
-  disabled?: boolean;
-  onPick: (id: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {items.map((it) => (
-        <button
-          key={it.id}
-          disabled={disabled}
-          onClick={() => onPick(it.id)}
-          className={`rounded-full px-3 py-1.5 text-xs font-extrabold shadow-card transition disabled:opacity-60 ${
-            value === it.id ? 'bg-grape text-white' : 'bg-white hover:bg-grape-50'
-          }`}
-        >
-          {it.label}
-        </button>
-      ))}
     </div>
   );
 }

@@ -6,10 +6,10 @@ import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
 
 const PADS = [
-  { color: 'bg-grape', lit: 'bg-grape-400' },
-  { color: 'bg-mango', lit: 'bg-sun' },
-  { color: 'bg-mint', lit: 'bg-mint-600' },
-  { color: 'bg-sky', lit: 'bg-sky-600' },
+  { color: 'bg-brand', lit: 'bg-brand-300' },
+  { color: 'bg-warning-500', lit: 'bg-amber-300' },
+  { color: 'bg-success-500', lit: 'bg-success-300' },
+  { color: 'bg-info-500', lit: 'bg-info-300' },
 ];
 const TARGET = 6; // sequence length to win
 
@@ -71,28 +71,31 @@ export function PatternPop({ onWin }: GameProps) {
 
   return (
     <div className="card text-center">
-      <p className="font-bold text-ink-soft">
+      <p className="text-sm font-semibold text-fg-soft" aria-live="polite">
         {phase === 'idle' && t('mg.pattern.idle')}
         {phase === 'watch' && t('mg.pattern.watch')}
         {phase === 'play' && t('mg.pattern.turn', { n: seq.length })}
       </p>
 
-      <div className="mx-auto mt-5 grid max-w-sm grid-cols-2 gap-4">
+      <div className="mx-auto mt-5 grid max-w-sm grid-cols-2 gap-3 rounded-xl border border-border bg-surface-2 p-3">
         {PADS.map((pad, i) => (
           <motion.button
             key={i}
+            type="button"
             onClick={() => tap(i)}
-            whileTap={{ scale: 0.92 }}
+            whileTap={{ scale: 0.95 }}
             disabled={phase !== 'play'}
-            className={`aspect-square min-h-32 rounded-2xl shadow-card transition-colors ${lit === i ? pad.lit : pad.color} ${lit === i ? 'brightness-125' : ''} ${phase === 'play' ? '' : 'opacity-80'}`}
+            className={`aspect-square min-h-28 rounded-xl shadow-xs transition-[background-color,opacity,filter] duration-150 ${lit === i ? pad.lit : pad.color} ${
+              lit === i ? 'brightness-110 ring-4 ring-white/60' : ''
+            } ${phase === 'play' ? 'hover:brightness-105' : 'opacity-75'}`}
             aria-label={`Pad ${i + 1}`}
           />
         ))}
       </div>
 
-      {msg && <p className="mt-3 text-sm font-bold text-bubble-600">{msg}</p>}
-      {phase === 'idle' && !msg && <button onClick={begin} className="btn-primary mt-4">{t('mg.start')}</button>}
-      {phase === 'idle' && msg && <button onClick={begin} className="btn-ghost mt-3">{t('mg.tryAgain')}</button>}
+      {msg && <p className="mt-3 text-sm font-bold text-danger">{msg}</p>}
+      {phase === 'idle' && !msg && <button type="button" onClick={begin} className="btn-primary mt-4">{t('mg.start')}</button>}
+      {phase === 'idle' && msg && <button type="button" onClick={begin} className="btn-secondary mt-3">{t('mg.tryAgain')}</button>}
     </div>
   );
 }

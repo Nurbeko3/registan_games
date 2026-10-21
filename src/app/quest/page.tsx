@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon } from '@/components/ui/Icon';
-import { Stars } from '@/components/ui/Bits';
+import { Stars, ProgressBar } from '@/components/ui/Bits';
+import { PageHeader } from '@/components/ui/Primitives';
 import { CODECASTER_LEVELS } from '@/data/codecaster/levels';
 import { useGame, useHydrated } from '@/store/useGame';
 import { useT } from '@/lib/i18n';
@@ -20,26 +21,50 @@ export default function QuestPage() {
   const hydrated = useHydrated();
   const codecaster = useGame((s) => s.codecaster);
 
+  const maxStars = CODECASTER_LEVELS.length * 3;
+  const earnedStars = hydrated
+    ? CODECASTER_LEVELS.reduce((sum, lvl) => sum + (codecaster[lvl.id]?.stars ?? 0), 0)
+    : 0;
+  const clearedCount = hydrated
+    ? CODECASTER_LEVELS.filter((lvl) => (codecaster[lvl.id]?.stars ?? 0) >= 1).length
+    : 0;
+
   return (
     <main id="main" className="page-pad-bottom">
       <TopBar />
 
-      {/* ── header ── */}
-      <section className="mx-auto max-w-3xl px-5 py-6">
-        <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-sky to-grape p-6 text-white shadow-toy">
-          <div className="flex items-center gap-3">
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/20">
-              <Icon name="sword" className="h-7 w-7" />
-            </span>
-            <div>
-              <h1 className="font-display text-2xl font-extrabold">{t('quest.title')}</h1>
-              <p className="mt-1 font-bold text-white/80">{t('quest.sub')}</p>
+      <section className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+        <PageHeader
+          icon="sword"
+          eyebrow={t('nav.quest')}
+          title={t('quest.title')}
+          description={t('quest.sub')}
+        />
+
+        {/* overall progress */}
+        <div className="card mt-6 !p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-600">
+                <Icon name="star" className="h-4 w-4 [&>path]:fill-current" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-fg-faint">{t('rw.stars')}</p>
+                <p className="font-display text-lg font-extrabold leading-none tabular-nums text-fg">
+                  {earnedStars}
+                  <span className="text-fg-faint"> / {maxStars}</span>
+                </p>
+              </div>
             </div>
+            <p className="text-xs font-semibold tabular-nums text-fg-faint">
+              {clearedCount}/{CODECASTER_LEVELS.length}
+            </p>
           </div>
+          <ProgressBar pct={(earnedStars / maxStars) * 100} className="bg-amber-500" size="h-1.5" track="bg-surface-3 mt-3" />
         </div>
 
-        {/* ── level list ── */}
-        <ol className="mt-4 space-y-2">
+        {/* level list */}
+        <ol className="panel mt-4 divide-y divide-border">
           {CODECASTER_LEVELS.map((lvl, i) => {
             const isBoss = lvl.victory.defeatBoss === true;
             const stars = codecaster[lvl.id]?.stars ?? 0;
@@ -47,60 +72,62 @@ export default function QuestPage() {
             // Before hydration, only L01 shows unlocked — avoids an SSR/client
             // mismatch; once hydrated the real per-student unlock state shows.
             const unlocked = i === 0 || (hydrated && prevStars >= 1);
+            const showStars = hydrated && unlocked && stars > 0;
 
-            const card = (
-              <div
-                className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 transition ${
-                  unlocked
-                    ? 'border-grape-100 bg-white hover:border-grape-400 hover:shadow-card'
-                    : 'border-grape-100/60 bg-white/60'
-                }`}
-              >
+            const row = (
+              <div className={`flex items-center gap-3.5 px-4 py-3.5 ${unlocked ? '' : 'opacity-60'}`}>
                 <span
-                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl font-display font-extrabold text-white ${
-                    isBoss ? 'bg-gradient-to-br from-bubble to-grape' : 'bg-gradient-to-br from-sky to-grape'
-                  } ${unlocked ? '' : 'opacity-50'}`}
+                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg font-display text-sm font-extrabold ring-1 ring-inset ${
+                    isBoss
+                      ? 'bg-violet-50 text-violet-600 ring-violet-100'
+                      : 'bg-brand-50 text-brand ring-brand-100'
+                  }`}
                 >
                   {isBoss ? <Icon name="crown" className="h-5 w-5" /> : i + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={`truncate font-display font-extrabold ${unlocked ? 'text-ink' : 'text-ink-faint'}`}>
-                    {t(lvl.title)}
-                  </p>
-                  <p className="truncate text-xs font-bold text-ink-faint">
-                    {t('quest.learn')}: {t(lvl.concept)}
-                  </p>
+                  <p className={`truncate text-sm font-bold ${unlocked ? 'text-fg' : 'text-fg-soft'}`}>{t(lvl.title)}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="badge-neutral normal-case tracking-normal">
+                      {t('quest.learn')}: {t(lvl.concept)}
+                    </span>
+                  </div>
                 </div>
-                {hydrated && unlocked && stars > 0 ? (
+                {showStars ? (
                   <Stars count={stars} size="text-sm" />
+                ) : unlocked ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-brand">
+                    {t('quest.start')}
+                    <Icon name="chevronRight" className="h-4 w-4" />
+                  </span>
                 ) : (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-grape-50 px-3 py-1 text-[11px] font-extrabold text-grape">
-                    <Icon name={unlocked ? 'unlock' : 'lock'} className="h-3 w-3" />
-                    {unlocked ? t('quest.start') : t('quest.locked')}
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-fg-faint">
+                    <Icon name="lock" className="h-3.5 w-3.5" />
+                    {t('quest.locked')}
                   </span>
                 )}
               </div>
             );
 
             return (
-              <li key={lvl.id}>
+              <li key={lvl.id} className="first:rounded-t-2xl last:rounded-b-2xl">
                 {unlocked ? (
                   <Link
                     href={`/quest/${lvl.id}`}
-                    className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2"
+                    className="block transition-colors hover:bg-surface-2 focus-visible:relative focus-visible:z-10 first:rounded-t-2xl last:rounded-b-2xl"
                   >
-                    {card}
+                    {row}
                   </Link>
                 ) : (
-                  <div aria-disabled="true">{card}</div>
+                  <div aria-disabled="true">{row}</div>
                 )}
               </li>
             );
           })}
         </ol>
 
-        <Link href="/#modes" className="btn-ghost mt-5 inline-flex items-center gap-2">
-          <Icon name="home" className="h-4 w-4" /> {t('home.modes')}
+        <Link href="/#modes" className="btn-secondary mt-5">
+          <Icon name="layers" className="h-4 w-4" /> {t('home.modes')}
         </Link>
       </section>
     </main>

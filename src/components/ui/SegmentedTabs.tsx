@@ -9,9 +9,9 @@ export interface SegmentedTab<T extends string> {
 }
 
 /**
- * A mobile-style segmented control (extracted from the Codecaster PaneTab).
- * Generic over the tab value type. Used for the Case Files Sources|Question
- * toggle on phones.
+ * A segmented control (extracted from the Codecaster PaneTab). Generic over
+ * the tab value type. Used for the Codecaster World|Code and the Case Files
+ * Sources|Question toggles on phones.
  */
 export function SegmentedTabs<T extends string>({
   tabs,
@@ -27,7 +27,7 @@ export function SegmentedTabs<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center gap-2 ${className}`} role="tablist" aria-label={ariaLabel}>
+    <div className={`flex items-stretch rounded-xl bg-surface-3 p-1 ${className}`} role="tablist" aria-label={ariaLabel}>
       {tabs.map((tab) => {
         const active = tab.value === value;
         return (
@@ -37,8 +37,8 @@ export function SegmentedTabs<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(tab.value)}
-            className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl2 px-4 py-2.5 font-display text-sm font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2 ${
-              active ? 'bg-grape text-white shadow-card' : 'bg-white text-ink-soft ring-1 ring-grape-100/70'
+            className={`flex min-h-[40px] flex-1 items-center justify-center gap-2 rounded-lg px-4 font-display text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+              active ? 'bg-surface text-fg shadow-xs' : 'text-fg-soft hover:text-fg'
             }`}
           >
             {tab.icon && <Icon name={tab.icon} className="h-4 w-4" />} {tab.label}

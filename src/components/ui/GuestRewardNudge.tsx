@@ -16,17 +16,17 @@ export function GuestRewardNudge({ className = '' }: { className?: string }) {
   const t = useT();
   return (
     <div
-      className={`flex items-start gap-3 rounded-2xl border-2 border-mint/40 bg-mint/10 p-3 text-left ${className}`}
+      className={`flex items-start gap-3 rounded-xl border border-brand-100 bg-brand-50 p-3 text-left ${className}`}
       role="status"
     >
-      <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-mint/20 text-mint-700">
+      <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-100 text-brand-700">
         <Icon name="lock" className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="font-display text-sm font-extrabold text-ink">{t('guest.winTitle')}</p>
-        <p className="mt-0.5 text-xs font-bold leading-relaxed text-ink-soft">{t('guest.winNudge')}</p>
+        <p className="font-display text-sm font-bold text-fg">{t('guest.winTitle')}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-fg-soft">{t('guest.winNudge')}</p>
       </div>
-      <Link href="/rewards" className="btn-primary shrink-0 self-center px-3 py-1.5 text-xs">
+      <Link href="/rewards" className="btn-primary btn-sm shrink-0 self-center">
         {t('guest.cta')}
       </Link>
     </div>

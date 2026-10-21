@@ -33,7 +33,7 @@ export function Celebrations() {
       {current && (
         <motion.div
           key={current.code}
-          className="fixed inset-0 z-[60] grid place-items-center bg-ink/40 p-5 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] grid place-items-center bg-fg/40 p-5 backdrop-blur-[2px]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -45,36 +45,37 @@ export function Celebrations() {
         >
           <Confetti />
           <motion.div
-            initial={shouldReduceMotion ? {} : { scale: 0.6, y: 30 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={shouldReduceMotion ? {} : { scale: 0.8, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-            className="card max-w-xs text-center"
+            initial={shouldReduceMotion ? {} : { scale: 0.96, y: 16, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={shouldReduceMotion ? {} : { scale: 0.98, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="card w-full max-w-xs !p-6 text-center shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <motion.div
-              className="text-6xl"
-              animate={shouldReduceMotion ? {} : { rotate: [0, -10, 10, 0] }}
-              transition={{ duration: 0.8, repeat: shouldReduceMotion ? 0 : Infinity }}
+              className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-amber-50 text-4xl ring-1 ring-inset ring-amber-200"
+              initial={shouldReduceMotion ? false : { scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.05 }}
               aria-hidden
             >
               {emoji}
             </motion.div>
-            <p className="mt-2 font-display text-sm font-bold uppercase tracking-wide text-grape">
+            <p className="eyebrow mt-4 text-brand">
               {label}
             </p>
-            <h2 className="mt-1 font-display text-2xl font-extrabold">
+            <h2 className="mt-1 font-display text-xl font-extrabold text-fg">
               {title}
             </h2>
             {isLevel && levelRank && (
-              <p className="mt-1 font-display text-lg font-extrabold text-grape">{t(levelRank.titleKey)}</p>
+              <p className="mt-1 font-display text-base font-bold text-brand">{t(levelRank.titleKey)}</p>
             )}
-            <p className="mt-1 text-ink-soft">
+            <p className="mt-1.5 text-sm text-fg-soft">
               {body}
             </p>
-            {!isLevel && <p className="mt-2 font-bold text-mango">{t('ach.reward')}</p>}
+            {!isLevel && <p className="badge-warning mt-3 inline-flex">{t('ach.reward')}</p>}
             <button
-              className="btn-primary mt-4 w-full"
+              className="btn-primary mt-5 w-full"
               onClick={() => dismiss(current.code)}
               autoFocus
             >

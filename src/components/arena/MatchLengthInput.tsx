@@ -42,9 +42,10 @@ export function MatchLengthInput({
         onChange={(e) => setText(e.target.value)}
         onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') commit((e.target as HTMLInputElement).value); }}
-        className="w-20 rounded-xl border-2 border-grape-100 bg-white px-3 py-1.5 text-center font-extrabold outline-none focus:border-grape disabled:opacity-60"
+        aria-label={t('lobby.matchLength')}
+        className="input w-24 text-center tabular-nums"
       />
-      <span className="text-sm font-bold text-ink-faint">{t('lobby.minutes')}</span>
+      <span className="text-sm font-semibold text-fg-faint">{t('lobby.minutes')}</span>
     </div>
   );
 }

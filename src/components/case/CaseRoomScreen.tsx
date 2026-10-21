@@ -8,14 +8,17 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Icon } from '@/components/ui/Icon';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Confetti } from '@/components/ui/Confetti';
+import { EmptyState, PageLoading } from '@/components/ui/Primitives';
 import { useGame } from '@/store/useGame';
 import { useT } from '@/lib/i18n';
 import { useCaseRoom, type CaseRoomPlayer } from '@/lib/caseFiles/useCaseRoom';
 import type { CaseMatchResult } from '@/store/useGame';
 import { SourcesPane } from './SourcesPane';
 import { ChoiceList } from './ChoiceList';
-import { Scoreboard, type Standing } from './Scoreboard';
+import { Scoreboard, RankBadge, type Standing } from './Scoreboard';
 import { ResultsScreen } from './ResultsScreen';
+import { CaseBriefing } from './CaseBriefing';
+import { CaseMetaBadges } from './CaseMeta';
 
 type Pane = 'sources' | 'question';
 
@@ -115,6 +118,7 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
     emoji: p.isHost ? '👑' : '🧑',
     score: p.score,
     isPlayer: p.id === myId,
+    streak: p.id === myId ? streakRef.current.cur : undefined,
   }));
 
   const currentQ = caseDef?.questions[qIndex] ?? null;
@@ -123,11 +127,9 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
   // ── connecting ──────────────────────────────────────────────────────
   if (phase === 'connecting') {
     return (
-      <main id="main" className="min-h-screen dotted pb-8">
-        <TopBar showBack />
-        <div className="grid min-h-[60vh] place-items-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-grape-100 border-t-grape" />
-        </div>
+      <main id="main" className="min-h-screen pb-8">
+        <TopBar showBack backHref="/case/friendly" />
+        <PageLoading />
       </main>
     );
   }
@@ -135,16 +137,15 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
   // ── error ───────────────────────────────────────────────────────────
   if (phase === 'error') {
     return (
-      <main id="main" className="min-h-screen dotted pb-8">
-        <TopBar showBack />
+      <main id="main" className="min-h-screen pb-8">
+        <TopBar showBack backHref="/case" />
         <div className="mx-auto max-w-md px-4 py-10">
-          <div className="card text-center">
-            <Icon name="signal" className="mx-auto h-10 w-10 text-grape" />
-            <p className="mt-2 font-display font-extrabold">{t('case.offline')}</p>
-            <Link href="/case" className="btn-primary mt-4">
-              {t('case.backToCases')}
-            </Link>
-          </div>
+          <EmptyState
+            icon="signal"
+            tone="danger"
+            title={t('case.offline')}
+            action={<Link href="/case" className="btn-primary">{t('case.backToCases')}</Link>}
+          />
         </div>
       </main>
     );
@@ -153,34 +154,30 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
   // ── lobby ───────────────────────────────────────────────────────────
   if (phase === 'lobby') {
     return (
-      <main id="main" className="min-h-screen dotted pb-8">
-        <TopBar showBack />
-        <div className="mx-auto max-w-md px-4 py-5 space-y-4">
+      <main id="main" className="min-h-screen pb-8">
+        <TopBar showBack backHref="/case/friendly" />
+        <div className="mx-auto max-w-xl space-y-4 px-4 py-6 sm:px-6">
           {/* Room code */}
-          <div className="card text-center">
-            <p className="font-bold text-ink-soft">{t('case.roomCode')}</p>
-            <p className="my-2 font-display text-5xl font-extrabold tracking-widest text-grape">
+          <section className="card text-center">
+            <p className="eyebrow">{t('case.roomCode')}</p>
+            <p className="mt-3 font-mono text-5xl font-bold tracking-[0.3em] text-fg sm:text-6xl" aria-label={code}>
               {code}
             </p>
-            <button
-              type="button"
-              onClick={copyCode}
-              className="inline-flex items-center gap-2 rounded-xl bg-grape-50 px-4 py-2 text-sm font-extrabold text-grape transition hover:bg-grape-100"
-            >
+            <button type="button" onClick={copyCode} className="btn-secondary btn-sm mt-4">
               <Icon name={copied ? 'check' : 'copy'} className="h-4 w-4" />
               {copied ? t('case.codeCopied') : t('case.copyCode')}
             </button>
-          </div>
+          </section>
 
           {/* Case info */}
           {caseDef && (
-            <div className="flex items-center gap-3 rounded-2xl bg-grape-50 px-4 py-3">
-              <Icon name="search" className="h-5 w-5 shrink-0 text-grape" />
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-xs">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand ring-1 ring-inset ring-brand-100">
+                <Icon name="search" className="h-4 w-4" />
+              </span>
               <div className="min-w-0">
-                <p className="truncate font-display font-extrabold text-ink">{caseDef.title}</p>
-                <p className="text-xs font-bold text-ink-faint">
-                  {caseDef.gradeBand} · {t('case.qCount', { n: total || caseDef.questions.length })}
-                </p>
+                <p className="truncate font-display text-sm font-bold text-fg">{caseDef.title}</p>
+                <CaseMetaBadges caseDef={caseDef} className="mt-1" />
               </div>
             </div>
           )}
@@ -193,19 +190,19 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
               type="button"
               onClick={startInvestigation}
               disabled={players.length < 1}
-              className="btn-primary w-full text-lg disabled:opacity-40"
+              className="btn-primary btn-lg w-full"
             >
-              <Icon name="rocket" className="mr-2 h-5 w-5" />
+              <Icon name="play" className="h-4 w-4" />
               {t('case.startInvestigation')}
             </button>
           ) : (
-            <p className="inline-flex w-full items-center justify-center gap-2 text-center font-bold text-ink-soft">
-              <Icon name="signal" className="h-4 w-4" />
+            <p className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-sm font-semibold text-fg-soft">
+              <Icon name="signal" className="h-4 w-4 text-brand" />
               {t('case.waitHost')}
             </p>
           )}
 
-          <Link href="/case/friendly" className="block text-center text-sm font-bold text-ink-faint">
+          <Link href="/case/friendly" className="block text-center text-sm font-bold text-fg-faint transition hover:text-fg">
             {t('case.leaveRoom')}
           </Link>
         </div>
@@ -216,41 +213,36 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
   // ── investigation ───────────────────────────────────────────────────
   if (phase === 'investigation' && caseDef) {
     return (
-      <main id="main" className="min-h-screen dotted pb-8">
-        <TopBar showBack />
-        <div className="mx-auto max-w-2xl px-4 py-6 space-y-5">
-          <div className="rounded-3xl bg-gradient-to-br from-sky to-grape p-5 text-white shadow-toy">
-            <div className="flex items-center gap-2">
-              <Icon name="search" className="h-5 w-5" />
-              <span className="font-display text-xs font-extrabold uppercase tracking-wide opacity-90">
-                {t('case.investigate')}
-              </span>
-              <span className="ml-auto text-xs font-bold opacity-75">
+      <main id="main" className="min-h-screen pb-8">
+        <TopBar showBack backHref="/case/friendly" />
+        <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6">
+          <CaseBriefing
+            title={caseDef.title}
+            briefing={caseDef.briefing}
+            caseDef={caseDef}
+            aside={
+              <span className="inline-flex items-center gap-1.5">
+                <Icon name="users" className="h-3.5 w-3.5" />
                 {t('case.playersN', { n: players.length })}
               </span>
-            </div>
-            <h1 className="mt-1 font-display text-2xl font-extrabold">{caseDef.title}</h1>
-            <p className="mt-2 font-semibold leading-relaxed text-white/90">{caseDef.briefing}</p>
-          </div>
+            }
+          />
 
-          <p className="flex items-center gap-2 font-bold text-ink-soft">
-            <Icon name="eye" className="h-5 w-5 text-grape" />
+          <p className="flex items-center gap-2 text-sm font-semibold text-fg-soft">
+            <Icon name="eye" className="h-4 w-4 text-brand" />
             {t('case.investigateSub')}
           </p>
 
           <SourcesPane sources={caseDef.sources} />
 
           {isHost ? (
-            <button
-              type="button"
-              onClick={advanceQuestion}
-              className="btn-primary w-full"
-            >
-              {t('case.beginQuestions')} <Icon name="rocket" className="ml-1 h-4 w-4" />
+            <button type="button" onClick={advanceQuestion} className="btn-primary btn-lg w-full">
+              {t('case.beginQuestions')}
+              <Icon name="arrowRight" className="h-4 w-4" />
             </button>
           ) : (
-            <p className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cloud px-4 py-3 text-center font-bold text-ink-soft">
-              <Icon name="signal" className="h-4 w-4" />
+            <p className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-sm font-semibold text-fg-soft">
+              <Icon name="signal" className="h-4 w-4 text-brand" />
               {t('case.waitHostQuestions')}
             </p>
           )}
@@ -272,12 +264,18 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
 
     return (
       <main id="main" className="min-h-screen pb-24">
-        <TopBar showBack />
-        <div className="game-surface mx-auto max-w-6xl px-4 py-5">
-          {/* Progress bar */}
-          <div className="flex items-center justify-between text-sm font-bold text-ink-soft">
-            <span>{t('case.questionN', { n: qIndex + 1, total })}</span>
-            <span>{t('case.playersN', { n: players.length })}</span>
+        <TopBar showBack backHref="/case/friendly" />
+        <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+          {/* Progress row */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="truncate font-display text-sm font-bold text-fg">{caseDef.title}</p>
+              <span className="badge-neutral shrink-0">{t('case.questionN', { n: qIndex + 1, total })}</span>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-fg-faint">
+              <Icon name="users" className="h-3.5 w-3.5" />
+              {t('case.playersN', { n: players.length })}
+            </span>
           </div>
 
           {/* Mobile pane toggle */}
@@ -303,22 +301,27 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
 
             {/* Question pane */}
             <section
-              className={`${pane === 'question' ? 'flex' : 'hidden'} lg:flex flex-col gap-4`}
+              className={`${pane === 'question' ? 'flex' : 'hidden'} flex-col gap-4 lg:flex`}
               aria-label={t('case.pane.question')}
             >
               <div className="card flex flex-col gap-4">
                 {/* Header */}
-                <div className="flex items-center gap-2">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-grape to-bubble text-white">
-                    <Icon name="search" className="h-5 w-5" />
-                  </span>
-                  <p className="font-display text-xs font-extrabold uppercase tracking-wide text-ink-faint">
-                    {t('case.questionN', { n: qIndex + 1, total })}
-                  </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand ring-1 ring-inset ring-brand-100">
+                      <Icon name="help" className="h-4 w-4" />
+                    </span>
+                    <p className="eyebrow">{t('case.questionN', { n: qIndex + 1, total })}</p>
+                  </div>
+                  <div className="flex items-center gap-1" aria-hidden>
+                    {Array.from({ length: total }).map((_, i) => (
+                      <span key={i} className={`h-1.5 w-4 rounded-full ${i < qIndex ? 'bg-brand' : i === qIndex ? 'bg-brand-300' : 'bg-border'}`} />
+                    ))}
+                  </div>
                 </div>
 
                 {/* Prompt */}
-                <p className="font-display text-lg font-extrabold leading-snug text-ink">
+                <p className="font-display text-lg font-extrabold leading-snug tracking-tight text-fg sm:text-xl">
                   {currentQ.prompt}
                 </p>
 
@@ -337,15 +340,13 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.18 }}
-                    className="flex items-center gap-2 rounded-2xl bg-grape-50 px-4 py-2.5 font-display text-sm font-extrabold text-grape motion-reduce:transition-none motion-reduce:animate-none"
+                    className="flex items-center gap-2 rounded-xl border border-brand-100 bg-brand-50 px-3.5 py-2.5 text-sm font-bold text-brand-700 motion-reduce:animate-none motion-reduce:transition-none"
                     role="status"
                   >
-                    <Icon name="check" className="h-5 w-5" />
+                    <Icon name="check" className="h-4 w-4 shrink-0" />
                     {t('case.answerLocked')}
-                    {lastAnswer && (
-                      <span className="ml-auto font-bold text-mint-600">
-                        {lastAnswer.correct ? `+${lastAnswer.xp} XP` : ''}
-                      </span>
+                    {lastAnswer && lastAnswer.correct && (
+                      <span className="ml-auto font-bold text-success-700">+{lastAnswer.xp} XP</span>
                     )}
                   </motion.div>
                 )}
@@ -353,17 +354,17 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
                 {/* Reveal: correct/incorrect + XP */}
                 {isReveal && lastAnswer && (
                   <div
-                    className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 font-display text-sm font-extrabold ${
+                    className={`flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-bold ${
                       lastAnswer.correct
-                        ? 'bg-mint/15 text-mint-600'
-                        : 'bg-bubble/10 text-bubble'
+                        ? 'border-success-100 bg-success-50 text-success-700'
+                        : 'border-danger-100 bg-danger-50 text-danger-700'
                     }`}
                     role="status"
                   >
-                    <Icon name={lastAnswer.correct ? 'check' : 'x'} className="h-5 w-5" />
+                    <Icon name={lastAnswer.correct ? 'checkCircle' : 'x'} className="h-4 w-4 shrink-0" />
                     {lastAnswer.correct ? t('case.correct') : t('case.incorrect')}
                     {lastAnswer.correct && (
-                      <span className="ml-auto text-mint-600">+{lastAnswer.xp} XP</span>
+                      <span className="ml-auto">+{lastAnswer.xp} XP</span>
                     )}
                   </div>
                 )}
@@ -376,22 +377,18 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
                     className="btn-primary w-full"
                   >
                     {isLastQuestion ? t('case.showResults') : t('case.nextQuestion')}
-                    <Icon name="rocket" className="ml-1 h-4 w-4" />
+                    <Icon name="arrowRight" className="h-4 w-4" />
                   </button>
                 )}
                 {isReveal && !isHost && (
-                  <p className="text-center text-sm font-bold text-ink-soft">
+                  <p className="text-center text-sm font-semibold text-fg-soft">
                     {t('case.waitHost')}
                   </p>
                 )}
 
                 {/* Player host button: advance to reveal */}
                 {!isReveal && isHost && selected !== null && (
-                  <button
-                    type="button"
-                    onClick={advanceReveal}
-                    className="btn-ghost w-full"
-                  >
+                  <button type="button" onClick={advanceReveal} className="btn-secondary w-full">
                     {t('case.showResults')}
                   </button>
                 )}
@@ -410,20 +407,18 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
   if (phase === 'ended') {
     if (!myResult || !settledResult || !caseDef) {
       return (
-        <main id="main" className="min-h-screen dotted pb-8">
+        <main id="main" className="min-h-screen pb-8">
           <TopBar />
-          <div className="grid min-h-[60vh] place-items-center">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-grape-100 border-t-grape" />
-          </div>
+          <PageLoading />
         </main>
       );
     }
 
     return (
-      <main id="main" className="relative min-h-screen dotted pb-8">
+      <main id="main" className="relative min-h-screen pb-8">
         <TopBar />
         <Confetti />
-        <div className="mx-auto max-w-md px-4 py-6 space-y-5">
+        <div className="mx-auto max-w-md space-y-5 px-4 py-6 sm:px-6">
           <ResultsScreen
             caseTitle={caseDef.title}
             result={settledResult}
@@ -446,10 +441,11 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
   }
 
   // Fallback for unexpected phase
+  void results;
   return null;
 }
 
-/** Player list for the lobby — highlights self, crowns host */
+/** Player list for the lobby — highlights self, marks the host */
 function RoomPlayerList({
   players,
   myId,
@@ -461,37 +457,33 @@ function RoomPlayerList({
 }) {
   const t = useT();
   return (
-    <section className="card">
-      <p className="font-display font-extrabold">{title}</p>
-      <ol className="mt-2 space-y-1.5">
-        {players.map((p, i) => (
-          <li
-            key={p.id}
-            className={`flex items-center gap-3 rounded-2xl p-2 ${
-              p.id === myId ? 'bg-grape-50 ring-2 ring-grape' : 'bg-cloud'
-            }`}
-          >
-            <span className="w-5 text-center font-display font-extrabold text-ink-faint">
-              {i + 1}
-            </span>
-            <span className="flex-1 truncate font-bold">
-              {p.name}
-              {p.isHost && (
-                <span className="ml-1.5 text-xs font-bold text-mango-600">
-                  {t('case.hostLabel')}
-                </span>
-              )}
-              {p.id === myId && (
-                <span className="ml-1.5 text-xs text-ink-faint">({t('case.you')})</span>
-              )}
-            </span>
-            <span className="font-display font-extrabold text-grape">{p.score}</span>
-          </li>
-        ))}
+    <section className="panel overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <p className="font-display text-sm font-bold text-fg">{title}</p>
+        <Icon name="users" className="h-4 w-4 text-fg-faint" />
+      </div>
+      <ol className="divide-y divide-border">
+        {players.map((p, i) => {
+          const me = p.id === myId;
+          return (
+            <li key={p.id} className={`flex items-center gap-3 px-4 py-2.5 ${me ? 'bg-brand-50/60' : ''}`}>
+              <RankBadge rank={i + 1} />
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="truncate text-sm font-bold text-fg">{p.name}</span>
+                {p.isHost && (
+                  <span className="badge-warning inline-flex items-center gap-1">
+                    <Icon name="crown" className="h-3 w-3" />
+                    {t('case.hostLabel')}
+                  </span>
+                )}
+                {me && <span className="text-xs font-semibold text-fg-faint">({t('case.you')})</span>}
+              </span>
+              <span className="font-display text-sm font-bold tabular-nums text-fg">{p.score}</span>
+            </li>
+          );
+        })}
         {players.length === 0 && (
-          <li className="py-2 text-center text-sm font-bold text-ink-faint">
-            {t('case.waitHost')}
-          </li>
+          <li className="px-4 py-6 text-center text-sm text-fg-faint">{t('case.waitHost')}</li>
         )}
       </ol>
     </section>

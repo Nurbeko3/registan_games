@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
 import type { CaseMatchResult } from '@/store/useGame';
 import { CaseResultCard } from './CaseResultCard';
@@ -38,52 +38,56 @@ export function ResultsScreen({
 
   return (
     <div className="mx-auto max-w-md space-y-4">
-      <div
-        className={`rounded-3xl px-6 py-6 text-center text-white shadow-toy ${
-          solved ? 'bg-gradient-to-br from-mint to-sky' : 'bg-gradient-to-br from-ink-faint to-grape'
-        }`}
-      >
-        <Icon name={solved ? 'trophy' : 'search'} className="mx-auto h-12 w-12" />
-        <h1 className="mt-2 font-display text-2xl font-extrabold">
+      <section className="card text-center">
+        <span
+          className={`mx-auto grid h-14 w-14 place-items-center rounded-2xl ${
+            solved ? 'bg-success-50 text-success-600' : 'bg-surface-2 text-fg-faint'
+          }`}
+        >
+          <Icon name={solved ? 'trophy' : 'search'} className="h-7 w-7" />
+        </span>
+        <h1 className="mt-4 font-display text-2xl font-extrabold tracking-tight text-fg">
           {solved ? t('case.results.solvedTitle') : t('case.results.unsolvedTitle')}
         </h1>
-        <p className="mt-1 font-bold text-white/85">
+        <p className="mt-1 text-sm text-fg-soft">
           {solved ? t('case.results.solvedSub') : t('case.results.unsolvedSub')}
         </p>
-        <p className="mt-2 font-display font-extrabold">
+        <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-bold text-fg">
+          <Icon name="checkCircle" className="h-4 w-4 text-success-600" />
           {t('case.correctCount', { correct, total })}
         </p>
-      </div>
+
+        {/* Detective rank chip — shows the rank earned after this match */}
+        <div className="mt-4 flex justify-center">
+          <DetectiveRankBadge variant="compact" caseXp={caseXp} />
+        </div>
+      </section>
 
       {result.firstOfDay && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl bg-sun/20 px-4 py-2.5 font-display text-sm font-extrabold text-mango-600">
-          <Icon name="gift" className="h-5 w-5" /> {t('case.firstOfDay')}
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700" role="status">
+          <Icon name="gift" className="h-4 w-4" />
+          {t('case.firstOfDay')}
         </div>
       )}
 
-      {/* Detective rank chip — shows the rank earned after this match */}
-      <div className="flex justify-center">
-        <DetectiveRankBadge variant="compact" caseXp={caseXp} />
-      </div>
-
       {/* Reward breakdown */}
-      <div className="card flex items-center justify-center gap-6">
-        <Reward icon="zap" value={`+${result.xpAwarded}`} label="XP" tone="text-grape" />
-        <Reward icon="coin" value={`+${result.coinsAwarded}`} label="" tone="text-mango-600" />
+      <div className="card grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Reward icon="zap" value={`+${result.xpAwarded}`} label="XP" tone="bg-brand-50 text-brand" />
+        <Reward icon="coin" value={`+${result.coinsAwarded}`} label={t('rw.coins')} tone="bg-amber-50 text-amber-600" />
         {result.caseXpAwarded > 0 && (
-          <Reward icon="rank" value={`+${result.caseXpAwarded}`} label={t('case.rankLabel')} tone="text-sky-600" />
+          <Reward icon="rank" value={`+${result.caseXpAwarded}`} label={t('case.rankLabel')} tone="bg-info-50 text-info-600" />
         )}
       </div>
 
       {/* Newly unlocked achievements */}
       {result.newAchievements.length > 0 && (
         <div className="card">
-          <p className="font-display text-xs font-extrabold uppercase tracking-wide text-ink-faint">🏅</p>
+          <p className="eyebrow">{t('rw.achievements')}</p>
           <ul className="mt-2 space-y-1.5">
             {result.newAchievements.map((a) => (
-              <li key={a.code} className="flex items-center gap-2 rounded-xl bg-grape-50 px-3 py-2">
-                <span className="text-lg" aria-hidden>{a.emoji}</span>
-                <span className="font-bold text-ink">{t(a.titleKey)}</span>
+              <li key={a.code} className="flex items-center gap-2.5 rounded-lg bg-surface-2 px-3 py-2">
+                <span className="text-lg leading-none" aria-hidden>{a.emoji}</span>
+                <span className="text-sm font-bold text-fg">{t(a.titleKey)}</span>
               </li>
             ))}
           </ul>
@@ -99,11 +103,12 @@ export function ResultsScreen({
         bestStreak={bestStreak}
       />
 
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         <button type="button" onClick={onReplay} className="btn-primary flex-1">
+          <Icon name="refresh" className="h-4 w-4" />
           {t('case.replay')}
         </button>
-        <button type="button" onClick={onExit} className="btn-ghost flex-1">
+        <button type="button" onClick={onExit} className="btn-secondary flex-1">
           {t('case.backToCases')}
         </button>
       </div>
@@ -111,12 +116,16 @@ export function ResultsScreen({
   );
 }
 
-function Reward({ icon, value, label, tone }: { icon: 'zap' | 'coin' | 'rank'; value: string; label: string; tone: string }) {
+function Reward({ icon, value, label, tone }: { icon: IconName; value: string; label: string; tone: string }) {
   return (
-    <div className="text-center">
-      <Icon name={icon} className={`mx-auto h-6 w-6 ${tone}`} />
-      <p className={`mt-1 font-display text-xl font-extrabold ${tone}`}>{value}</p>
-      {label && <p className="text-[10px] font-bold uppercase tracking-wide text-ink-faint">{label}</p>}
+    <div className="flex items-center gap-3">
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${tone}`}>
+        <Icon name={icon} className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="font-display text-lg font-extrabold leading-none tabular-nums text-fg">{value}</p>
+        <p className="mt-0.5 truncate text-2xs font-semibold uppercase tracking-wide text-fg-faint">{label}</p>
+      </div>
     </div>
   );
 }

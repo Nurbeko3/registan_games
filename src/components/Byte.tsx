@@ -7,6 +7,7 @@ import { getHint, MENTOR_GREETINGS } from '@/data/hints';
 import { useT, useLocale } from '@/lib/i18n';
 import { askByteAI, askByteChat, type ChatTurn } from '@/lib/mentor/ai';
 import { useByteContext } from '@/lib/mentor/context';
+import { Icon } from '@/components/ui/Icon';
 
 interface Msg { from: 'byte' | 'me'; text: string; ai?: boolean }
 
@@ -72,58 +73,64 @@ export function Byte() {
         aria-label={t('mentor.open')}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="fixed bottom-24 right-4 z-50 grid h-14 w-14 place-items-center rounded-full bg-grape text-2xl text-white shadow-toy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2"
-        animate={reduce ? {} : { y: [0, -8, 0] }}
-        transition={{ duration: 3, repeat: reduce ? 0 : Infinity, ease: 'easeInOut' }}
-        whileTap={{ scale: 0.9 }}
+        className="fixed bottom-20 right-4 z-50 grid h-12 w-12 place-items-center rounded-full bg-brand text-white shadow-lg ring-1 ring-black/5 transition hover:bg-brand-600 lg:bottom-6 lg:right-6"
+        whileTap={reduce ? undefined : { scale: 0.94 }}
       >
-        🤖
+        <Icon name={open ? 'x' : 'bot'} className="h-5 w-5" />
       </motion.button>
 
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={reduce ? {} : { opacity: 0, y: 30, scale: 0.95 }}
+            initial={reduce ? {} : { opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduce ? {} : { opacity: 0, y: 30, scale: 0.95 }}
+            exit={reduce ? {} : { opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             role="dialog"
             aria-modal="true"
             aria-label="Byte — AI buddy"
-            className="fixed bottom-40 right-4 z-50 flex h-[440px] w-[340px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl2 bg-white shadow-toy"
+            className="fixed bottom-36 right-4 z-50 flex h-[460px] max-h-[calc(100vh-10rem)] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl lg:bottom-20 lg:right-6"
           >
-            <div className="flex items-center gap-2 bg-grape px-4 py-3 text-white">
-              <span className="text-2xl">🤖</span>
+            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand">
+                <Icon name="bot" className="h-5 w-5" />
+              </span>
               <div className="min-w-0">
-                <p className="font-display font-extrabold leading-tight">Byte</p>
-                <p className="truncate text-xs text-white/80">{t('mentor.sub')}</p>
+                <p className="font-display text-sm font-extrabold leading-tight text-fg">Byte</p>
+                <p className="truncate text-xs text-fg-faint">{t('mentor.sub')}</p>
               </div>
               <button
                 onClick={() => setOpen(false)}
                 aria-label={t('mentor.close')}
-                className="ml-auto grid h-7 w-7 place-items-center rounded-full bg-white/20 text-sm hover:bg-white/30"
+                className="btn-subtle btn-icon ml-auto h-8 w-8 min-h-0 rounded-lg"
               >
-                ✕
+                <Icon name="x" className="h-4 w-4" />
               </button>
             </div>
 
-            <div ref={scrollRef} className="flex-1 space-y-2 overflow-auto p-4">
+            <div ref={scrollRef} className="flex-1 space-y-2 overflow-auto bg-surface-2/60 p-4">
               {messages.map((m, i) => (
-                <div key={i} className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm ${m.from === 'me' ? 'ml-auto bg-grape text-white' : 'bg-cloud text-ink'}`}>
+                <div
+                  key={i}
+                  className={`max-w-[88%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                    m.from === 'me' ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md border border-border bg-surface text-fg'
+                  }`}
+                >
                   {m.from === 'byte' && m.ai && (
-                    <span className="mb-1 flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-grape">
-                      ✨ {t('mentor.aiBadge')}
+                    <span className="badge-brand mb-1.5 inline-flex">
+                      <Icon name="spark" className="h-3 w-3" /> {t('mentor.aiBadge')}
                     </span>
                   )}
                   <span className="whitespace-pre-line">{m.text}</span>
                 </div>
               ))}
               {loading && (
-                <div className="flex max-w-[88%] items-center gap-1 rounded-2xl bg-cloud px-3 py-2.5 text-ink">
+                <div className="flex max-w-[88%] items-center gap-1 rounded-2xl rounded-bl-md border border-border bg-surface px-3.5 py-3">
                   {[0, 1, 2].map((d) => (
                     <motion.span
                       key={d}
-                      className="h-2 w-2 rounded-full bg-grape/60"
-                      animate={reduce ? {} : { y: [0, -4, 0] }}
+                      className="h-1.5 w-1.5 rounded-full bg-fg-faint"
+                      animate={reduce ? {} : { y: [0, -3, 0] }}
                       transition={{ duration: 0.9, repeat: Infinity, delay: d * 0.15 }}
                     />
                   ))}
@@ -133,8 +140,9 @@ export function Byte() {
 
             {/* Contextual hint quick-action — only on a game screen */}
             {game && (
-              <div className="border-t border-cloud px-3 pt-2">
-                <button onClick={askHint} disabled={loading} className="btn-ghost w-full py-2 text-sm disabled:opacity-60">
+              <div className="border-t border-border px-3 pt-2.5">
+                <button onClick={askHint} disabled={loading} className="btn-secondary btn-sm w-full gap-1.5">
+                  <Icon name="help" className="h-4 w-4" />
                   {loading ? t('mentor.thinking') : t('mentor.hint')}
                 </button>
               </div>
@@ -142,7 +150,7 @@ export function Byte() {
 
             <form
               onSubmit={(e) => { e.preventDefault(); void send(); }}
-              className="flex items-center gap-2 border-t border-cloud p-3"
+              className="flex items-center gap-2 p-3"
             >
               <input
                 value={input}
@@ -150,15 +158,15 @@ export function Byte() {
                 placeholder={t('mentor.placeholder')}
                 aria-label={t('mentor.placeholder')}
                 maxLength={800}
-                className="min-w-0 flex-1 rounded-xl2 bg-cloud px-3 py-2 text-sm text-ink outline-none ring-grape/40 focus:ring-2"
+                className="input min-w-0 flex-1"
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
                 aria-label={t('mentor.send')}
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl2 bg-grape text-white disabled:opacity-50"
+                className="btn-primary btn-icon shrink-0 rounded-xl"
               >
-                ➤
+                <Icon name="send" className="h-4 w-4" />
               </button>
             </form>
           </motion.div>

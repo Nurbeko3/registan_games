@@ -39,10 +39,10 @@ export interface Theme {
 }
 
 export const THEMES: Theme[] = [
-  { id: 'cloud', name: 'Daydream', emoji: '☁️', cost: 0, bg: 'bg-cloud' },
-  { id: 'sunset', name: 'Sunset', emoji: '🌅', cost: 60, bg: 'bg-gradient-to-b from-bubble/20 to-mango/20' },
-  { id: 'ocean', name: 'Ocean', emoji: '🌊', cost: 60, bg: 'bg-gradient-to-b from-sky/20 to-mint/20' },
-  { id: 'galaxy', name: 'Galaxy', emoji: '🌌', cost: 150, bg: 'bg-gradient-to-b from-grape/25 to-ink/10' },
+  { id: 'cloud', name: 'Daydream', emoji: '☁️', cost: 0, bg: 'bg-bg' },
+  { id: 'sunset', name: 'Sunset', emoji: '🌅', cost: 60, bg: 'bg-gradient-to-b from-warning-50 to-bg' },
+  { id: 'ocean', name: 'Ocean', emoji: '🌊', cost: 60, bg: 'bg-gradient-to-b from-info-50 to-bg' },
+  { id: 'galaxy', name: 'Galaxy', emoji: '🌌', cost: 150, bg: 'bg-gradient-to-b from-violet-50 to-bg' },
 ];
 
 export const getAvatar = (id: string): Avatar => AVATARS.find((a) => a.id === id) ?? AVATARS[0];

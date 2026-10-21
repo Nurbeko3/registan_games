@@ -16,7 +16,7 @@ export const STUDENT_RANKS: StudentRank[] = [
     emoji: '🪖',
     minLevel: 1,
     maxLevel: 10,
-    color: 'from-mint to-mint-600',
+    color: 'from-success-500 to-success-600',
   },
   {
     id: 'scout',
@@ -25,7 +25,7 @@ export const STUDENT_RANKS: StudentRank[] = [
     emoji: '🧭',
     minLevel: 11,
     maxLevel: 20,
-    color: 'from-sky to-sky-600',
+    color: 'from-info-500 to-info-600',
   },
   {
     id: 'ranger',
@@ -34,7 +34,7 @@ export const STUDENT_RANKS: StudentRank[] = [
     emoji: '🏹',
     minLevel: 21,
     maxLevel: 30,
-    color: 'from-grape to-grape-400',
+    color: 'from-brand-500 to-brand-600',
   },
   {
     id: 'knight',
@@ -43,7 +43,7 @@ export const STUDENT_RANKS: StudentRank[] = [
     emoji: '🛡️',
     minLevel: 31,
     maxLevel: 40,
-    color: 'from-bubble to-grape',
+    color: 'from-violet-500 to-violet-600',
   },
   {
     id: 'captain',
@@ -52,7 +52,7 @@ export const STUDENT_RANKS: StudentRank[] = [
     emoji: '🚀',
     minLevel: 41,
     maxLevel: 50,
-    color: 'from-mango to-sun',
+    color: 'from-warning-500 to-warning-600',
   },
   {
     id: 'expert',
@@ -61,7 +61,7 @@ export const STUDENT_RANKS: StudentRank[] = [
     emoji: '💻',
     minLevel: 51,
     maxLevel: 60,
-    color: 'from-sky to-bubble',
+    color: 'from-info-500 to-info-600',
   },
   {
     id: 'master',
@@ -70,7 +70,7 @@ export const STUDENT_RANKS: StudentRank[] = [
     emoji: '👑',
     minLevel: 61,
     maxLevel: null,
-    color: 'from-sun to-mango',
+    color: 'from-amber-500 to-amber-600',
   },
 ];
 

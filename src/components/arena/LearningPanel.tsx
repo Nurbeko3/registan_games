@@ -8,9 +8,9 @@ import { QuestionRenderer } from './QuestionRenderer';
 import { TF_TRUE } from '@/lib/arena/questionEngine';
 
 const DIFF_STYLE: Record<string, string> = {
-  easy: 'bg-mint/20 text-mint-600',
-  medium: 'bg-sun/30 text-mango-600',
-  hard: 'bg-bubble/20 text-bubble-600',
+  easy: 'bg-success/20 text-success-600',
+  medium: 'bg-amber/30 text-warning-600',
+  hard: 'bg-danger/20 text-danger-600',
 };
 
 function correctAnswer(prepared: PreparedQuestion, t: ReturnType<typeof useT>): string {
@@ -71,7 +71,7 @@ export function LearningPanel({
         className="card relative w-full max-w-2xl overflow-hidden p-7"
       >
         {/* playful pod header */}
-        <div className="-mx-7 -mt-7 mb-6 flex items-center justify-between bg-gradient-to-r from-grape to-bubble px-6 py-4 text-white">
+        <div className="-mx-7 -mt-7 mb-6 flex items-center justify-between bg-gradient-to-r from-brand to-danger px-6 py-4 text-white">
           <span className="font-display text-lg font-extrabold uppercase tracking-wide">{t('arena.learn.pod')}</span>
           <div className="flex items-center gap-2">
             <span className="chip bg-white/20 text-white">{cat.emoji} {catLabel}</span>
@@ -90,7 +90,7 @@ export function LearningPanel({
             <motion.div key="ask" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <div className="mb-4 flex items-center justify-between">
                 <span className={`chip ${DIFF_STYLE[q.difficulty]}`}>{t(`diff.${q.difficulty}`)}</span>
-                <span className="text-base font-bold text-ink-faint">{t('arena.learn.answer')}</span>
+                <span className="text-base font-bold text-fg-faint">{t('arena.learn.answer')}</span>
               </div>
               <div className="mb-5 text-center">
                 <div className="text-5xl">{q.emoji}</div>
@@ -107,12 +107,12 @@ export function LearningPanel({
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300 }} className="text-6xl">
                 🎉
               </motion.div>
-              <p className="mt-2 font-display text-2xl font-extrabold text-mint-600">{t('arena.learn.correct')}</p>
-              <p className="text-ink-soft">{t('arena.learn.respawning')}</p>
+              <p className="mt-2 font-display text-2xl font-extrabold text-success-600">{t('arena.learn.correct')}</p>
+              <p className="text-fg-soft">{t('arena.learn.respawning')}</p>
               {lastReward && (
                 <div className="mt-3 flex justify-center gap-2">
-                  <span className="chip bg-sun/30 text-ink">⚡ +{lastReward.xp} XP</span>
-                  <span className="chip bg-mango/20 text-ink">💰 +{lastReward.coins}</span>
+                  <span className="chip bg-amber/30 text-fg">⚡ +{lastReward.xp} XP</span>
+                  <span className="chip bg-warning/20 text-fg">💰 +{lastReward.coins}</span>
                 </div>
               )}
             </motion.div>
@@ -122,25 +122,25 @@ export function LearningPanel({
           {learnState === 'wrong-cooldown' && (
             <motion.div key="learn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-2 text-center">
               <div className="text-6xl">💡</div>
-              <p className="mt-2 font-display text-2xl font-extrabold text-grape">{t('arena.learn.almost')}</p>
-              <p className="mt-4 text-sm font-bold uppercase tracking-wide text-ink-faint">{t('arena.learn.correctAnswer')}</p>
-              <p className="mt-2 rounded-2xl bg-mint/15 p-4 font-display text-2xl font-extrabold text-mint-700">{correctAnswer(prepared, t)}</p>
+              <p className="mt-2 font-display text-2xl font-extrabold text-brand">{t('arena.learn.almost')}</p>
+              <p className="mt-4 text-sm font-bold uppercase tracking-wide text-fg-faint">{t('arena.learn.correctAnswer')}</p>
+              <p className="mt-2 rounded-2xl bg-success/15 p-4 font-display text-2xl font-extrabold text-success-700">{correctAnswer(prepared, t)}</p>
               {q.explain && (
-                <div className="mt-3 flex items-start gap-2 rounded-2xl bg-sun/15 p-4 text-left">
+                <div className="mt-3 flex items-start gap-2 rounded-2xl bg-amber/15 p-4 text-left">
                   <span className="text-xl leading-none">💡</span>
                   <span>
-                    <span className="block text-xs font-extrabold uppercase tracking-wide text-mango-600">{t('arena.learn.why')}</span>
-                    <span className="mt-0.5 block text-sm font-bold text-ink-soft">{q.explain}</span>
+                    <span className="block text-xs font-extrabold uppercase tracking-wide text-warning-600">{t('arena.learn.why')}</span>
+                    <span className="mt-0.5 block text-sm font-bold text-fg-soft">{q.explain}</span>
                   </span>
                 </div>
               )}
-              <p className="mt-4 text-sm font-bold text-ink-faint">{t('arena.learn.fresh')}</p>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-grape-100">
+              <p className="mt-4 text-sm font-bold text-fg-faint">{t('arena.learn.fresh')}</p>
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-brand-100">
                 <motion.div
                   initial={{ width: '0%' }}
                   animate={{ width: '100%' }}
                   transition={{ duration: cooldownMs / 1000, ease: 'linear' }}
-                  className="h-full bg-gradient-to-r from-grape to-bubble"
+                  className="h-full bg-gradient-to-r from-brand to-danger"
                 />
               </div>
             </motion.div>

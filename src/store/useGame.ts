@@ -50,9 +50,13 @@ interface GameRecord {
   plays: number;
 }
 
+export type ColorScheme = 'system' | 'light' | 'dark';
+
 interface Settings {
   sound: boolean;
   reducedMotion: boolean;
+  /** Colour scheme preference; `system` follows the OS. Optional in old persisted state. */
+  colorScheme?: ColorScheme;
 }
 
 export interface CompleteResult {
@@ -179,7 +183,8 @@ interface GameState {
   selectAvatar: (id: string) => void;
   buyTheme: (id: string) => boolean;
   selectTheme: (id: string) => void;
-  toggleSetting: (key: keyof Settings) => void;
+  toggleSetting: (key: 'sound' | 'reducedMotion') => void;
+  setColorScheme: (scheme: ColorScheme) => void;
   dismissCelebration: (code: string) => void;
   resetProgress: () => void;
   /**
@@ -204,7 +209,7 @@ const DEFAULTS = {
   unlockedAvatars: ['kid', 'boy', 'girl'],
   themeId: 'cloud',
   unlockedThemes: ['cloud'],
-  settings: { sound: true, reducedMotion: false } as Settings,
+  settings: { sound: true, reducedMotion: false, colorScheme: 'system' } as Settings,
   locale: 'uz' as Locale,
   playerName: '',
   arenaAvatar: '🦊',
@@ -672,6 +677,7 @@ export const useGame = create<GameState>()(
       },
 
       toggleSetting: (key) => set((s) => ({ settings: { ...s.settings, [key]: !s.settings[key] } })),
+      setColorScheme: (colorScheme) => set((s) => ({ settings: { ...s.settings, colorScheme } })),
 
       dismissCelebration: (code) => set((s) => ({ celebrations: s.celebrations.filter((c) => c.code !== code) })),
 

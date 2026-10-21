@@ -32,9 +32,9 @@ export interface HudActions {
   onReload: () => void;
 }
 
-const TEAM_TEXT: Record<TeamId, string> = { red: 'text-bubble-600', blue: 'text-sky-600' };
-const TEAM_BG: Record<TeamId, string> = { red: 'bg-bubble', blue: 'bg-sky' };
-const TEAM_SOFT: Record<TeamId, string> = { red: 'bg-bubble/15', blue: 'bg-sky/15' };
+const TEAM_TEXT: Record<TeamId, string> = { red: 'text-danger-600', blue: 'text-info-600' };
+const TEAM_BG: Record<TeamId, string> = { red: 'bg-danger', blue: 'bg-info' };
+const TEAM_SOFT: Record<TeamId, string> = { red: 'bg-danger/15', blue: 'bg-info/15' };
 
 const fmtTime = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -66,12 +66,12 @@ type T = (k: string, v?: Record<string, string | number>) => string;
 function TopCluster({ d, t }: { d: HudData; t: T }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-1.5 z-20 flex flex-col items-center gap-1">
-      <div className="flex items-stretch overflow-hidden rounded-2xl bg-ink/78 text-white shadow-card ring-1 ring-white/10 backdrop-blur">
+      <div className="flex items-stretch overflow-hidden rounded-2xl bg-fg/78 text-white shadow-sm ring-1 ring-white/10 backdrop-blur">
         <Score team="red" score={d.scores.red} mine={d.myTeam === 'red'} />
         <div className="flex min-w-[104px] flex-col items-center justify-center px-3 py-1">
           <span
             className={`font-mono text-xl font-extrabold leading-none tabular-nums ${
-              d.timeMs <= 30000 ? 'animate-pulse text-bubble-300' : ''
+              d.timeMs <= 30000 ? 'animate-pulse text-danger-300' : ''
             }`}
           >
             {fmtTime(d.timeMs)}
@@ -82,10 +82,10 @@ function TopCluster({ d, t }: { d: HudData; t: T }) {
         </div>
         <Score team="blue" score={d.scores.blue} mine={d.myTeam === 'blue'} />
       </div>
-      <div className="flex items-center gap-1.5 rounded-full bg-ink/75 px-2.5 py-0.5 text-[10px] font-extrabold text-white shadow">
+      <div className="flex items-center gap-1.5 rounded-full bg-fg/75 px-2.5 py-0.5 text-[10px] font-extrabold text-white shadow">
         <span className={TEAM_TEXT.red.replace('600', '300')}>🦊 {d.alive.red}</span>
         <span className="text-white/50">{t('hud.alive')}</span>
-        <span className="text-sky-300">{d.alive.blue} 🐳</span>
+        <span className="text-info-300">{d.alive.blue} 🐳</span>
       </div>
     </div>
   );
@@ -107,7 +107,7 @@ function Minimap({ d }: { d: HudData }) {
   const W = 118, H = Math.round((d.worldH / d.worldW) * 118);
   return (
     <div
-      className="pointer-events-none absolute left-2 top-2 z-10 overflow-hidden rounded-xl bg-ink/64 ring-1 ring-white/15 backdrop-blur"
+      className="pointer-events-none absolute left-2 top-2 z-10 overflow-hidden rounded-xl bg-fg/64 ring-1 ring-white/15 backdrop-blur"
       style={{ width: W, height: H }}
     >
       {d.minimap.map((p, i) => {
@@ -117,7 +117,7 @@ function Minimap({ d }: { d: HudData }) {
         return (
           <span
             key={i}
-            className={`absolute rounded-full ${p.isHero ? 'bg-sun ring-2 ring-white' : TEAM_BG[p.team]} ${p.alive ? '' : 'opacity-30'}`}
+            className={`absolute rounded-full ${p.isHero ? 'bg-amber ring-2 ring-white' : TEAM_BG[p.team]} ${p.alive ? '' : 'opacity-30'}`}
             style={{ left: x - size / 2, top: y - size / 2, width: size, height: size }}
           />
         );
@@ -137,9 +137,9 @@ function Roster({ d, t }: { d: HudData; t: T }) {
       {mine.map((p, i) => (
         <div
           key={i}
-          className={`flex items-center gap-1.5 rounded-lg px-1.5 py-1 backdrop-blur ${p.alive ? 'bg-ink/65' : 'bg-ink/35'}`}
+          className={`flex items-center gap-1.5 rounded-lg px-1.5 py-1 backdrop-blur ${p.alive ? 'bg-fg/65' : 'bg-fg/35'}`}
         >
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p.alive ? 'bg-mint' : 'bg-white/30'}`} />
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p.alive ? 'bg-success' : 'bg-white/30'}`} />
           <span className="flex-1 truncate text-[10px] font-bold text-white">{p.isHero ? `★ ${p.name}` : p.name}</span>
           <div className="h-1 w-8 overflow-hidden rounded-full bg-white/20">
             <div className={`h-full ${TEAM_BG[p.team]}`} style={{ width: `${Math.max(0, p.hp)}%` }} />
@@ -153,10 +153,10 @@ function Roster({ d, t }: { d: HudData; t: T }) {
 // ── BOTTOM LEFT: health · shield · streak ──
 function Vitals({ d, t }: { d: HudData; t: T }) {
   const hp = Math.max(0, Math.round(d.hp));
-  const hpColor = hp > 50 ? 'bg-mint' : hp > 25 ? 'bg-sun' : 'bg-bubble';
+  const hpColor = hp > 50 ? 'bg-success' : hp > 25 ? 'bg-amber' : 'bg-danger';
   return (
     <div className="pointer-events-none absolute bottom-2 left-2 z-20 w-40">
-      <div className="rounded-xl bg-ink/72 p-2 shadow-card ring-1 ring-white/10 backdrop-blur">
+      <div className="rounded-xl bg-fg/72 p-2 shadow-sm ring-1 ring-white/10 backdrop-blur">
         <div className="flex items-center justify-between text-white">
           <span className="text-[10px] font-extrabold uppercase tracking-wide text-white/60">{t('hud.health')}</span>
           <span className="font-display text-xl font-extrabold leading-none">{hp}</span>
@@ -165,10 +165,10 @@ function Vitals({ d, t }: { d: HudData; t: T }) {
           <motion.div animate={{ width: `${hp}%` }} className={`h-full ${hpColor}`} />
         </div>
         <div className="mt-1.5 flex items-center gap-2 text-[10px] font-bold text-white/80">
-          <span className={`rounded-full px-2 py-0.5 ${d.shielded ? 'bg-sky text-white' : 'bg-white/10 text-white/40'}`}>
+          <span className={`rounded-full px-2 py-0.5 ${d.shielded ? 'bg-info text-white' : 'bg-white/10 text-white/40'}`}>
             🛡 {t('hud.shield')}
           </span>
-          {d.streak > 0 && <span className="rounded-full bg-mango/80 px-2 py-0.5 text-ink">🔥 {d.streak}</span>}
+          {d.streak > 0 && <span className="rounded-full bg-warning/80 px-2 py-0.5 text-fg">🔥 {d.streak}</span>}
         </div>
       </div>
     </div>
@@ -181,17 +181,17 @@ function WeaponPanel({ d, actions, t }: { d: HudData; actions: HudActions; t: T 
   const low = !wpn.reloading && wpn.mag <= Math.max(1, Math.ceil(wpn.magSize * 0.25));
   return (
     <div className="absolute inset-x-0 bottom-2 z-20 flex flex-col items-center gap-1">
-      <div className="flex items-center gap-2 rounded-2xl bg-ink/78 px-3 py-1.5 text-white shadow-card ring-1 ring-white/10 backdrop-blur">
+      <div className="flex items-center gap-2 rounded-2xl bg-fg/78 px-3 py-1.5 text-white shadow-sm ring-1 ring-white/10 backdrop-blur">
         <WeaponIcon id={wpn.id} className="h-9 w-16 shrink-0" />
         <div className="min-w-[84px]">
           <p className="text-[10px] font-extrabold uppercase tracking-wide text-white/60">{t(wpn.nameKey)}</p>
           {wpn.reloading ? (
             <div className="mt-0.5 h-3 w-24 overflow-hidden rounded-full bg-white/15">
-              <div className="h-full bg-sun transition-[width] duration-100" style={{ width: `${Math.round(wpn.reloadPct * 100)}%` }} />
+              <div className="h-full bg-amber transition-[width] duration-100" style={{ width: `${Math.round(wpn.reloadPct * 100)}%` }} />
             </div>
           ) : (
             <p className="font-mono text-lg font-extrabold leading-none tabular-nums">
-              <span className={low ? 'text-bubble-300' : ''}>{wpn.mag}</span>
+              <span className={low ? 'text-danger-300' : ''}>{wpn.mag}</span>
               <span className="text-white/45"> / {wpn.reserve}</span>
             </p>
           )}
@@ -211,10 +211,10 @@ function WeaponPanel({ d, actions, t }: { d: HudData; actions: HudActions; t: T 
 function Rewards({ d, t }: { d: HudData; t: T }) {
   return (
     <div className="pointer-events-none absolute bottom-2 right-2 z-20 flex flex-col items-end gap-1">
-      <span className="rounded-full bg-ink/80 px-2.5 py-1 text-[11px] font-extrabold text-sun shadow backdrop-blur">
+      <span className="rounded-full bg-fg/80 px-2.5 py-1 text-[11px] font-extrabold text-amber shadow backdrop-blur">
         💰 {d.coins}
       </span>
-      <span className="rounded-full bg-ink/80 px-2.5 py-1 text-[11px] font-extrabold text-mint shadow backdrop-blur">
+      <span className="rounded-full bg-fg/80 px-2.5 py-1 text-[11px] font-extrabold text-success shadow backdrop-blur">
         🎓 {t('hud.learning')}: {d.learnCorrect}
       </span>
     </div>
@@ -230,7 +230,7 @@ function HitMarker({ crit }: { crit: boolean }) {
       animate={{ scale: crit ? 2 : 1.5, opacity: 0 }}
       transition={{ duration: 0.28 }}
     >
-      <span className={`font-display text-2xl font-extrabold ${crit ? 'text-sun' : 'text-white'}`}>✦</span>
+      <span className={`font-display text-2xl font-extrabold ${crit ? 'text-amber' : 'text-white'}`}>✦</span>
     </motion.div>
   );
 }

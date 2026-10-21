@@ -1,11 +1,12 @@
 'use client';
 
-import { Suspense, useMemo } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon } from '@/components/ui/Icon';
+import { EmptyState, PageLoading } from '@/components/ui/Primitives';
 import { useGame, getAvatar } from '@/store/useGame';
 import { AvatarBadge } from '@/components/ui/AvatarBadge';
 import { useParty } from '@/lib/party/useParty';
@@ -42,6 +43,13 @@ function Room() {
   const party = useParty(code, { name: playerName || 'Player', avatar: getAvatar(avatarId).emoji, isHost });
   const { phase, players, question, qIndex, total, selected, startGame, answer, myId, questionMs } = party;
 
+  const [copied, setCopied] = useState(false);
+  const copyCode = () => {
+    navigator.clipboard.writeText(code).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   // PARTY_QUIZ stores the correct option first, so show the options in a fresh
   // random order per question (otherwise "always tap the top one" wins). Each
   // button still answers with its ORIGINAL index, which the server scores.
@@ -53,92 +61,133 @@ function Room() {
   );
 
   return (
-    <main id="main" className="min-h-screen dotted pb-8">
-      <TopBar />
-      <div className="mx-auto max-w-md px-4 py-5">
+    <main id="main" className="min-h-screen pb-10">
+      <TopBar showBack backHref="/party" />
+      <div className="mx-auto max-w-xl px-4 py-6 sm:px-6">
         {/* ── ERROR ── */}
         {phase === 'error' && (
-          <div className="card text-center">
-            <Icon name="signal" className="mx-auto h-10 w-10 text-grape" />
-            <p className="mt-2 font-display font-extrabold">{t('party.offline')}</p>
-            <Link href="/map" className="btn-primary mt-4">{t('party.solo')}</Link>
-          </div>
+          <EmptyState
+            icon="signal"
+            tone="danger"
+            title={t('party.offline')}
+            action={<Link href="/map" className="btn-primary">{t('party.solo')}</Link>}
+          />
         )}
 
         {/* ── CONNECTING ── */}
-        {phase === 'connecting' && (
-          <div className="grid min-h-[40vh] place-items-center">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-grape-100 border-t-grape" />
-          </div>
-        )}
+        {phase === 'connecting' && <PageLoading />}
 
         {/* ── LOBBY ── */}
         {phase === 'lobby' && (
-          <div>
-            <div className="card text-center">
-              <p className="font-bold text-ink-soft">{t('party.roomShare')}</p>
-              <p className="my-2 font-display text-5xl font-extrabold tracking-widest text-grape">{code}</p>
-              <p className="text-sm text-ink-faint">{t('party.joinHint')}</p>
-            </div>
+          <div className="space-y-4">
+            <section className="card text-center">
+              <p className="eyebrow">{t('party.roomShare')}</p>
+              <p className="mt-3 font-mono text-5xl font-bold tracking-[0.3em] text-fg sm:text-6xl" aria-label={code}>
+                {code}
+              </p>
+              <p className="mt-2 text-sm text-fg-soft">{t('party.joinHint')}</p>
+              <button type="button" onClick={copyCode} className="btn-secondary btn-sm mt-4">
+                <Icon name={copied ? 'check' : 'copy'} className="h-4 w-4" />
+                {copied ? t('case.codeCopied') : t('case.copyCode')}
+              </button>
+            </section>
 
             <PlayerList players={players} myId={myId} title={t('party.playersN', { n: players.length })} />
 
             {isHost ? (
-              <button onClick={startGame} disabled={players.length < 1} className="btn-primary mt-5 w-full text-lg disabled:opacity-40">
+              <button type="button" onClick={startGame} disabled={players.length < 1} className="btn-primary btn-lg w-full">
+                <Icon name="play" className="h-4 w-4" />
                 {t('party.startBattle')}
               </button>
             ) : (
-              <p className="mt-5 inline-flex w-full items-center justify-center gap-2 text-center font-bold text-ink-soft"><Icon name="signal" className="h-4 w-4" /> {t('party.waitHost')}</p>
+              <p className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-sm font-semibold text-fg-soft">
+                <Icon name="signal" className="h-4 w-4 text-brand" />
+                {t('party.waitHost')}
+              </p>
             )}
-            <Link href="/party" className="mt-3 block text-center text-sm font-bold text-ink-faint">{t('party.leaveRoom')}</Link>
+            <Link href="/party" className="block text-center text-sm font-bold text-fg-faint transition hover:text-fg">
+              {t('party.leaveRoom')}
+            </Link>
           </div>
         )}
 
         {/* ── QUESTION / REVEAL ── */}
         {(phase === 'question' || phase === 'reveal') && question && (
-          <div>
-            <div className="flex items-center justify-between text-sm font-bold text-ink-soft">
-              <span>{t('party.qN', { n: qIndex + 1, total })}</span>
-              <span>{t('party.playersCount', { n: players.length })}</span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm font-semibold text-fg-soft">
+              <span className="badge-neutral">{t('party.qN', { n: qIndex + 1, total })}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Icon name="users" className="h-4 w-4 text-fg-faint" />
+                {t('party.playersCount', { n: players.length })}
+              </span>
             </div>
 
             {/* timer */}
             {phase === 'question' && (
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-grape-100">
-                <motion.div key={qIndex} initial={{ width: '100%' }} animate={{ width: '0%' }} transition={{ duration: questionMs / 1000, ease: 'linear' }} className="h-full bg-gradient-to-r from-grape to-bubble" />
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden>
+                <motion.div
+                  key={qIndex}
+                  initial={{ width: '100%' }}
+                  animate={{ width: '0%' }}
+                  transition={{ duration: questionMs / 1000, ease: 'linear' }}
+                  className="h-full bg-brand"
+                />
               </div>
             )}
 
-            <div className="card mt-3 text-center">
-              <div className="text-4xl">{question.emoji}</div>
-              <p className="mt-2 font-display text-xl font-extrabold">{question.q}</p>
-            </div>
+            <section className="card">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-xl ring-1 ring-inset ring-brand-100" aria-hidden>
+                  {question.emoji}
+                </span>
+                <p className="font-display text-lg font-extrabold leading-snug text-fg sm:text-xl">{question.q}</p>
+              </div>
+            </section>
 
-            <div className="mt-4 grid gap-2">
-              {displayOrder.map((i) => {
+            <div className="grid gap-2">
+              {displayOrder.map((i, pos) => {
                 const opt = question.options[i];
                 const isCorrect = i === question.answer;
                 const isMine = i === selected;
-                let cls = 'bg-white';
-                if (phase === 'reveal') cls = isCorrect ? 'bg-mint/20 ring-2 ring-mint' : isMine ? 'bg-bubble/20 ring-2 ring-bubble' : 'bg-white opacity-60';
-                else if (isMine) cls = 'bg-grape text-white';
+                let cls = 'border-border bg-surface text-fg hover:border-border-strong hover:bg-surface-2';
+                let letterCls = 'bg-surface-2 text-fg-soft';
+                if (phase === 'reveal') {
+                  if (isCorrect) { cls = 'border-success-300 bg-success-50 text-success-700 ring-2 ring-success-200'; letterCls = 'bg-success-600 text-white'; }
+                  else if (isMine) { cls = 'border-danger-300 bg-danger-50 text-danger-700 ring-2 ring-danger-200'; letterCls = 'bg-danger-500 text-white'; }
+                  else cls = 'border-border bg-surface text-fg-faint opacity-60';
+                } else if (isMine) {
+                  cls = 'border-brand bg-brand-50 text-brand-700 ring-2 ring-brand';
+                  letterCls = 'bg-brand text-white';
+                }
                 return (
                   <motion.button
                     key={i}
+                    type="button"
                     onClick={() => answer(i)}
-                    whileTap={{ scale: 0.98 }}
+                    whileTap={{ scale: 0.99 }}
                     disabled={phase === 'reveal' || selected !== null}
-                    className={`rounded-2xl p-3 text-center font-display font-extrabold shadow-card ${cls}`}
+                    aria-pressed={isMine}
+                    className={`flex min-h-[3.25rem] w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base font-bold shadow-xs transition disabled:cursor-default ${cls}`}
                   >
-                    {opt} {phase === 'reveal' && isCorrect && <Icon name="star" className="ml-1 inline h-4 w-4 text-mint-600" />}
+                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md font-display text-sm font-bold ${letterCls}`}>
+                      {String.fromCharCode(65 + pos)}
+                    </span>
+                    <span className="flex-1">{opt}</span>
+                    {phase === 'reveal' && isCorrect && <Icon name="checkCircle" className="h-5 w-5 shrink-0" />}
+                    {phase === 'reveal' && isMine && !isCorrect && <Icon name="x" className="h-5 w-5 shrink-0" />}
                   </motion.button>
                 );
               })}
             </div>
 
-            {phase === 'question' && selected !== null && <p className="mt-3 text-center text-sm font-bold text-mint-600">{t('party.locked')}</p>}
+            {phase === 'question' && selected !== null && (
+              <p className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-success-50 px-4 py-2.5 text-sm font-bold text-success-700" role="status">
+                <Icon name="check" className="h-4 w-4" />
+                {t('party.locked')}
+              </p>
+            )}
 
-            {phase === 'reveal' && <PlayerList players={players} myId={myId} title={t('party.scoreboard')} compact />}
+            {phase === 'reveal' && <PlayerList players={players} myId={myId} title={t('party.scoreboard')} />}
           </div>
         )}
 
@@ -151,50 +200,94 @@ function Room() {
   );
 }
 
-function PlayerList({ players, myId, title, compact }: { players: { id: string; name: string; avatar: string; score: number; isHost: boolean }[]; myId: string; title: string; compact?: boolean }) {
+type PartyPlayer = { id: string; name: string; avatar: string; score: number; isHost: boolean };
+
+function RankBadge({ rank }: { rank: number }) {
+  const tone =
+    rank === 1 ? 'bg-amber-100 text-amber-700' : rank === 2 ? 'bg-surface-3 text-fg-soft' : rank === 3 ? 'bg-warning-100 text-warning-700' : 'bg-surface-2 text-fg-faint';
+  return (
+    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md font-display text-xs font-bold tabular-nums ${tone}`}>
+      {rank}
+    </span>
+  );
+}
+
+function PlayerList({ players, myId, title }: { players: PartyPlayer[]; myId: string; title: string }) {
   const t = useT();
   return (
-    <section className={compact ? 'mt-4' : 'card mt-4'}>
-      <p className="font-display font-extrabold">{title}</p>
-      <ol className="mt-2 space-y-1.5">
-        {players.map((p, i) => (
-          <li key={p.id} className={`flex items-center gap-3 rounded-2xl p-2 ${p.id === myId ? 'bg-grape-50 ring-2 ring-grape' : 'bg-cloud'}`}>
-            <span className="w-5 text-center font-display font-extrabold text-ink-faint">{i + 1}</span>
-            <AvatarBadge avatar={p.avatar} className="h-8 w-8 text-xl" rounded="rounded-lg" bg="bg-white/70" />
-            <span className="flex-1 truncate font-bold">{p.name}{p.isHost && ' 👑'}{p.id === myId && ` ${t('party.you')}`}</span>
-            <span className="font-display font-extrabold text-grape">{p.score}</span>
-          </li>
-        ))}
+    <section className="panel overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <p className="font-display text-sm font-bold text-fg">{title}</p>
+        <Icon name="users" className="h-4 w-4 text-fg-faint" />
+      </div>
+      <ol className="divide-y divide-border">
+        {players.map((p, i) => {
+          const me = p.id === myId;
+          return (
+            <li key={p.id} className={`flex items-center gap-3 px-4 py-2.5 ${me ? 'bg-brand-50/60' : ''}`}>
+              <RankBadge rank={i + 1} />
+              <AvatarBadge avatar={p.avatar} className="h-8 w-8 text-lg" rounded="rounded-md" bg="bg-surface-2" />
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="truncate text-sm font-bold text-fg">{p.name}</span>
+                {p.isHost && (
+                  <span className="badge-warning inline-flex items-center gap-1">
+                    <Icon name="crown" className="h-3 w-3" />
+                    {t('case.hostLabel')}
+                  </span>
+                )}
+                {me && <span className="text-xs font-semibold text-fg-faint">{t('party.you')}</span>}
+              </span>
+              <span className="font-display text-sm font-bold tabular-nums text-fg">{p.score}</span>
+            </li>
+          );
+        })}
+        {players.length === 0 && (
+          <li className="px-4 py-6 text-center text-sm text-fg-faint">{t('party.waitHost')}</li>
+        )}
       </ol>
     </section>
   );
 }
 
-function Results({ players, myId, isHost, onPlayAgain }: { players: { id: string; name: string; avatar: string; score: number; isHost: boolean }[]; myId: string; isHost: boolean; onPlayAgain: () => void }) {
+function Results({ players, myId, isHost, onPlayAgain }: { players: PartyPlayer[]; myId: string; isHost: boolean; onPlayAgain: () => void }) {
   const t = useT();
   const winner = players[0];
   const iWon = winner?.id === myId;
   return (
-    <div className="relative">
+    <div className="relative space-y-4">
       <Confetti />
-      <div className="card text-center">
-        <p className="font-display text-sm font-bold uppercase tracking-wide text-grape">{t('party.winner')}</p>
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260 }} className="mt-2 grid place-items-center text-6xl">
-          {winner?.avatar
-            ? <AvatarBadge avatar={winner.avatar} className="h-20 w-20 text-6xl" rounded="rounded-3xl" />
-            : <Icon name="trophy" className="mx-auto h-14 w-14 text-mango" />}
+      <section className="card text-center">
+        <p className="eyebrow">{t('party.winner')}</p>
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+          className="mt-3 grid place-items-center"
+        >
+          {winner?.avatar ? (
+            <AvatarBadge avatar={winner.avatar} className="h-20 w-20 text-5xl" rounded="rounded-2xl" bg="bg-amber-50" />
+          ) : (
+            <span className="grid h-20 w-20 place-items-center rounded-2xl bg-amber-50 text-amber-600">
+              <Icon name="trophy" className="h-10 w-10" />
+            </span>
+          )}
         </motion.div>
-        <p className="mt-2 font-display text-2xl font-extrabold">{winner?.name ?? t('party.champion')}</p>
-        <p className="text-ink-soft">{iWon ? t('party.youWon') : t('party.goodGame')}</p>
-      </div>
+        <h1 className="mt-3 font-display text-2xl font-extrabold tracking-tight text-fg">{winner?.name ?? t('party.champion')}</h1>
+        <p className="mt-1 text-sm text-fg-soft">{iWon ? t('party.youWon') : t('party.goodGame')}</p>
+      </section>
 
       <AnimatePresence>
         <PlayerList players={players} myId={myId} title={t('party.finalScores')} />
       </AnimatePresence>
 
-      <div className="mt-5 flex gap-2">
-        <Link href="/party" className="btn-ghost flex-1 text-center">{t('party.newRoom')}</Link>
-        {isHost && <button onClick={onPlayAgain} className="btn-primary flex-1">{t('gs.playAgain')}</button>}
+      <div className="flex gap-2">
+        <Link href="/party" className="btn-secondary flex-1">{t('party.newRoom')}</Link>
+        {isHost && (
+          <button type="button" onClick={onPlayAgain} className="btn-primary flex-1">
+            <Icon name="refresh" className="h-4 w-4" />
+            {t('gs.playAgain')}
+          </button>
+        )}
       </div>
     </div>
   );

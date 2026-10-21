@@ -1148,7 +1148,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         <button onClick={requestLeave} disabled={leaving} className="btn-ghost px-3 py-1.5 text-sm disabled:opacity-60">
           ← {leaving ? t('arena.leaving') : t('hud.leave')}
         </button>
-        <span className="chip bg-grape-50 text-grape">{mode.emoji} {mode.name}</span>
+        <span className="chip bg-brand-50 text-brand">{mode.emoji} {mode.name}</span>
       </div>
 
       <div
@@ -1158,12 +1158,12 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onPointerLeave={onPointerUp}
-        className={`select-none ${isFullscreen ? 'fixed inset-0 z-50 grid place-items-center bg-ink' : 'relative mt-3'}`}
+        className={`select-none ${isFullscreen ? 'fixed inset-0 z-50 grid place-items-center bg-fg' : 'relative mt-3'}`}
       >
         <canvas
           ref={canvasRef}
           className={`touch-none transition ${
-            isFullscreen ? '' : 'w-full rounded-xl2 shadow-card ring-1 ring-grape-100'
+            isFullscreen ? '' : 'w-full rounded-2xl shadow-sm ring-1 ring-brand-100'
           } ${phase === 'learning' ? 'blur-sm brightness-90' : ''}`}
           style={{ cursor: 'crosshair', touchAction: 'none' }}
         />
@@ -1178,7 +1178,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         <button
           onClick={requestLeave}
           disabled={leaving}
-          className="pointer-events-auto absolute left-2 top-2 z-40 rounded-xl bg-white/90 px-3 py-2 text-xs font-extrabold text-ink shadow-card ring-1 ring-grape-100 backdrop-blur transition hover:bg-white disabled:opacity-60"
+          className="pointer-events-auto absolute left-2 top-2 z-40 rounded-xl bg-white/90 px-3 py-2 text-xs font-extrabold text-fg shadow-sm ring-1 ring-brand-100 backdrop-blur transition hover:bg-white disabled:opacity-60"
         >
           ← {leaving ? t('arena.leaving') : t('hud.leave')}
         </button>
@@ -1186,7 +1186,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         <button
           onClick={toggleFullscreen}
           aria-label={t(isFullscreen ? 'hud.exitFullscreen' : 'hud.fullscreen')}
-          className="pointer-events-auto absolute right-2 top-2 z-40 grid h-9 w-9 place-items-center rounded-xl bg-ink/80 text-lg text-white shadow-card backdrop-blur transition hover:bg-ink"
+          className="pointer-events-auto absolute right-2 top-2 z-40 grid h-9 w-9 place-items-center rounded-xl bg-fg/80 text-lg text-white shadow-sm backdrop-blur transition hover:bg-fg"
         >
           {isFullscreen ? '✕' : '⛶'}
         </button>
@@ -1200,12 +1200,12 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
                 initial={{ opacity: 0, x: 28 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 28 }}
-                className="rounded-full bg-ink/80 px-2.5 py-1 text-[11px] font-extrabold text-white shadow"
+                className="rounded-full bg-fg/80 px-2.5 py-1 text-[11px] font-extrabold text-white shadow"
               >
                 <span>{TEAMS[e.team].emoji} {e.killerName}</span>
-                <span className="mx-1 text-mango">⚡</span>
+                <span className="mx-1 text-warning">⚡</span>
                 <span className="opacity-80">{e.victimName}</span>
-                {e.crit && <span className="ml-1 text-sun">CRIT</span>}
+                {e.crit && <span className="ml-1 text-amber">CRIT</span>}
               </motion.div>
             ))}
           </AnimatePresence>
@@ -1232,7 +1232,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         <AnimatePresence>
           {phase === 'intro' && (
             <motion.div
-              className="absolute inset-0 grid place-items-center rounded-xl2 bg-ink/45 backdrop-blur-sm"
+              className="absolute inset-0 grid place-items-center rounded-2xl bg-fg/45 backdrop-blur-sm"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             >
               <motion.div
@@ -1285,16 +1285,16 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         <AnimatePresence>
           {confirmLeave && (
             <motion.div
-              className="absolute inset-0 z-50 grid place-items-center bg-ink/55 p-4 backdrop-blur-sm"
+              className="absolute inset-0 z-50 grid place-items-center bg-fg/55 p-4 backdrop-blur-sm"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             >
               <motion.div
                 initial={{ scale: 0.85, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }}
                 className="w-full max-w-xs rounded-[26px] bg-white p-6 text-center shadow-soft"
               >
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-grape-50 text-3xl">👋</div>
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-3xl">👋</div>
                 <p className="mt-3 font-display text-xl font-extrabold">{t('arena.leaveConfirmTitle')}</p>
-                <p className="mt-2 text-sm font-bold text-ink-soft">{t('arena.leaveConfirmBody')}</p>
+                <p className="mt-2 text-sm font-bold text-fg-soft">{t('arena.leaveConfirmBody')}</p>
                 <div className="mt-5 flex gap-2">
                   <button
                     onClick={() => setConfirmLeave(false)}
@@ -1306,7 +1306,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
                   <button
                     onClick={() => { setConfirmLeave(false); leaveMatch(); }}
                     disabled={leaving}
-                    className="flex-1 rounded-full bg-bubble px-4 py-2.5 font-extrabold text-white shadow-card transition hover:brightness-105 disabled:opacity-60"
+                    className="flex-1 rounded-full bg-danger px-4 py-2.5 font-extrabold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60"
                   >
                     {t('arena.leaveConfirmLeave')}
                   </button>
@@ -1317,7 +1317,7 @@ export function ArenaGame({ config, net }: { config: ArenaGameConfig; net?: Aren
         </AnimatePresence>
       </div>
 
-      <p className="mt-2 text-center text-xs font-bold text-ink-faint">
+      <p className="mt-2 text-center text-xs font-bold text-fg-faint">
         {t('arena.controls')}
       </p>
     </div>

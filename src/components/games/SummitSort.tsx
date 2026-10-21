@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
 
 /**
@@ -58,40 +59,41 @@ export function SummitSort({ onWin }: GameProps) {
   };
 
   return (
-    <div className="overflow-hidden rounded-xl2 bg-gradient-to-b from-[#cdeafe] to-[#a9d4f5] p-4 shadow-card">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="chip bg-white/70 text-sky-600">⛰️ {round + 1}/{ROUNDS.length}-cho‘qqi</span>
-        <span className="chip bg-white/70 text-ink-soft">🔁 {swaps} almashtirish</span>
+    <div className="card">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="chip bg-info-50 text-info-700"><Icon name="mountain" className="h-3.5 w-3.5" /> {round + 1}/{ROUNDS.length}-cho‘qqi</span>
+        <span className="chip bg-surface-2 text-fg-soft tabular-nums"><Icon name="refresh" className="h-3.5 w-3.5" /> {swaps} almashtirish</span>
       </div>
 
-      <div className="flex items-end gap-3">
+      <div className="flex items-end gap-3 rounded-xl border border-border bg-gradient-to-b from-info-50 to-surface-2 p-3">
         {/* climber track */}
-        <div className="relative h-44 w-10 shrink-0 rounded-2xl bg-white/40">
-          <span className="absolute -top-1 left-1/2 -translate-x-1/2 text-xl">🚩</span>
+        <div className="relative h-44 w-10 shrink-0 rounded-lg border border-border bg-surface">
+          <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-base" aria-hidden>🚩</span>
           <motion.span
             className="absolute left-1/2 -translate-x-1/2 text-2xl"
             animate={{ bottom: `${4 + progress * 78}%` }}
             transition={{ type: 'spring', stiffness: 120, damping: 16 }}
+            aria-hidden
           >🧗</motion.span>
         </div>
 
         {/* crystals */}
-        <div className="flex flex-1 items-end justify-center gap-2 rounded-2xl bg-white/30 p-3">
+        <div className="flex flex-1 items-end justify-center gap-2 border-b-2 border-border-strong pb-0">
           {arr.map((v, i) => {
             const placed = v === i + 1;
             return (
-              <button key={i} onClick={() => tap(i)} disabled={justSorted}
-                className="group flex flex-col items-center justify-end" style={{ height: 150 }}>
+              <button key={i} type="button" onClick={() => tap(i)} disabled={justSorted} aria-pressed={sel === i}
+                className="group flex flex-col items-center justify-end rounded-md" style={{ height: 150 }}>
                 <motion.div
                   layout
                   transition={{ type: 'spring', stiffness: 420, damping: 30 }}
                   animate={sel === i ? { y: -8 } : { y: 0 }}
-                  className={`grid w-9 place-items-end justify-center rounded-t-lg pb-1 font-display text-sm font-extrabold text-white shadow-card transition sm:w-11 ${
-                    sel === i ? 'ring-4 ring-sun' : placed ? 'ring-2 ring-mint' : ''
-                  } ${placed ? 'bg-gradient-to-t from-mint-600 to-mint' : 'bg-gradient-to-t from-grape-600 to-grape'}`}
+                  className={`grid w-9 place-items-end justify-center rounded-t-md pb-1 font-display text-sm font-extrabold tabular-nums text-white shadow-xs transition sm:w-11 ${
+                    sel === i ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-surface' : ''
+                  } ${placed ? 'bg-success-500' : 'bg-brand'}`}
                   style={{ height: 26 + v * 16 }}
                 >
-                  {placed ? '✓' : v}
+                  {placed ? <Icon name="check" className="h-4 w-4" /> : v}
                 </motion.div>
               </button>
             );
@@ -99,10 +101,10 @@ export function SummitSort({ onWin }: GameProps) {
         </div>
       </div>
 
-      <p className="mt-3 text-center text-sm font-bold text-ink-soft">
-        {justSorted ? '🎉 Zinapoya tayyor — alpinist chiqdi!' : '⬆️ Ikki kristalni bosib joyini almashtir. Kichikdan kattaga tartibla!'}
+      <p className="mt-3 text-center text-sm font-semibold text-fg-soft" aria-live="polite">
+        {justSorted ? 'Zinapoya tayyor — alpinist chiqdi!' : 'Ikki kristalni bosib joyini almashtir. Kichikdan kattaga tartibla!'}
       </p>
-      <p className="mt-1 text-center text-[11px] text-ink-faint">Kamroq almashtirish = ⭐⭐⭐</p>
+      <p className="mt-1 text-center text-xs text-fg-faint">{sorted ? '' : 'Kamroq almashtirish = ko‘proq yulduz'}</p>
     </div>
   );
 }

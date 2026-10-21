@@ -50,37 +50,49 @@ export function LoopOutput({ onWin }: GameProps) {
 
   return (
     <div className="card">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-lg font-extrabold text-ink-soft">{t('mg.loop.instr')}</p>
-        <span className="chip bg-grape-50 text-grape text-sm">{step + 1}/{rounds.length}</span>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-fg-soft">{t('mg.loop.instr')}</p>
+        <span className="chip bg-brand-50 text-brand-700 tabular-nums">{step + 1}/{rounds.length}</span>
       </div>
-      <div className="mx-auto mt-5 max-w-2xl rounded-2xl bg-ink p-5 font-mono text-xl text-mint">
-        {round.code.map((line, i) => (
-          <div key={i} className="whitespace-pre">{line}</div>
-        ))}
-      </div>
-      <div className="mt-5 grid gap-3">
+      <CodeBlock lines={round.code} />
+      <div className="mt-4 grid gap-2">
         {round.options.map((opt, i) => {
           const state =
             picked === null
-              ? ''
+              ? 'border-border bg-surface hover:border-brand-300 hover:bg-brand-50'
               : i === round.answer
-              ? 'ring-2 ring-mint bg-mint/10'
-              : i === picked
-              ? 'ring-2 ring-bubble bg-bubble/10'
-              : '';
+                ? 'border-success-300 bg-success-50 text-success-700'
+                : i === picked
+                  ? 'border-danger-300 bg-danger-50 text-danger-700'
+                  : 'border-border bg-surface opacity-60';
           return (
             <motion.button
               key={i}
+              type="button"
               onClick={() => choose(i)}
-              whileTap={{ scale: 0.98 }}
-              className={`rounded-2xl bg-cloud p-5 text-center font-mono text-xl font-extrabold shadow-card ${state}`}
+              whileTap={{ scale: 0.99 }}
+              disabled={picked !== null}
+              className={`rounded-xl border p-4 text-center font-mono text-lg font-bold transition ${state}`}
             >
               {opt}
             </motion.button>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** Dark code listing used by the "what will it print" style games. */
+export function CodeBlock({ lines, className = '' }: { lines: string[]; className?: string }) {
+  return (
+    <div className={`overflow-x-auto rounded-xl border border-border bg-fg p-4 font-mono text-[15px] leading-relaxed text-success-300 dark:border-border dark:bg-bg-subtle ${className}`}>
+      {lines.map((line, i) => (
+        <div key={i} className="flex gap-4 whitespace-pre">
+          <span className="w-4 select-none text-right text-white/25">{i + 1}</span>
+          <span>{line}</span>
+        </div>
+      ))}
     </div>
   );
 }

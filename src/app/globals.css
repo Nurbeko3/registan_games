@@ -2,119 +2,374 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ────────────────────────────────────────────────────────────────────────────
+   KidsCode design tokens
+   All colours are `R G B` triplets consumed by tailwind.config.ts through
+   `rgb(var(--token) / <alpha>)`. Light is the default; `.dark` on <html>
+   swaps the whole palette. Components never hard-code colours.
+   ──────────────────────────────────────────────────────────────────────────── */
 :root {
-  --font-display: 'Baloo 2', system-ui;
-  --font-sans: 'Nunito', system-ui;
+  color-scheme: light;
+
+  /* canvas + surfaces */
+  --bg: 247 248 250;          /* #F7F8FA app canvas */
+  --bg-subtle: 241 243 246;   /* #F1F3F6 */
+  --surface: 255 255 255;     /* cards, panels */
+  --surface-2: 247 248 250;   /* nested / muted surface */
+  --surface-3: 236 239 243;   /* pressed / selected surface */
+  --border: 228 231 236;      /* #E4E7EC hairlines */
+  --border-strong: 203 210 220;
+
+  /* text */
+  --fg: 16 24 40;             /* #101828 deep navy */
+  --fg-soft: 71 84 103;       /* #475467 */
+  --fg-faint: 130 141 160;    /* #828DA0 */
+  --fg-inverse: 255 255 255;
+
+  /* brand — professional blue */
+  --brand-50: 239 244 255;
+  --brand-100: 219 230 254;
+  --brand-200: 190 211 254;
+  --brand-300: 147 180 251;
+  --brand-400: 96 139 243;
+  --brand-500: 47 107 235;    /* #2F6BEB primary */
+  --brand-600: 36 88 209;
+  --brand-700: 29 71 174;
+  --brand-800: 25 57 138;
+  --brand-900: 20 46 108;
+
+  /* semantic */
+  --success-50: 236 253 243;
+  --success-100: 209 250 229;
+  --success-200: 167 243 208;
+  --success-300: 110 231 183;
+  --success-400: 52 211 153;
+  --success-500: 22 163 74;
+  --success-600: 21 128 61;
+  --success-700: 20 108 54;
+  --success-800: 22 86 48;
+  --success-900: 20 70 42;
+
+  --warning-50: 255 247 237;
+  --warning-100: 255 237 213;
+  --warning-200: 254 215 170;
+  --warning-300: 253 186 116;
+  --warning-400: 251 146 60;
+  --warning-500: 234 112 24;
+  --warning-600: 194 82 12;
+  --warning-700: 160 66 12;
+  --warning-800: 128 54 14;
+  --warning-900: 102 45 14;
+
+  --danger-50: 254 242 242;
+  --danger-100: 254 226 226;
+  --danger-200: 254 202 202;
+  --danger-300: 252 165 165;
+  --danger-400: 248 113 113;
+  --danger-500: 220 38 38;
+  --danger-600: 185 28 28;
+  --danger-700: 153 27 27;
+  --danger-800: 127 29 29;
+  --danger-900: 105 28 28;
+
+  --info-50: 236 248 255;
+  --info-100: 207 238 254;
+  --info-200: 165 224 253;
+  --info-300: 108 206 250;
+  --info-400: 48 178 240;
+  --info-500: 14 150 216;
+  --info-600: 9 121 178;
+  --info-700: 11 97 142;
+  --info-800: 14 80 117;
+  --info-900: 15 66 97;
+
+  /* amber — stars, coins, streaks */
+  --amber-50: 255 251 235;
+  --amber-100: 254 243 199;
+  --amber-200: 253 230 138;
+  --amber-300: 252 211 77;
+  --amber-400: 251 191 36;
+  --amber-500: 232 160 10;
+  --amber-600: 196 128 6;
+  --amber-700: 160 100 8;
+  --amber-800: 128 80 10;
+  --amber-900: 100 62 10;
+
+  /* violet — a restrained secondary accent (arena / rare items) */
+  --violet-50: 245 243 255;
+  --violet-100: 237 233 254;
+  --violet-200: 221 214 254;
+  --violet-300: 196 181 253;
+  --violet-400: 167 139 250;
+  --violet-500: 124 92 230;
+  --violet-600: 104 70 206;
+  --violet-700: 88 56 172;
+  --violet-800: 72 46 140;
+  --violet-900: 58 38 112;
+
+  --font-display: 'Manrope', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: 11 17 28;             /* #0B111C */
+  --bg-subtle: 15 22 36;
+  --surface: 17 25 40;        /* #111928 */
+  --surface-2: 22 32 50;
+  --surface-3: 30 42 64;
+  --border: 36 48 72;         /* #243048 */
+  --border-strong: 58 72 100;
+
+  --fg: 241 245 249;
+  --fg-soft: 182 194 214;
+  --fg-faint: 124 138 165;
+  --fg-inverse: 16 24 40;
+
+  --brand-50: 21 33 59;       /* tints invert: darkest first */
+  --brand-100: 27 42 74;
+  --brand-200: 35 56 100;
+  --brand-300: 47 78 140;
+  --brand-400: 72 118 210;
+  --brand-500: 91 141 239;    /* lighter primary for contrast on dark */
+  --brand-600: 122 164 245;
+  --brand-700: 157 189 250;
+  --brand-800: 190 211 254;
+  --brand-900: 219 230 254;
+
+  --success-50: 16 41 32;
+  --success-100: 18 56 40;
+  --success-200: 22 78 52;
+  --success-300: 24 110 68;
+  --success-400: 34 160 94;
+  --success-500: 52 199 120;
+  --success-600: 94 220 150;
+  --success-700: 134 232 178;
+  --success-800: 167 243 208;
+  --success-900: 209 250 229;
+
+  --warning-50: 48 30 14;
+  --warning-100: 68 40 16;
+  --warning-200: 96 54 18;
+  --warning-300: 140 76 22;
+  --warning-400: 200 108 30;
+  --warning-500: 245 140 50;
+  --warning-600: 251 170 90;
+  --warning-700: 253 196 130;
+  --warning-800: 254 215 170;
+  --warning-900: 255 237 213;
+
+  --danger-50: 50 20 22;
+  --danger-100: 72 26 28;
+  --danger-200: 104 32 34;
+  --danger-300: 150 42 44;
+  --danger-400: 210 64 64;
+  --danger-500: 240 92 92;
+  --danger-600: 248 128 128;
+  --danger-700: 252 165 165;
+  --danger-800: 254 202 202;
+  --danger-900: 254 226 226;
+
+  --info-50: 14 34 50;
+  --info-100: 16 46 68;
+  --info-200: 20 64 94;
+  --info-300: 24 90 130;
+  --info-400: 36 134 190;
+  --info-500: 56 176 240;
+  --info-600: 100 200 250;
+  --info-700: 140 216 252;
+  --info-800: 165 224 253;
+  --info-900: 207 238 254;
+
+  --amber-50: 48 36 10;
+  --amber-100: 66 48 12;
+  --amber-200: 96 68 14;
+  --amber-300: 140 98 18;
+  --amber-400: 200 140 24;
+  --amber-500: 245 180 40;
+  --amber-600: 250 200 80;
+  --amber-700: 252 216 120;
+  --amber-800: 253 230 138;
+  --amber-900: 254 243 199;
+
+  --violet-50: 34 28 60;
+  --violet-100: 44 36 80;
+  --violet-200: 60 48 108;
+  --violet-300: 84 66 150;
+  --violet-400: 124 100 210;
+  --violet-500: 150 126 240;
+  --violet-600: 176 158 248;
+  --violet-700: 196 181 253;
+  --violet-800: 221 214 254;
+  --violet-900: 237 233 254;
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
-    /* Gentle comfort scale: slightly larger everything for young readers.
-       rem-based text + spacing grow together, so the whole site breathes more. */
-    font-size: 17px;
+    font-size: 16px;
   }
   body {
-    @apply bg-cloud text-ink font-sans antialiased leading-relaxed;
+    @apply bg-bg font-sans text-fg antialiased;
     text-rendering: optimizeLegibility;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,246,254,0.96) 34rem),
-      #F7F6FE;
+    font-feature-settings: 'cv11', 'ss01', 'calt';
+    line-height: 1.55;
   }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+    text-wrap: balance;
+  }
+  p { text-wrap: pretty; }
+  ::selection { @apply bg-brand-100 text-fg; }
+  .dark ::selection { @apply bg-brand-200 text-fg; }
+
   /* visible focus ring for keyboard users (a11y) */
   :focus-visible {
-    @apply outline-none ring-4 ring-grape/40 ring-offset-2 ring-offset-cloud;
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-bg;
   }
-  /* playful, slim scrollbar */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-grape-100;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-grape-400;
-  }
+  /* slim scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { @apply rounded-full border-[3px] border-solid border-transparent bg-border-strong bg-clip-padding; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-fg-faint; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  input, textarea, select, button { font: inherit; }
+  input::placeholder, textarea::placeholder { @apply text-fg-faint; }
 }
 
 @layer components {
+  /* ── Buttons ──────────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 font-display font-extrabold
-           transition-[transform,background-color,box-shadow] duration-200 active:translate-y-0.5 active:shadow-none select-none;
-    /* comfortable, finger-sized tap target for kids */
-    min-height: 2.875rem;
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5
+           font-display text-sm font-bold leading-none
+           transition-[background-color,color,box-shadow,transform,border-color] duration-150 ease-out
+           active:translate-y-px disabled:pointer-events-none disabled:opacity-50;
+    min-height: 2.625rem; /* 42px tap target */
   }
   .btn-primary {
-    @apply btn bg-grape text-white shadow-card ring-1 ring-grape-600/20 hover:bg-grape-600;
+    @apply btn bg-brand text-fg-inverse shadow-xs hover:bg-brand-600 active:bg-brand-700;
   }
-  .btn-sun {
-    @apply btn bg-sun text-ink shadow-card ring-1 ring-mango/20 hover:bg-sun-600;
+  .dark .btn-primary { @apply text-white; }
+  .btn-secondary {
+    @apply btn border border-border bg-surface text-fg shadow-xs hover:border-border-strong hover:bg-surface-2 active:bg-surface-3;
   }
-  .btn-ghost {
-    @apply btn bg-white/95 text-ink shadow-card ring-1 ring-grape-100/70 hover:bg-grape-50;
+  .btn-ghost { @apply btn-secondary; } /* legacy alias */
+  .btn-subtle {
+    @apply btn bg-transparent text-fg-soft hover:bg-surface-3 hover:text-fg;
   }
+  .btn-accent {
+    @apply btn bg-amber-400 text-fg shadow-xs hover:bg-amber-500 active:bg-amber-600;
+  }
+  .btn-sun { @apply btn-accent; } /* legacy alias */
+  .btn-danger {
+    @apply btn bg-danger text-white shadow-xs hover:bg-danger-600 active:bg-danger-700;
+  }
+  .btn-danger-soft {
+    @apply btn bg-danger-50 text-danger-700 hover:bg-danger-100;
+  }
+  .btn-success {
+    @apply btn bg-success-600 text-white shadow-xs hover:bg-success-700;
+  }
+  .btn-sm { @apply px-3 py-2 text-xs; min-height: 2.25rem; }
+  .btn-lg { @apply px-5 py-3 text-base; min-height: 3rem; }
+  .btn-icon { @apply px-0; width: 2.625rem; }
+
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
   .card {
-    @apply rounded-3xl bg-white/95 p-6 shadow-card ring-1 ring-grape-100/60 backdrop-blur-sm;
+    @apply rounded-2xl border border-border bg-surface p-5 shadow-xs;
   }
-  .game-surface {
-    @apply text-lg;
+  .card-hover {
+    @apply transition-[border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md;
   }
-  .game-surface .card {
-    @apply p-5 sm:p-7;
+  .card-tap { @apply card-hover active:translate-y-0 active:scale-[0.995]; } /* legacy alias */
+  .panel {
+    @apply rounded-2xl border border-border bg-surface shadow-xs;
   }
-  .game-surface button {
-    min-height: 3rem;
-  }
-  .game-surface input {
-    min-height: 3rem;
-  }
-  /* interactive card — gentle lift + press */
-  .card-tap {
-    @apply transition-transform duration-200 hover:-translate-y-1 active:translate-y-0 active:scale-[0.98];
-  }
+  .surface-muted { @apply rounded-xl bg-surface-2; }
+  .divider { @apply border-t border-border; }
+
+  /* ── Chips / badges ───────────────────────────────────────────────────── */
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-bold ring-1 ring-black/[0.04];
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold leading-none ring-1 ring-inset ring-black/[0.04];
   }
-  /* drop-in comfortable tap target for icon-only buttons (≥44px) */
-  .tap {
-    @apply grid place-items-center;
-    min-height: 2.75rem;
-    min-width: 2.75rem;
+  .dark .chip { @apply ring-white/[0.06]; }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-bold uppercase tracking-wide;
   }
-  /* animated gradient text */
-  .text-rainbow {
-    @apply bg-gradient-to-r from-grape via-bubble to-mango bg-clip-text text-transparent;
+  .badge-brand { @apply badge bg-brand-50 text-brand-700; }
+  .badge-success { @apply badge bg-success-50 text-success-700; }
+  .badge-warning { @apply badge bg-warning-50 text-warning-700; }
+  .badge-danger { @apply badge bg-danger-50 text-danger-700; }
+  .badge-neutral { @apply badge bg-surface-3 text-fg-soft; }
+
+  /* ── Forms ────────────────────────────────────────────────────────────── */
+  .input {
+    @apply w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-semibold text-fg shadow-xs outline-none
+           transition-[border-color,box-shadow] duration-150
+           placeholder:font-medium placeholder:text-fg-faint
+           hover:border-border-strong
+           focus:border-brand focus:ring-4 focus:ring-brand/15
+           disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-70;
+    min-height: 2.625rem;
   }
-  /* friendly section heading */
-  .h-section {
-    @apply font-display text-2xl font-extrabold md:text-3xl;
+  .input-error { @apply border-danger focus:border-danger focus:ring-danger/15; }
+  .label { @apply mb-1.5 block text-xs font-bold text-fg-soft; }
+  .help { @apply mt-1.5 text-xs text-fg-faint; }
+  select.input { @apply pr-9; }
+
+  /* ── Typography helpers ───────────────────────────────────────────────── */
+  .h-section { @apply font-display text-xl font-extrabold tracking-tight md:text-2xl; }
+  .eyebrow { @apply text-2xs font-bold uppercase tracking-[0.12em] text-fg-faint; }
+  .text-rainbow { @apply text-brand; } /* legacy alias — gradient text retired */
+
+  /* ── Tables ───────────────────────────────────────────────────────────── */
+  .table { @apply w-full border-collapse text-sm; }
+  .table th {
+    @apply border-b border-border bg-surface-2 px-3 py-2.5 text-left text-2xs font-bold uppercase tracking-wide text-fg-faint;
   }
-  /* soft dotted backdrop for playful depth */
+  .table td { @apply border-b border-border px-3 py-3 align-middle text-fg; }
+  .table tbody tr:last-child td { @apply border-b-0; }
+  .table tbody tr:hover td { @apply bg-surface-2; }
+
+  /* ── Game surfaces (mini-games keep a slightly larger, friendlier scale) ─ */
+  .game-surface { @apply text-[1.0625rem]; }
+  .game-surface .card { @apply p-5 sm:p-6; }
+  .game-surface button { min-height: 2.75rem; }
+  .game-surface input { min-height: 2.75rem; }
+
+  /* ── Misc ─────────────────────────────────────────────────────────────── */
+  .tap { @apply grid place-items-center; min-height: 2.75rem; min-width: 2.75rem; }
   .dotted {
-    background-image: radial-gradient(theme('colors.grape.100') 1.4px, transparent 1.4px);
-    background-size: 22px 22px;
+    background-image: radial-gradient(rgb(var(--border-strong) / 0.55) 1px, transparent 1px);
+    background-size: 20px 20px;
   }
-  /* respects the iOS home indicator */
-  .safe-bottom {
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  .grid-bg {
+    background-image:
+      linear-gradient(rgb(var(--border) / 0.7) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--border) / 0.7) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
-  /* page content bottom padding — clears the fixed bottom nav + iOS safe area */
-  .page-pad-bottom {
-    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
-  }
-  /* skeleton shimmer for loading states */
+  .safe-bottom { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+  .page-pad-bottom { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+  @screen lg { .page-pad-bottom { padding-bottom: 3rem; } }
   .skeleton {
-    @apply animate-pulse rounded-2xl bg-grape-100/70;
+    @apply relative overflow-hidden rounded-xl bg-surface-3;
   }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-[shimmer_1.6s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent;
+  }
+  .dark .skeleton::after { @apply via-white/10; }
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
 }
 
 /* reduced motion respect */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

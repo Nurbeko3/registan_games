@@ -15,22 +15,27 @@ import type { CommandSpec } from '@/data/codecaster/commands';
 // hydration mismatch (mirrors the project's "gate dynamic bits" convention).
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror'), { ssr: false });
 
+// Colours come from the design tokens so the editor follows light/dark mode.
 const editorTheme = EditorView.theme({
-  '&': { fontSize: '15px', borderRadius: '1rem', overflow: 'hidden' },
-  '.cm-content': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', padding: '14px 0', minHeight: '260px' },
-  '.cm-gutters': { backgroundColor: '#F7F6FE', color: '#8B87B3', border: 'none' },
-  '.cm-activeLine': { backgroundColor: 'rgba(124,92,252,0.06)' },
-  '.cm-activeLineGutter': { backgroundColor: 'rgba(124,92,252,0.10)' },
+  '&': { fontSize: '14px', backgroundColor: 'rgb(var(--surface))', color: 'rgb(var(--fg))' },
+  '.cm-content': { fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace', padding: '12px 0', minHeight: '260px' },
+  '.cm-gutters': { backgroundColor: 'rgb(var(--surface-2))', color: 'rgb(var(--fg-faint))', border: 'none', borderRight: '1px solid rgb(var(--border))' },
+  '.cm-activeLine': { backgroundColor: 'rgb(var(--brand-500) / 0.06)' },
+  '.cm-activeLineGutter': { backgroundColor: 'rgb(var(--brand-500) / 0.10)' },
+  '.cm-cursor': { borderLeftColor: 'rgb(var(--brand-500))' },
+  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'rgb(var(--brand-500) / 0.18) !important' },
   '&.cm-focused': { outline: 'none' },
   '.cm-tooltip-autocomplete': {
-    borderRadius: '0.85rem',
+    borderRadius: '0.75rem',
     overflow: 'hidden',
-    border: '1px solid rgba(124,92,252,0.18)',
-    boxShadow: '0 12px 28px -8px rgba(60,40,140,0.28)',
+    border: '1px solid rgb(var(--border))',
+    backgroundColor: 'rgb(var(--surface))',
+    color: 'rgb(var(--fg))',
+    boxShadow: '0 12px 24px -6px rgb(16 24 40 / 0.14)',
   },
   '.cm-tooltip-autocomplete ul li[aria-selected]': {
-    backgroundColor: 'rgba(124,92,252,0.14)',
-    color: '#3D2E8C',
+    backgroundColor: 'rgb(var(--brand-50))',
+    color: 'rgb(var(--brand-700))',
   },
 });
 
@@ -108,8 +113,48 @@ export function CodePane({
 
   return (
     <div className="flex h-full flex-col gap-4">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={running}
+          className="btn-primary btn-sm gap-1.5"
+        >
+          {running ? (
+            <motion.span
+              aria-hidden
+              animate={shouldReduceMotion ? {} : { rotate: 360 }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+            >
+              <Icon name="refresh" className="h-4 w-4" />
+            </motion.span>
+          ) : (
+            <Icon name="play" className="h-4 w-4" />
+          )}
+          {running ? t('cc.running') : t('cc.run')}
+        </button>
+        <button type="button" onClick={onReset} className="btn-secondary btn-sm gap-1.5">
+          <Icon name="refresh" className="h-3.5 w-3.5" /> {t('cc.reset')}
+        </button>
+        <button
+          type="button"
+          onClick={onHint}
+          disabled={hintsRevealed >= hintsTotal}
+          className="btn-subtle btn-sm gap-1.5 text-amber-700 hover:bg-amber-50"
+        >
+          <Icon name="spark" className="h-3.5 w-3.5" />
+          {t('cc.hint')}{hintsRevealed > 0 ? ` (${hintsRevealed}/${hintsTotal})` : ''}
+        </button>
+        <span className={`ml-auto ${
+          runState === 'won' ? 'badge-success' : runState === 'error' ? 'badge-danger' : runState === 'lost' ? 'badge-warning' : runState === 'running' ? 'badge-brand' : 'badge-neutral'
+        }`}>
+          {runState === 'idle' ? 'ready' : runState}
+        </span>
+      </div>
+
       {/* Editor */}
-      <div className="overflow-hidden rounded-2xl ring-1 ring-grape-100/60">
+      <div className="overflow-hidden rounded-xl border border-border">
         <CodeMirror
           value={code}
           height="280px"
@@ -123,10 +168,10 @@ export function CodePane({
 
       {/* Relevant-only command palette */}
       <div>
-        <p className="mb-1.5 px-0.5 text-[11px] font-extrabold uppercase tracking-wide text-ink-faint">
+        <p className="eyebrow mb-1.5">
           {t('cc.palette')}
         </p>
-        <div className="-mx-1 flex flex-wrap gap-1.5 px-1" role="toolbar" aria-label={t('cc.snippets')}>
+        <div className="flex flex-wrap gap-1.5" role="toolbar" aria-label={t('cc.snippets')}>
           {commands.map((c) => (
             <button
               key={c.id}
@@ -134,7 +179,7 @@ export function CodePane({
               onClick={() => insertSnippet(c.insert)}
               disabled={running}
               title={t(c.detailKey)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-grape-50 px-3 py-2 text-xs font-extrabold text-grape ring-1 ring-grape-100 transition hover:bg-grape-100 disabled:opacity-50 min-h-[44px]"
+              className="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 font-mono text-xs font-semibold text-fg transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50"
             >
               {c.iconName && <Icon name={c.iconName} className="h-3.5 w-3.5" />}
               {c.label}
@@ -143,61 +188,29 @@ export function CodePane({
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={running}
-          className="btn-primary min-h-[44px] flex-1 gap-2 disabled:opacity-60"
-        >
-          {running ? (
-            <motion.span
-              aria-hidden
-              animate={shouldReduceMotion ? {} : { rotate: 360 }}
-              transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
-            >
-              <Icon name="loop" className="h-5 w-5" />
-            </motion.span>
-          ) : (
-            <Icon name="zap" className="h-5 w-5" />
-          )}
-          {running ? t('cc.running') : t('cc.run')}
-        </button>
-        <button type="button" onClick={onReset} className="btn-ghost min-h-[44px] gap-2">
-          <Icon name="loop" className="h-4 w-4" /> {t('cc.reset')}
-        </button>
-        <button
-          type="button"
-          onClick={onHint}
-          disabled={hintsRevealed >= hintsTotal}
-          className="btn-sun min-h-[44px] gap-2 disabled:opacity-60"
-        >
-          <Icon name="spark" className="h-4 w-4" />
-          {t('cc.hint')}{hintsRevealed > 0 ? ` (${hintsRevealed}/${hintsTotal})` : ''}
-        </button>
-      </div>
-
       {/* Output / error panel */}
-      <div className="rounded-2xl bg-cloud/70 px-4 py-3">
-        <p className="text-xs font-extrabold uppercase tracking-wide text-ink-faint">{t('cc.output')}</p>
+      <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-3">
+        <p className="eyebrow">{t('cc.output')}</p>
         {error ? (
-          <div className="mt-2 rounded-xl bg-bubble/10 px-3 py-2.5 ring-1 ring-bubble/20">
-            <p className="font-display text-sm font-extrabold text-bubble-600">
-              {t(error.titleKey)}{error.line != null ? ` · ${t('cc.line', { n: error.line })}` : ''}
-            </p>
-            <p className="mt-1 text-sm font-bold leading-relaxed text-ink-soft">{t(error.bodyKey, error.vars)}</p>
+          <div role="alert" className="mt-2 flex items-start gap-2.5 rounded-lg border border-danger-100 bg-danger-50 px-3 py-2.5 text-danger-700">
+            <Icon name="warning" className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-display text-sm font-bold">
+                {t(error.titleKey)}{error.line != null ? ` · ${t('cc.line', { n: error.line })}` : ''}
+              </p>
+              <p className="mt-0.5 text-sm leading-relaxed text-danger-700/90">{t(error.bodyKey, error.vars)}</p>
+            </div>
           </div>
         ) : output.length > 0 ? (
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-2 space-y-1 font-mono text-sm">
             {output.map((line, i) => (
-              <li key={i} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-ink ring-1 ring-grape-100/50">
+              <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-fg">
                 {line}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-1.5 text-sm font-bold text-ink-faint">{t('cc.outputEmpty')}</p>
+          <p className="mt-1.5 text-sm text-fg-faint">{t('cc.outputEmpty')}</p>
         )}
       </div>
     </div>
