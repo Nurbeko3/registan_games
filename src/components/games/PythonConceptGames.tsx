@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Check, ChevronRight, X } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 interface Question {
   promptKey: string;
@@ -148,6 +149,7 @@ function PythonConceptGame({ onWin, accent, questions }: ConceptGameProps) {
   const choose = (index: number) => {
     if (answered) return;
     setPicked(index);
+    playSfx(index === question.answer ? 'success' : 'error');
     if (index !== question.answer) setMistakes((value) => value + 1);
   };
 

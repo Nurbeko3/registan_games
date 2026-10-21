@@ -14,7 +14,8 @@ import { Stars } from '@/components/ui/Bits';
 import { Icon, gameIcon, worldIcon } from '@/components/ui/Icon';
 import { Confetti } from '@/components/ui/Confetti';
 import { GuestRewardNudge } from '@/components/ui/GuestRewardNudge';
-import { EmptyState, PageLoading } from '@/components/ui/Primitives';
+import { EmptyState, Notice, PageLoading } from '@/components/ui/Primitives';
+import { playSfx, playStars } from '@/lib/sound';
 import { useT } from '@/lib/i18n';
 import { GAME_REGISTRY } from './registry';
 import { studentRankForLevel } from '@/lib/studentRanks';
@@ -66,7 +67,13 @@ export function GameShell({ slug }: { slug: string }) {
     if (awardedRef.current) return;
     awardedRef.current = true;
     const safeStars = Math.max(0, Math.min(3, Math.round(stars)));
-    setResult(completeGame(slug, safeStars));
+    const r = completeGame(slug, safeStars);
+    setResult(r);
+    // Sound: one cue for the outcome, then the star chimes; fanfares for level-up / unlocks.
+    playSfx(safeStars >= 1 ? 'success' : 'error');
+    playStars(safeStars, 160);
+    if (r.leveledUp) setTimeout(() => playSfx('levelUp'), 650);
+    if (r.newAchievements.length > 0) setTimeout(() => playSfx('unlock'), r.leveledUp ? 1200 : 650);
   };
   const playAgain = () => {
     awardedRef.current = false;
@@ -199,15 +206,20 @@ export function GameShell({ slug }: { slug: string }) {
                   <GuestRewardNudge className="mt-5" />
                 ) : (
                   <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    <span className="chip bg-amber-50 text-amber-700">
+                    <span className="chip animate-pop bg-amber-50 text-amber-700" style={{ animationDelay: '0.35s' }}>
                       <Icon name="zap" className="h-3.5 w-3.5" /> +{result.xpAwarded} XP
                     </span>
                     {result.coinsAwarded > 0 && (
-                      <span className="chip bg-amber-50 text-amber-700">
+                      <span className="chip animate-pop bg-amber-50 text-amber-700" style={{ animationDelay: '0.5s' }}>
                         <Icon name="coin" className="h-3.5 w-3.5" /> +{result.coinsAwarded}
                       </span>
                     )}
                   </div>
+                )}
+                {result.dailyBonus && (
+                  <Notice tone="success" icon="target" className="mt-4 animate-fade-up text-left" >
+                    {t('daily.completedToast', { xp: result.dailyBonus.xp, coins: result.dailyBonus.coins })}
+                  </Notice>
                 )}
 
                 {result.leveledUp && (

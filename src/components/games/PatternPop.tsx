@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 const PADS = [
   { color: 'bg-brand', lit: 'bg-brand-300' },
@@ -50,10 +51,12 @@ export function PatternPop({ onWin }: GameProps) {
         const len = seq.length;
         const stars = len >= 5 ? 3 : len >= 3 ? 2 : 1;
         setMsg(t('mg.pattern.oops'));
+        playSfx('error');
         setPhase('idle');
         setTimeout(() => onWin(stars), 800);
         return;
       }
+      playSfx('tick');
       if (pos + 1 === seq.length) {
         if (seq.length >= TARGET) {
           onWin(3);

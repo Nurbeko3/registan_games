@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 const SIZE = 5;
 
@@ -26,6 +27,7 @@ export function TreasureHunt({ onWin }: GameProps) {
       const d = dist(x, y);
       const next = { ...dug, [key]: d };
       setDug(next);
+      playSfx(d === 0 ? 'success' : 'tick');
       if (d === 0) {
         setFound(true);
         const digs = Object.keys(next).length;

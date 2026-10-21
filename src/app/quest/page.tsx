@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/Primitives';
 import { CODECASTER_LEVELS } from '@/data/codecaster/levels';
 import { useGame, useHydrated } from '@/store/useGame';
 import { useT } from '@/lib/i18n';
+import { DailyTargetBadge } from '@/components/DailyChallengeCard';
 
 /**
  * Codecaster — Code Dungeon level select.
@@ -91,6 +92,7 @@ export default function QuestPage() {
                     <span className="badge-neutral normal-case tracking-normal">
                       {t('quest.learn')}: {t(lvl.concept)}
                     </span>
+                    <DailyTargetBadge kind="quest" id={lvl.id} />
                   </div>
                 </div>
                 {showStars ? (

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 /**
  * OUTPUT ORACLE — Python Planet's finale. A space-themed, timed "what will it
@@ -59,6 +60,7 @@ export function OutputOracle({ onWin }: GameProps) {
       if (p !== 'play') return p;
       const ok = i === q.answer;
       setPicked(i);
+      playSfx(ok ? 'success' : 'error');
       if (ok) { setCorrect((c) => c + 1); setCombo((c) => { const n = c + 1; setBest((b) => Math.max(b, n)); return n; }); }
       else setCombo(0);
       setTimeout(() => {

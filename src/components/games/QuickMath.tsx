@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 interface Q { prompt: string; answer: number; options: number[] }
 
@@ -54,6 +55,7 @@ export function QuickMath({ onWin }: GameProps) {
     if (flash) return;
     const ok = n === q.answer;
     setFlash(ok ? 'ok' : 'no');
+    playSfx(ok ? 'success' : 'error');
     if (ok) setCorrect((c) => c + 1);
     setTimeout(() => {
       setFlash(null);

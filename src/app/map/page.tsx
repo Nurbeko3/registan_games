@@ -13,6 +13,7 @@ import { Stars } from '@/components/ui/Bits';
 import { Icon, gameIcon, worldIcon, type IconName } from '@/components/ui/Icon';
 import { PageHeader, StatCard } from '@/components/ui/Primitives';
 import { useT } from '@/lib/i18n';
+import { DailyTargetBadge } from '@/components/DailyChallengeCard';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -154,9 +155,10 @@ export default function WorldMapPage() {
                             </span>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-bold text-fg">{t(`game.${slug}.title`)}</p>
-                              <div className="mt-0.5 flex items-center gap-2">
+                              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                                 <Stars count={hydrated ? stars : 0} size="text-xs" />
                                 <span className="truncate text-xs text-fg-faint">{t(`game.${slug}.skill`)}</span>
+                                <DailyTargetBadge kind="game" id={slug} />
                               </div>
                             </div>
                             <span className="inline-flex shrink-0 items-center gap-1 text-sm font-bold text-brand">

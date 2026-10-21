@@ -8,6 +8,7 @@ import { useT, useLocale } from '@/lib/i18n';
 import { askByteAI, askByteChat, type ChatTurn } from '@/lib/mentor/ai';
 import { useByteContext } from '@/lib/mentor/context';
 import { Icon } from '@/components/ui/Icon';
+import { playSfx } from '@/lib/sound';
 
 interface Msg { from: 'byte' | 'me'; text: string; ai?: boolean }
 
@@ -47,10 +48,12 @@ export function Byte() {
     setInput('');
     const history: ChatTurn[] = messages.slice(-6).map((m) => ({ role: m.from === 'me' ? 'user' : 'byte', text: m.text }));
     push({ from: 'me', text });
+    playSfx('click');
     setLoading(true);
     const reply = await askByteChat({ message: text, page: pathname, locale, history });
     setLoading(false);
     push({ from: 'byte', text: reply ?? t('mentor.offline'), ai: reply !== null });
+    playSfx('tick');
   };
 
   const askHint = async () => {
@@ -64,6 +67,7 @@ export function Byte() {
     setAttempt((a) => a + 1);
     setLoading(false);
     push({ from: 'byte', text: hint, ai: aiHint !== null });
+    playSfx('tick');
   };
 
   return (

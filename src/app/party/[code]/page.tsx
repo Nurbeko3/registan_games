@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +12,7 @@ import { AvatarBadge } from '@/components/ui/AvatarBadge';
 import { useParty } from '@/lib/party/useParty';
 import { Confetti } from '@/components/ui/Confetti';
 import { useT } from '@/lib/i18n';
+import { playSfx } from '@/lib/sound';
 
 function shuffledIndices(n: number): number[] {
   const a = Array.from({ length: n }, (_, i) => i);
@@ -53,6 +54,13 @@ function Room() {
   // PARTY_QUIZ stores the correct option first, so show the options in a fresh
   // random order per question (otherwise "always tap the top one" wins). Each
   // button still answers with its ORIGINAL index, which the server scores.
+  // One cue when the host reveals: right/wrong for my own pick, a tick if I sat out.
+  useEffect(() => {
+    if (phase !== 'reveal' || !question) return;
+    playSfx(selected === null ? 'tick' : selected === question.answer ? 'success' : 'error');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per reveal
+  }, [phase, qIndex]);
+
   const optionCount = question?.options.length ?? 0;
   const displayOrder = useMemo(
     () => shuffledIndices(optionCount),

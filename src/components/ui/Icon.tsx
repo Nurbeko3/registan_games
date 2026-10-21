@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
   BarChart3,
   BookOpen,
   ChevronDown,
@@ -15,6 +17,7 @@ import {
   Layers,
   LogOut,
   Menu,
+  Minus,
   Monitor,
   Moon,
   Pencil,
@@ -36,6 +39,15 @@ import {
   Target,
   Maximize2,
   Minimize2,
+  Terminal,
+  Folder,
+  FolderOpen,
+  FileCode2,
+  Lightbulb,
+  Save,
+  Blocks,
+  PanelBottom,
+  SquareFunction,
   Binary,
   Bot,
   Brain,
@@ -140,6 +152,8 @@ export type IconName =
   | 'activity'
   | 'arrowLeft'
   | 'arrowRight'
+  | 'arrowUp'
+  | 'arrowDown'
   | 'barChart'
   | 'book'
   | 'chevronDown'
@@ -150,6 +164,7 @@ export type IconName =
   | 'layers'
   | 'logout'
   | 'menu'
+  | 'minus'
   | 'monitor'
   | 'moon'
   | 'pencil'
@@ -170,7 +185,16 @@ export type IconName =
   | 'timer'
   | 'target'
   | 'maximize'
-  | 'minimize';
+  | 'minimize'
+  | 'terminal'
+  | 'folder'
+  | 'folderOpen'
+  | 'fileCode'
+  | 'lightbulb'
+  | 'save'
+  | 'blocks'
+  | 'panelBottom'
+  | 'functionSquare';
 
 const gameIcons: Record<string, IconName> = {
   'robot-maze': 'bot',
@@ -274,9 +298,20 @@ const ICON_REGISTRY: Record<IconName, LucideIcon> = {
   wrench: Wrench,
   x: X,
   zap: Zap,
+  terminal: Terminal,
+  folder: Folder,
+  folderOpen: FolderOpen,
+  fileCode: FileCode2,
+  lightbulb: Lightbulb,
+  save: Save,
+  blocks: Blocks,
+  panelBottom: PanelBottom,
+  functionSquare: SquareFunction,
   activity: Activity,
   arrowLeft: ArrowLeft,
   arrowRight: ArrowRight,
+  arrowUp: ArrowUp,
+  arrowDown: ArrowDown,
   barChart: BarChart3,
   book: BookOpen,
   chevronDown: ChevronDown,
@@ -287,6 +322,7 @@ const ICON_REGISTRY: Record<IconName, LucideIcon> = {
   layers: Layers,
   logout: LogOut,
   menu: Menu,
+  minus: Minus,
   monitor: Monitor,
   moon: Moon,
   pencil: Pencil,

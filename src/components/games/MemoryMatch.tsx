@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 const ICONS = ['🤖', '💾', '🐍', '⚙️', '🔢', '💡', '🚀', '🧩'];
 
@@ -37,6 +38,7 @@ export function MemoryMatch({ onWin }: GameProps) {
         setBusy(true);
         const [a, b] = open;
         const match = next[a].icon === next[b].icon;
+        playSfx(match ? 'success' : 'tick');
         setTimeout(() => {
           const resolved = next.map((c, i) =>
             i === a || i === b ? { ...c, matched: match, flipped: match } : c,

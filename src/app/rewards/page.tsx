@@ -15,6 +15,8 @@ import { Modal, PageHeader, PageLoading, Segmented, StatCard, Switch } from '@/c
 import { useT } from '@/lib/i18n';
 import { DetectiveRankBadge } from '@/components/case/DetectiveRankBadge';
 import { StudentRankCard } from '@/components/StudentRankCard';
+import { DailyChallengeCard } from '@/components/DailyChallengeCard';
+import { playSfx } from '@/lib/sound';
 import { studentRankForLevel } from '@/lib/studentRanks';
 
 export default function RewardsPage() {
@@ -49,6 +51,7 @@ function RewardsContent() {
   const unlockedAch = useGame((s) => s.unlockedAchievements);
   const claimDaily = useGame((s) => s.claimDaily);
   const lastDailyClaim = useGame((s) => s.lastDailyClaim);
+  const dailyChallengesDone = useGame((s) => s.dailyChallengesDone);
   const [claimMsg, setClaimMsg] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
 
@@ -80,6 +83,7 @@ function RewardsContent() {
 
   const onClaim = () => {
     const r = claimDaily();
+    if (r) playSfx('coin');
     if (r) setClaimMsg(t('rw.claimMsg', { coins: r.coins, xp: r.xp }));
   };
 
@@ -142,6 +146,8 @@ function RewardsContent() {
         <div className="min-w-0 space-y-5">
           <StudentRankCard level={ls.level} />
 
+          <DailyChallengeCard variant="card" />
+
           {/* daily reward */}
           <section className="card flex items-center gap-4">
             <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${canClaim ? 'bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-100' : 'bg-surface-2 text-fg-faint'}`}>
@@ -150,6 +156,7 @@ function RewardsContent() {
             <div className="min-w-0 flex-1">
               <p className="font-display text-sm font-extrabold text-fg">{t('rw.daily')}</p>
               <p className="text-xs text-fg-soft">{canClaim ? t('rw.dailyClaim') : claimMsg ?? t('rw.dailyBack')}</p>
+              <p className="mt-0.5 text-xs font-semibold text-fg-faint">{t('daily.doneCount', { n: dailyChallengesDone })}</p>
             </div>
             <button
               onClick={onClaim}

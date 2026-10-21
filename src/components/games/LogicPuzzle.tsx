@@ -5,6 +5,7 @@ import { Reorder } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 interface Block { id: number; text: string }
 interface PuzzleSet { title: string; blocks: Block[] }
@@ -88,6 +89,7 @@ export function LogicPuzzle({ onWin }: GameProps) {
   const check = () => {
     setTriesThisStep((t) => t + 1);
     const ok = blocks.every((b, i) => b.id === i + 1);
+    playSfx(ok ? 'success' : 'error');
     if (ok) {
       setCompleted((c) => [...c, step]);
       if (step + 1 >= PUZZLE_SETS.length) {

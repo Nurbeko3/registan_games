@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 const BITS = [16, 8, 4, 2, 1]; // 5-bit → 0..31
 
@@ -21,9 +22,11 @@ export function BinaryChallenge({ onWin }: GameProps) {
   const check = useCallback(() => {
     setTries((t) => t + 1);
     if (value === target) {
+      playSfx('success');
       const stars = tries === 0 ? 3 : tries <= 2 ? 2 : 1;
       onWin(stars);
     } else {
+      playSfx('error');
       setShake(true);
       setTimeout(() => setShake(false), 500);
     }

@@ -19,6 +19,7 @@ import { Scoreboard, RankBadge, type Standing } from './Scoreboard';
 import { ResultsScreen } from './ResultsScreen';
 import { CaseBriefing } from './CaseBriefing';
 import { CaseMetaBadges } from './CaseMeta';
+import { playSfx } from '@/lib/sound';
 
 type Pane = 'sources' | 'question';
 
@@ -75,6 +76,7 @@ export function CaseRoomScreen({ code, isHost, caseId, playerName }: Props) {
     const s = streakRef.current;
     s.lastQ = lastAnswer.qIndex;
     s.cur = lastAnswer.correct ? s.cur + 1 : 0;
+    playSfx(lastAnswer.correct ? 'success' : 'error');
     s.best = Math.max(s.best, s.cur);
   }, [lastAnswer]);
 

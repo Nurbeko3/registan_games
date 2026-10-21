@@ -99,6 +99,13 @@ function WinCard({ result, onReplay, nextLevelId, mustLogIn }: { result: Complet
         </div>
       )}
 
+      {result.dailyBonus && (
+        <p className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+          <Icon name="gift" className="h-4 w-4" />
+          {t('daily.completedToast', { xp: result.dailyBonus.xp, coins: result.dailyBonus.coins })}
+        </p>
+      )}
+
       {result.leveledUp && (
         <motion.p
           initial={{ scale: 0.9, opacity: 0 }}

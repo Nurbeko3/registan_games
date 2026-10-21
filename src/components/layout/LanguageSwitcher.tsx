@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { LOCALES, useLocale, useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
+import { playSfx } from '@/lib/sound';
 
 /** Compact language picker — code button → menu of the 3 languages. */
 export function LanguageSwitcher({ className = '' }: { className?: string }) {
@@ -56,7 +57,7 @@ export function LanguageSwitcher({ className = '' }: { className?: string }) {
                 <li key={l.id} role="option" aria-selected={active}>
                   <button
                     type="button"
-                    onClick={() => { setLocale(l.id); setOpen(false); }}
+                    onClick={() => { if (!active) playSfx('toggle'); setLocale(l.id); setOpen(false); }}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition ${
                       active ? 'bg-brand-50 text-brand-700' : 'text-fg hover:bg-surface-2'
                     }`}

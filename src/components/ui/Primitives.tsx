@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icon, type IconName } from './Icon';
+import { playSfx } from '@/lib/sound';
 
 /* ────────────────────────────────────────────────────────────────────────────
    Shared layout + state primitives for the KidsCode design system.
@@ -199,7 +200,7 @@ export function Switch({
       type="button"
       role="switch"
       aria-checked={checked}
-      onClick={() => onChange(!checked)}
+      onClick={() => { playSfx('toggle'); onChange(!checked); }}
       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-surface-2 ${className}`}
     >
       {icon && (
@@ -250,7 +251,7 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={active}
-            onClick={() => onChange(o.value)}
+            onClick={() => { if (!active) playSfx('toggle'); onChange(o.value); }}
             className={`inline-flex min-h-[32px] items-center gap-1.5 rounded-md px-3 text-xs font-bold transition ${
               active ? 'bg-surface text-fg shadow-xs' : 'text-fg-soft hover:text-fg'
             }`}

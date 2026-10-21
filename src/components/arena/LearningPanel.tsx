@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CATEGORY_META, type LearnState, type PreparedQuestion } from '@/lib/arena/types';
 import { Confetti } from '@/components/ui/Confetti';
 import { useT } from '@/lib/i18n';
+import { playSfx } from '@/lib/sound';
 import { QuestionRenderer } from './QuestionRenderer';
 import { TF_TRUE } from '@/lib/arena/questionEngine';
 
@@ -52,6 +54,10 @@ export function LearningPanel({
 }) {
   const t = useT();
   const { q } = prepared;
+  useEffect(() => {
+    if (learnState === 'correct') playSfx('success');
+    else if (learnState === 'wrong-cooldown') playSfx('error');
+  }, [learnState]);
   // Admin-imported questions may carry a category this build doesn't know.
   const cat = CATEGORY_META[q.category] ?? { label: String(q.category), emoji: '📘' };
   const catKey = `arena.cat.${q.category}`;

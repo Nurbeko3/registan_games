@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 /**
  * TRAIN THE ROBOT — AI City's flagship. The child is the teacher: first they
@@ -56,6 +57,7 @@ export function TrainRobot({ onWin }: GameProps) {
     const correct = cat === item.cat;
     setModel((m) => ({ ...m, [item.type]: item.cat })); // learn the TRUE label
     setFeedback({ ok: correct, cat: item.cat });
+    playSfx(correct ? 'success' : 'error');
     setTimeout(next, 900);
   };
 
@@ -71,6 +73,7 @@ export function TrainRobot({ onWin }: GameProps) {
     if (!wasRight) setModel((m) => ({ ...m, [item.type]: item.cat })); // correction → learns
     else setModel((m) => ({ ...m, [item.type]: item.cat }));
     setFeedback({ ok: wasRight, cat: item.cat });
+    playSfx(wasRight ? 'success' : 'error');
     setPhaseGuess(null);
     void childSaysCorrect;
     setTimeout(next, 1000);

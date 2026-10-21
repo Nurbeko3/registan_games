@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 interface Round { code: string[]; options: string[]; answer: number }
 
@@ -36,6 +37,7 @@ export function LoopOutput({ onWin }: GameProps) {
     if (picked !== null) return;
     setPicked(i);
     const correct = i === round.answer;
+    playSfx(correct ? 'success' : 'error');
     if (!correct) setWrong((w) => w + 1);
     setTimeout(() => {
       if (step + 1 >= rounds.length) {
