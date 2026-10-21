@@ -19,6 +19,7 @@ export interface AchievementSnapshot {
   caseNoHintSolves: number; // cases solved without opening any hint
   caseStreak: number; // best consecutive-correct streak in a single case
   classroomCaseTournamentWins: number; // 1st place in a server-confirmed classroom tournament
+  dailyChallengesDone: number; // lifetime daily challenges completed
 }
 
 export interface Achievement {
@@ -84,6 +85,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { code: 'EXPLORER', group: 'stars', title: 'World Explorer', titleKey: 'ach.explorer.title', description: 'Unlock 3 worlds.', descriptionKey: 'ach.explorer.desc', hintKey: 'ach.explorer.hint', emoji: '🗺️', rarity: 'rare', check: (s) => s.zonesUnlocked >= 3 },
   { code: 'CHAMPION', group: 'stars', title: 'Code Hero', titleKey: 'ach.champion.title', description: 'Unlock Python Planet.', descriptionKey: 'ach.champion.desc', hintKey: 'ach.champion.hint', emoji: '🪐', rarity: 'legendary', check: (s) => s.totalStars >= 20 },
   { code: 'STREAK_3', group: 'growth', title: 'On Fire', titleKey: 'ach.streak3.title', description: 'Keep a 3-day streak.', descriptionKey: 'ach.streak3.desc', hintKey: 'ach.streak3.hint', emoji: '🔥', rarity: 'rare', check: (s) => s.streak >= 3 },
+  { code: 'DAILY_1', group: 'growth', title: 'Day One', titleKey: 'ach.daily1.title', description: 'Complete a daily challenge.', descriptionKey: 'ach.daily1.desc', hintKey: 'ach.daily1.hint', emoji: '📅', rarity: 'common', check: (s) => s.dailyChallengesDone >= 1 },
+  { code: 'DAILY_7', group: 'growth', title: 'Week of Wins', titleKey: 'ach.daily7.title', description: 'Complete 7 daily challenges.', descriptionKey: 'ach.daily7.desc', hintKey: 'ach.daily7.hint', emoji: '🗓️', rarity: 'epic', check: (s) => s.dailyChallengesDone >= 7 },
   { code: 'LEVEL_5', group: 'growth', title: 'Rising Star', titleKey: 'ach.level5.title', description: 'Reach Level 5.', descriptionKey: 'ach.level5.desc', hintKey: 'ach.level5.hint', emoji: '🚀', rarity: 'epic', check: (s) => s.level >= 5 },
   { code: 'RICH', group: 'growth', title: 'Coin Master', titleKey: 'ach.rich.title', description: 'Save up 200 coins.', descriptionKey: 'ach.rich.desc', hintKey: 'ach.rich.hint', emoji: '💰', rarity: 'epic', check: (s) => s.coins >= 200 },
   // ── Battle Learn Arena ──

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 /**
  * SUMMIT SORT — Algorithm Mountain's flagship. Swap crystals until they line up
@@ -45,6 +46,7 @@ export function SummitSort({ onWin }: GameProps) {
     setArr(next);
     if (next.every((v, idx) => v === idx + 1)) {
       setJustSorted(true);
+      playSfx('success');
       setTimeout(() => {
         if (round < ROUNDS.length - 1) {
           const nr = round + 1;

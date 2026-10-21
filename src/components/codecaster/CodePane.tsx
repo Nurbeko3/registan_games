@@ -1,66 +1,48 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { python } from '@codemirror/lang-python';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view';
+import { indentUnit } from '@codemirror/language';
+import { Prec } from '@codemirror/state';
+import { indentWithTab } from '@codemirror/commands';
 import { autocompletion, type CompletionSource } from '@codemirror/autocomplete';
-import { motion, useReducedMotion } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
 import { useT } from '@/lib/i18n';
-import type { ExplainedError } from '@/lib/codecaster/errors';
+import { studioEditorTheme, studioHighlight } from './studio/theme';
 import type { CommandSpec } from '@/data/codecaster/commands';
 
 // CodeMirror touches the DOM/measures text — load client-only to avoid any
 // hydration mismatch (mirrors the project's "gate dynamic bits" convention).
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror'), { ssr: false });
 
-// Colours come from the design tokens so the editor follows light/dark mode.
-const editorTheme = EditorView.theme({
-  '&': { fontSize: '14px', backgroundColor: 'rgb(var(--surface))', color: 'rgb(var(--fg))' },
-  '.cm-content': { fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace', padding: '12px 0', minHeight: '260px' },
-  '.cm-gutters': { backgroundColor: 'rgb(var(--surface-2))', color: 'rgb(var(--fg-faint))', border: 'none', borderRight: '1px solid rgb(var(--border))' },
-  '.cm-activeLine': { backgroundColor: 'rgb(var(--brand-500) / 0.06)' },
-  '.cm-activeLineGutter': { backgroundColor: 'rgb(var(--brand-500) / 0.10)' },
-  '.cm-cursor': { borderLeftColor: 'rgb(var(--brand-500))' },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'rgb(var(--brand-500) / 0.18) !important' },
-  '&.cm-focused': { outline: 'none' },
-  '.cm-tooltip-autocomplete': {
-    borderRadius: '0.75rem',
-    overflow: 'hidden',
-    border: '1px solid rgb(var(--border))',
-    backgroundColor: 'rgb(var(--surface))',
-    color: 'rgb(var(--fg))',
-    boxShadow: '0 12px 24px -6px rgb(16 24 40 / 0.14)',
-  },
-  '.cm-tooltip-autocomplete ul li[aria-selected]': {
-    backgroundColor: 'rgb(var(--brand-50))',
-    color: 'rgb(var(--brand-700))',
-  },
-});
-
 export type RunState = 'idle' | 'running' | 'won' | 'lost' | 'error';
+
+export interface CursorPos { line: number; col: number }
 
 interface CodePaneProps {
   code: string;
   onChange: (code: string) => void;
+  /** Mod+Enter inside the editor. */
   onRun: () => void;
-  onReset: () => void;
-  onHint: () => void;
-  runState: RunState;
-  output: string[];
-  error: ExplainedError | null;
-  errorLine?: number;
-  hintsRevealed: number;
-  hintsTotal: number;
+  /** Mod+S inside the editor (browser save is suppressed). */
+  onSave?: () => void;
+  onCursor?: (pos: CursorPos) => void;
+  running: boolean;
   /** Only the commands relevant to the current level — drives palette + autocomplete. */
   commands: CommandSpec[];
+  /** Editor height; `100%` fills a flex parent. */
+  height?: string;
+  /** Show the tap-to-insert command strip under the editor. */
+  showPalette?: boolean;
+  className?: string;
 }
 
 /**
  * Builds a CodeMirror `CompletionSource` scoped to this level's commands only.
  * Triggers on word characters and right after `hero.` so kids see exactly the
- * handful of calls they've been taught — never the full 11-command catalog.
+ * handful of calls they've been taught — never the full catalog.
  */
 function buildCompletionSource(commands: CommandSpec[], describe: (key: string) => string): CompletionSource {
   const options = commands.map((c) => ({
@@ -73,33 +55,56 @@ function buildCompletionSource(commands: CommandSpec[], describe: (key: string) 
   }));
 
   return (context) => {
-    // Match either a bare identifier prefix ("mov", "hero") or "hero.something".
     const word = context.matchBefore(/[\w.]*/);
     if (!word) return null;
     if (word.from === word.to && !context.explicit) return null;
-    return {
-      from: word.from,
-      options,
-      validFor: /^[\w.]*$/,
-    };
+    return { from: word.from, options, validFor: /^[\w.]*$/ };
   };
 }
 
+/**
+ * The Code Studio editor: CodeMirror 6 + Python, level-scoped autocomplete,
+ * VS Code-style keymap (Mod+Enter run, Mod+S save flash, Tab = 4 spaces),
+ * bracket matching/closing, cursor tracking for the status bar, and an
+ * optional tap-to-insert command strip for touch users.
+ */
 export function CodePane({
-  code, onChange, onRun, onReset, onHint,
-  runState, output, error, hintsRevealed, hintsTotal, commands,
+  code, onChange, onRun, onSave, onCursor, running, commands,
+  height = '100%', showPalette = true, className = '',
 }: CodePaneProps) {
   const t = useT();
-  const shouldReduceMotion = useReducedMotion();
-  const running = runState === 'running';
+
+  // Keymap handlers read the latest callbacks through refs so the extension
+  // array stays stable (rebuilding extensions resets editor state).
+  const runRef = useRef(onRun);
+  const saveRef = useRef(onSave);
+  const cursorRef = useRef(onCursor);
+  useEffect(() => { runRef.current = onRun; saveRef.current = onSave; cursorRef.current = onCursor; });
 
   const extensions = useMemo(() => {
     const source = buildCompletionSource(commands, (key) => t(key));
     return [
       python(),
-      editorTheme,
+      studioEditorTheme,
+      studioHighlight,
+      indentUnit.of('    '),
       EditorView.lineWrapping,
+      cmPlaceholder('# hero.moveRight()'),
       autocompletion({ override: [source], activateOnTyping: true }),
+      // Highest precedence so Mod-Enter beats the default Enter binding.
+      Prec.highest(keymap.of([
+        { key: 'Mod-Enter', run: () => { runRef.current(); return true; } },
+        { key: 'Mod-s', run: () => { saveRef.current?.(); return true; }, preventDefault: true },
+        indentWithTab,
+      ])),
+      EditorView.updateListener.of((u) => {
+        if (!cursorRef.current) return;
+        if (u.selectionSet || u.docChanged || u.focusChanged) {
+          const pos = u.state.selection.main.head;
+          const line = u.state.doc.lineAt(pos);
+          cursorRef.current({ line: line.number, col: pos - line.from + 1 });
+        }
+      }),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commands]);
@@ -112,107 +117,51 @@ export function CodePane({
   };
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={running}
-          className="btn-primary btn-sm gap-1.5"
-        >
-          {running ? (
-            <motion.span
-              aria-hidden
-              animate={shouldReduceMotion ? {} : { rotate: 360 }}
-              transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
-            >
-              <Icon name="refresh" className="h-4 w-4" />
-            </motion.span>
-          ) : (
-            <Icon name="play" className="h-4 w-4" />
-          )}
-          {running ? t('cc.running') : t('cc.run')}
-        </button>
-        <button type="button" onClick={onReset} className="btn-secondary btn-sm gap-1.5">
-          <Icon name="refresh" className="h-3.5 w-3.5" /> {t('cc.reset')}
-        </button>
-        <button
-          type="button"
-          onClick={onHint}
-          disabled={hintsRevealed >= hintsTotal}
-          className="btn-subtle btn-sm gap-1.5 text-amber-700 hover:bg-amber-50"
-        >
-          <Icon name="spark" className="h-3.5 w-3.5" />
-          {t('cc.hint')}{hintsRevealed > 0 ? ` (${hintsRevealed}/${hintsTotal})` : ''}
-        </button>
-        <span className={`ml-auto ${
-          runState === 'won' ? 'badge-success' : runState === 'error' ? 'badge-danger' : runState === 'lost' ? 'badge-warning' : runState === 'running' ? 'badge-brand' : 'badge-neutral'
-        }`}>
-          {runState === 'idle' ? 'ready' : runState}
-        </span>
-      </div>
-
-      {/* Editor */}
-      <div className="overflow-hidden rounded-xl border border-border">
+    <div className={`flex min-h-0 flex-1 flex-col ${className}`}>
+      <div className="relative min-h-0 flex-1">
         <CodeMirror
+          className="absolute inset-0 [&_.cm-editor]:h-full"
+          theme="none"
           value={code}
-          height="280px"
+          height={height}
           extensions={extensions}
           onChange={onChange}
           editable={!running}
-          basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
+          basicSetup={{
+            lineNumbers: true,
+            foldGutter: false,
+            highlightActiveLine: true,
+            highlightActiveLineGutter: true,
+            bracketMatching: true,
+            closeBrackets: true,
+            indentOnInput: true,
+            autocompletion: false, // we provide our own scoped source above
+          }}
+          indentWithTab={false} // handled by our keymap (4 spaces)
           aria-label={t('cc.editorAlt')}
         />
       </div>
 
-      {/* Relevant-only command palette */}
-      <div>
-        <p className="eyebrow mb-1.5">
-          {t('cc.palette')}
-        </p>
-        <div className="flex flex-wrap gap-1.5" role="toolbar" aria-label={t('cc.snippets')}>
-          {commands.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => insertSnippet(c.insert)}
-              disabled={running}
-              title={t(c.detailKey)}
-              className="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 font-mono text-xs font-semibold text-fg transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50"
-            >
-              {c.iconName && <Icon name={c.iconName} className="h-3.5 w-3.5" />}
-              {c.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Output / error panel */}
-      <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-3">
-        <p className="eyebrow">{t('cc.output')}</p>
-        {error ? (
-          <div role="alert" className="mt-2 flex items-start gap-2.5 rounded-lg border border-danger-100 bg-danger-50 px-3 py-2.5 text-danger-700">
-            <Icon name="warning" className="mt-0.5 h-4 w-4 shrink-0" />
-            <div className="min-w-0">
-              <p className="font-display text-sm font-bold">
-                {t(error.titleKey)}{error.line != null ? ` · ${t('cc.line', { n: error.line })}` : ''}
-              </p>
-              <p className="mt-0.5 text-sm leading-relaxed text-danger-700/90">{t(error.bodyKey, error.vars)}</p>
-            </div>
-          </div>
-        ) : output.length > 0 ? (
-          <ul className="mt-2 space-y-1 font-mono text-sm">
-            {output.map((line, i) => (
-              <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-fg">
-                {line}
-              </li>
+      {showPalette && (
+        <div className="shrink-0 border-t border-border bg-surface-2 px-3 py-2">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none" role="toolbar" aria-label={t('cc.snippets')}>
+            <span className="eyebrow shrink-0">{t('cc.palette')}</span>
+            {commands.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => insertSnippet(c.insert)}
+                disabled={running}
+                title={t(c.detailKey)}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2 font-mono text-xs font-semibold text-fg transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50"
+              >
+                {c.iconName && <Icon name={c.iconName} className="h-3.5 w-3.5" />}
+                {c.label}
+              </button>
             ))}
-          </ul>
-        ) : (
-          <p className="mt-1.5 text-sm text-fg-faint">{t('cc.outputEmpty')}</p>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

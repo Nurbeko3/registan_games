@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 type Cmd = 'up' | 'down' | 'left' | 'right';
 
@@ -110,6 +111,7 @@ export function RobotMaze({ onWin }: GameProps) {
         level.grid[next.y][next.x] === 1
       ) {
         setMsg('Oops! The robot hit a wall. Try again!');
+        playSfx('error');
         setRunning(false);
         return;
       }
@@ -118,6 +120,7 @@ export function RobotMaze({ onWin }: GameProps) {
       if (level.grid[pos.y][pos.x] === 2) {
         got.add(`${pos.x},${pos.y}`);
         setCollected(new Set(got));
+        playSfx('coin');
       }
       await new Promise((r) => setTimeout(r, 280));
     }

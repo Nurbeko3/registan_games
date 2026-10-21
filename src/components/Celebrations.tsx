@@ -3,6 +3,8 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useGame, type Celebration, type LevelCelebration } from '@/store/useGame';
 import { Confetti } from '@/components/ui/Confetti';
+import { useEffect } from 'react';
+import { playSfx } from '@/lib/sound';
 import { useT } from '@/lib/i18n';
 import { isRankPromotion, studentRankForLevel } from '@/lib/studentRanks';
 
@@ -17,6 +19,11 @@ export function Celebrations() {
   const celebrations = useGame((s) => s.celebrations);
   const dismiss = useGame((s) => s.dismissCelebration);
   const current = celebrations[0];
+  // One cue per celebration card as it appears (level-up fanfare vs unlock chime).
+  useEffect(() => {
+    if (!current) return;
+    playSfx(isLevelCelebration(current) ? 'levelUp' : 'unlock');
+  }, [current]);
   const isLevel = current ? isLevelCelebration(current) : false;
   const currentLevel = current && isLevelCelebration(current) ? current.level : null;
   const promoted = currentLevel !== null && isRankPromotion(currentLevel);

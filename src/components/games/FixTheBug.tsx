@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 interface Puzzle { lines: string[]; bug: number; fix: string }
 
@@ -39,6 +40,7 @@ export function FixTheBug({ onWin }: GameProps) {
     if (picked !== null) return;
     setPicked(i);
     const correct = i === puzzle.bug;
+    playSfx(correct ? 'success' : 'error');
     if (!correct) setWrong((w) => w + 1);
     setTimeout(() => {
       if (step + 1 >= order.length) {

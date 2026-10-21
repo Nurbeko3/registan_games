@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon, gameIcon, worldIcon, type IconName } from '@/components/ui/Icon';
 import { SectionHeader, TextLink } from '@/components/ui/Primitives';
+import { DailyChallengeCard } from '@/components/DailyChallengeCard';
 import { GAMES } from '@/data/games';
 import { ZONES } from '@/data/worlds';
 import { useGame, useHydrated, selectTotalStars } from '@/store/useGame';
@@ -106,6 +107,11 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── DAILY CHALLENGE ──────────────────────────────────────────────── */}
+      <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+        <DailyChallengeCard variant="hero" className="animate-fade-up" />
+      </div>
 
       {/* ── MODES ────────────────────────────────────────────────────────── */}
       <section id="modes" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-10 sm:px-6 sm:py-12">

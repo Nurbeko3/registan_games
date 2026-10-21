@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 /** Tap the numbers from smallest to largest as fast as you can. Teaches sorting. */
 export function AlgorithmRace({ onWin }: GameProps) {
@@ -35,6 +36,7 @@ export function AlgorithmRace({ onWin }: GameProps) {
       const newNext = next + 1;
       setNext(newNext);
       setWrong(false);
+      playSfx('tick');
       if (newNext === sorted.length) {
         if (timer.current) clearInterval(timer.current);
         const stars = time < 6 ? 3 : time < 10 ? 2 : 1;
@@ -42,6 +44,7 @@ export function AlgorithmRace({ onWin }: GameProps) {
       }
     } else {
       setWrong(true);
+      playSfx('error');
       setTime((t) => t + 1); // penalty
     }
   };

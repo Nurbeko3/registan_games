@@ -20,6 +20,7 @@ import { Scoreboard, type Standing } from './Scoreboard';
 import { ResultsScreen } from './ResultsScreen';
 import { CaseMetaBadges } from './CaseMeta';
 import { CaseBriefing } from './CaseBriefing';
+import { playSfx } from '@/lib/sound';
 
 type Phase = 'pick' | 'investigate' | 'question' | 'results';
 type Pane = 'sources' | 'question';
@@ -86,6 +87,7 @@ export function BotPracticeScreen({ initialCaseId }: { initialCaseId?: string })
     const q = caseDef.questions[qIndex];
     const correct = selected === q.answerIndex;
     const elapsed = Date.now() - qStartRef.current;
+    playSfx(correct ? 'success' : 'error');
 
     if (correct) {
       streakRef.current += 1;

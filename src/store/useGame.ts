@@ -7,6 +7,7 @@ import { getGame } from '@/data/games';
 import { ZONES } from '@/data/worlds';
 import { ACHIEVEMENTS, type Achievement, type AchievementSnapshot } from '@/data/achievements';
 import { AVATARS, THEMES, getAvatar, getTheme } from '@/data/cosmetics';
+import { dailyChallengeById, dailyChallengeFor, satisfiesDaily, type DailyChallengeDef, type DailyReach } from '@/data/dailyChallenges';
 import type { Locale } from '@/lib/i18n/config';
 import { isCloudEnabled } from '@/lib/supabase/client';
 import {
@@ -68,6 +69,8 @@ export interface CompleteResult {
   leveledUp: boolean;
   newLevel: number;
   newAchievements: Achievement[];
+  /** Set when this completion also finished today's daily challenge (bonus already included in xp/coins). */
+  dailyBonus?: { xp: number; coins: number };
 }
 
 export interface LevelCelebration {
@@ -115,7 +118,7 @@ const ARENA_REWARD: Record<'easy' | 'medium' | 'hard', { xp: number; coins: numb
 };
 const ARENA_WIN_BONUS = { xp: 50, coins: 30 };
 
-interface GameState {
+export interface GameState {
   // persisted progress
   xp: number;
   coins: number;
@@ -154,6 +157,12 @@ interface GameState {
   classroomCaseTournamentWins: number;
   /** Day key of the last solved case (for the first-case-of-day bonus). */
   lastCaseDay: string | null;
+  /** Day key on which today's daily challenge was completed (bonus paid once per day). */
+  lastDailyChallengeDone: string | null;
+  /** Id of the challenge completed on `lastDailyChallengeDone` (so the UI keeps showing that one). */
+  lastDailyChallengeId: string | null;
+  /** Lifetime number of daily challenges completed (drives achievements). */
+  dailyChallengesDone: number;
 
   // transient (not persisted)
   hydrated: boolean;
@@ -224,6 +233,9 @@ const DEFAULTS = {
   caseStreak: 0,
   classroomCaseTournamentWins: 0,
   lastCaseDay: null as string | null,
+  lastDailyChallengeDone: null as string | null,
+  lastDailyChallengeId: null as string | null,
+  dailyChallengesDone: 0,
 };
 
 // ── derived selectors (use with useGame(selector)) ──────────────────
@@ -252,7 +264,37 @@ function buildSnapshot(s: GameState): AchievementSnapshot {
     caseNoHintSolves: s.caseNoHintSolves,
     caseStreak: s.caseStreak,
     classroomCaseTournamentWins: s.classroomCaseTournamentWins,
+    dailyChallengesDone: s.dailyChallengesDone,
   };
+}
+
+type DailyState = Pick<GameState, 'lastDailyChallengeDone' | 'lastDailyChallengeId' | 'completed' | 'codecaster'>;
+
+function reachOf(s: DailyState): DailyReach {
+  return { totalStars: Object.values(s.completed).reduce((n, r) => n + r.stars, 0), codecaster: s.codecaster };
+}
+
+/**
+ * Today's daily challenge + whether it is already done (selector-friendly).
+ * The pick is restricted to content the student can open; once completed, the
+ * recorded challenge is returned so the card doesn't change after unlocks.
+ */
+export function selectDailyChallenge(s: DailyState, today = dayKey()): { challenge: DailyChallengeDef; done: boolean; today: string } {
+  const done = s.lastDailyChallengeDone === today;
+  const recorded = done && s.lastDailyChallengeId ? dailyChallengeById(s.lastDailyChallengeId) : undefined;
+  return { challenge: recorded ?? dailyChallengeFor(today, reachOf(s)), done, today };
+}
+
+/** Bonus to pay if `activity` completes today's challenge for the first time. */
+function dailyBonusFor(
+  s: DailyState,
+  today: string,
+  activity: Parameters<typeof satisfiesDaily>[1],
+): { id: string; xp: number; coins: number } | null {
+  if (s.lastDailyChallengeDone === today) return null;
+  const c = dailyChallengeFor(today, reachOf(s));
+  if (!satisfiesDaily(c, activity)) return null;
+  return { id: c.id, xp: c.bonusXp, coins: c.bonusCoins };
 }
 
 export function levelCelebrationsBetween(fromXp: number, toXp: number): LevelCelebration[] {
@@ -322,7 +364,10 @@ export const useGame = create<GameState>()(
         const today = dayKey();
         const streak = state.lastPlayedDay === today ? state.streak : nextStreak(state.lastPlayedDay, state.streak);
 
-        const newXp = state.xp + xpAwarded;
+        const dailyBonus = dailyBonusFor(state, today, { kind: 'game', slug, stars });
+        const bonusXp = dailyBonus?.xp ?? 0;
+        const bonusCoins = dailyBonus?.coins ?? 0;
+        const newXp = state.xp + xpAwarded + bonusXp;
 
         const completed: Record<string, GameRecord> = {
           ...state.completed,
@@ -333,9 +378,12 @@ export const useGame = create<GameState>()(
         const draft: GameState = {
           ...state,
           xp: newXp,
-          coins: state.coins + coinsAwarded,
+          coins: state.coins + coinsAwarded + bonusCoins,
           streak,
           completed,
+          lastDailyChallengeDone: dailyBonus ? today : state.lastDailyChallengeDone,
+          lastDailyChallengeId: dailyBonus ? dailyBonus.id : state.lastDailyChallengeId,
+          dailyChallengesDone: state.dailyChallengesDone + (dailyBonus ? 1 : 0),
         };
         const snap = buildSnapshot(draft);
         const newlyUnlocked = ACHIEVEMENTS.filter((a) => !state.unlockedAchievements.includes(a.code) && a.check(snap));
@@ -346,23 +394,27 @@ export const useGame = create<GameState>()(
 
         set({
           xp: finalXp,
-          coins: state.coins + coinsAwarded + achvCoins,
+          coins: state.coins + coinsAwarded + bonusCoins + achvCoins,
           streak,
           lastPlayedDay: today,
           completed,
+          lastDailyChallengeDone: draft.lastDailyChallengeDone,
+          lastDailyChallengeId: draft.lastDailyChallengeId,
+          dailyChallengesDone: draft.dailyChallengesDone,
           unlockedAchievements: [...state.unlockedAchievements, ...newlyUnlocked.map((a) => a.code)],
           celebrations: [...state.celebrations, ...levelUps, ...newlyUnlocked],
         });
 
         return {
-          xpAwarded: xpAwarded + achvXp,
-          coinsAwarded: coinsAwarded + achvCoins,
+          xpAwarded: xpAwarded + bonusXp + achvXp,
+          coinsAwarded: coinsAwarded + bonusCoins + achvCoins,
           stars,
           bestStars: Math.max(prevStars, stars),
           improved,
           leveledUp: levelUps.length > 0,
           newLevel: levelForXp(finalXp),
           newAchievements: newlyUnlocked,
+          ...(dailyBonus ? { dailyBonus: { xp: dailyBonus.xp, coins: dailyBonus.coins } } : {}),
         };
       },
 
@@ -408,16 +460,22 @@ export const useGame = create<GameState>()(
         const today = dayKey();
         const streak = state.lastPlayedDay === today ? state.streak : nextStreak(state.lastPlayedDay, state.streak);
 
-        const newXp = state.xp + xpAwarded;
+        const dailyBonus = dailyBonusFor(state, today, { kind: 'quest', levelId, stars });
+        const bonusXp = dailyBonus?.xp ?? 0;
+        const bonusCoins = dailyBonus?.coins ?? 0;
+        const newXp = state.xp + xpAwarded + bonusXp;
         const codecaster = { ...state.codecaster, [levelId]: { stars: bestStars } };
 
         // Achievements evaluate against the would-be new state (data-driven).
         const draft: GameState = {
           ...state,
           xp: newXp,
-          coins: state.coins + coinsAwarded,
+          coins: state.coins + coinsAwarded + bonusCoins,
           streak,
           codecaster,
+          lastDailyChallengeDone: dailyBonus ? today : state.lastDailyChallengeDone,
+          lastDailyChallengeId: dailyBonus ? dailyBonus.id : state.lastDailyChallengeId,
+          dailyChallengesDone: state.dailyChallengesDone + (dailyBonus ? 1 : 0),
         };
         const snap = buildSnapshot(draft);
         const newlyUnlocked = ACHIEVEMENTS.filter((a) => !state.unlockedAchievements.includes(a.code) && a.check(snap));
@@ -428,23 +486,27 @@ export const useGame = create<GameState>()(
 
         set({
           xp: finalXp,
-          coins: state.coins + coinsAwarded + achvCoins,
+          coins: state.coins + coinsAwarded + bonusCoins + achvCoins,
           streak,
           lastPlayedDay: today,
           codecaster,
+          lastDailyChallengeDone: draft.lastDailyChallengeDone,
+          lastDailyChallengeId: draft.lastDailyChallengeId,
+          dailyChallengesDone: draft.dailyChallengesDone,
           unlockedAchievements: [...state.unlockedAchievements, ...newlyUnlocked.map((a) => a.code)],
           celebrations: [...state.celebrations, ...levelUps, ...newlyUnlocked],
         });
 
         return {
-          xpAwarded: xpAwarded + achvXp,
-          coinsAwarded: coinsAwarded + achvCoins,
+          xpAwarded: xpAwarded + bonusXp + achvXp,
+          coinsAwarded: coinsAwarded + bonusCoins + achvCoins,
           stars,
           bestStars,
           improved,
           leveledUp: levelUps.length > 0,
           newLevel: levelForXp(finalXp),
           newAchievements: newlyUnlocked,
+          ...(dailyBonus ? { dailyBonus: { xp: dailyBonus.xp, coins: dailyBonus.coins } } : {}),
         };
       },
 

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 /**
  * FOREST TRAIL — Coding Forest's flagship. Program a fox with direction blocks
@@ -112,11 +113,11 @@ export function ForestTrail({ onWin }: GameProps) {
     for (const c of steps) {
       const [dx, dy] = DIRS[c];
       const nx = cur.x + dx, ny = cur.y + dy;
-      if (isWall(nx, ny)) { setBump(true); await sleep(220); setBump(false); continue; }
+      if (isWall(nx, ny)) { setBump(true); playSfx('error'); await sleep(220); setBump(false); continue; }
       cur = { x: nx, y: ny };
       setPos({ ...cur });
       const key = `${cur.x},${cur.y}`;
-      if (berries.has(key) && !got.has(key)) { got.add(key); setCollected(new Set(got)); }
+      if (berries.has(key) && !got.has(key)) { got.add(key); setCollected(new Set(got)); playSfx('coin'); }
       await sleep(260);
     }
 

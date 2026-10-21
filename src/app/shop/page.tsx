@@ -13,6 +13,7 @@ import { Modal, Notice, PageHeader, PageLoading, SectionHeader, StatCard } from 
 import { useT } from '@/lib/i18n';
 import { accountSave } from '@/lib/supabase/account';
 import { useMustLogIn } from '@/lib/supabase/useAccount';
+import { playSfx } from '@/lib/sound';
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ function ShopContent() {
 
       if (owned) {
         selectAvatar(avatar.id);
+        playSfx('toggle');
         return;
       }
       if (lockedByLevel) return; // button is disabled, click should not reach here
@@ -97,6 +99,7 @@ function ShopContent() {
       }
       if (!affordable) {
         showToast(t('shop.notEnough'));
+        playSfx('error');
         return;
       }
       setPending({ kind: 'avatar', id: avatar.id });
@@ -113,6 +116,7 @@ function ShopContent() {
 
       if (owned) {
         selectTheme(theme.id);
+        playSfx('toggle');
         return;
       }
       if (mustLogIn) {
@@ -121,6 +125,7 @@ function ShopContent() {
       }
       if (!affordable) {
         showToast(t('shop.notEnough'));
+        playSfx('error');
         return;
       }
       setPending({ kind: 'theme', id: theme.id });
@@ -137,12 +142,12 @@ function ShopContent() {
       const avatar = AVATARS.find((a) => a.id === pending.id);
       if (!avatar) { setPending(null); return; }
       success = buyAvatar(avatar.id);
-      if (success) showToast(t('shop.bought', { name: avatar.name }));
+      if (success) { showToast(t('shop.bought', { name: avatar.name })); playSfx('coin'); }
     } else {
       const theme = THEMES.find((th) => th.id === pending.id);
       if (!theme) { setPending(null); return; }
       success = buyTheme(theme.id);
-      if (success) showToast(t('shop.bought', { name: theme.name }));
+      if (success) { showToast(t('shop.bought', { name: theme.name })); playSfx('coin'); }
     }
     // Persist the spend immediately so a quick logout (which resets local
     // progress) can't lose the purchase before AccountSync's debounce fires.

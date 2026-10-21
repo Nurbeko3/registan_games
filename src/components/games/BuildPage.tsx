@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 /**
  * BUILD THE PAGE — Web Kingdom's flagship. Stack HTML-style blocks (heading,
@@ -44,12 +45,13 @@ export function BuildPage({ onWin }: GameProps) {
     const match = page.length === target.length && page.every((b, i) => b === target[i]);
     if (match) {
       setStatus('ok');
+      playSfx('success');
       setTimeout(() => {
         if (round < TARGETS.length - 1) { setRound((r) => r + 1); setPage([]); setStatus('idle'); }
         else { const stars = wrong === 0 ? 3 : wrong <= 2 ? 2 : 1; onWin(stars); }
       }, 850);
     } else {
-      setWrong((w) => w + 1); setStatus('no'); setTimeout(() => setStatus('idle'), 1300);
+      setWrong((w) => w + 1); setStatus('no'); playSfx('error'); setTimeout(() => setStatus('idle'), 1300);
     }
   };
 

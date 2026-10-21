@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
+import { playSfx } from '@/lib/sound';
 
 interface Choice { text: string; to: string; good?: boolean }
 interface Node {
@@ -110,6 +111,7 @@ export function CodeAdventure({ onWin }: GameProps) {
 
   const handleChoice = (c: Choice) => {
     if (!c.good) setMistakes((m) => m + 1);
+    playSfx(c.good ? 'success' : 'error');
     setNodeId(c.to);
   };
 
