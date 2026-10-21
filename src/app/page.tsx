@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { motion, useReducedMotion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon, gameIcon, worldIcon, type IconName } from '@/components/ui/Icon';
 import { SectionHeader, TextLink } from '@/components/ui/Primitives';
@@ -18,22 +17,14 @@ const MODE_CARDS: { href: string; icon: IconName; tone: string; title: string; s
   { href: '/party', icon: 'party', tone: 'bg-warning-50 text-warning-600 ring-warning-100', title: 'home.partyTitle', sub: 'home.partySub' },
 ];
 
-const ease = [0.22, 1, 0.36, 1] as const;
-
 export default function HomePage() {
   const t = useT();
-  const reduce = useReducedMotion();
   const hydrated = useHydrated();
   const totalStars = useGame(selectTotalStars);
   const completed = useGame((s) => s.completed);
   const previewGames = GAMES.slice(0, 8);
   const stars = hydrated ? totalStars : 0;
   const doneCount = hydrated ? Object.keys(completed).length : 0;
-
-  const reveal = (i: number) =>
-    reduce
-      ? {}
-      : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.05 * i, duration: 0.5, ease } };
 
   return (
     <main id="main" className="page-pad-bottom">
@@ -45,34 +36,34 @@ export default function HomePage() {
         <div className="relative mx-auto max-w-6xl px-4 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-16">
           <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
-              <motion.span {...reveal(0)} className="badge-brand inline-flex">{t('home.badge')}</motion.span>
-              <motion.h1
-                {...reveal(1)}
-                className="mt-4 max-w-2xl font-display text-4xl font-extrabold leading-[1.04] tracking-tight text-fg sm:text-5xl lg:text-[3.5rem]"
+              <span className="badge-brand animate-fade-up inline-flex">{t('home.badge')}</span>
+              <h1
+                className="animate-fade-up mt-4 max-w-2xl font-display text-4xl font-extrabold leading-[1.04] tracking-tight text-fg sm:text-5xl lg:text-[3.5rem]"
+                style={{ animationDelay: '0.05s' }}
               >
                 {t('home.title.a')} <span className="text-brand">{t('home.title.play')}</span>
-              </motion.h1>
-              <motion.p {...reveal(2)} className="mt-4 max-w-xl text-base text-fg-soft sm:text-lg">
+              </h1>
+              <p className="animate-fade-up mt-4 max-w-xl text-base text-fg-soft sm:text-lg" style={{ animationDelay: '0.1s' }}>
                 {t('home.subtitle')}
-              </motion.p>
-              <motion.div {...reveal(3)} className="mt-7 flex flex-wrap items-center gap-3">
+              </p>
+              <div className="animate-fade-up mt-7 flex flex-wrap items-center gap-3" style={{ animationDelay: '0.15s' }}>
                 <Link href="/map" className="btn-primary btn-lg">
                   {t('home.startPath')}
                   <Icon name="arrowRight" className="h-4 w-4" />
                 </Link>
                 <Link href="#modes" className="btn-secondary btn-lg">{t('home.moreModes')}</Link>
-              </motion.div>
+              </div>
 
               {/* quick facts */}
-              <motion.dl {...reveal(4)} className="mt-9 grid max-w-md grid-cols-3 divide-x divide-border border-y border-border py-4">
+              <dl className="animate-fade-up mt-9 grid max-w-md grid-cols-3 divide-x divide-border border-y border-border py-4" style={{ animationDelay: '0.2s' }}>
                 <Fact value={GAMES.length} label={t('home.minigames')} />
                 <Fact value={ZONES.length} label={t('nav.worlds')} />
                 <Fact value={stars} label={t('rw.stars')} icon="star" />
-              </motion.dl>
+              </dl>
             </div>
 
             {/* Learning-path preview panel */}
-            <motion.div {...reveal(2)} className="relative">
+            <div className="animate-fade-up relative" style={{ animationDelay: '0.1s' }}>
               <Link
                 href="/map"
                 className="card card-hover block overflow-hidden !p-0 focus-visible:ring-2 focus-visible:ring-brand"
@@ -111,7 +102,7 @@ export default function HomePage() {
                   <Icon name="arrowRight" className="h-4 w-4" />
                 </div>
               </Link>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -121,12 +112,7 @@ export default function HomePage() {
         <SectionHeader title={t('home.modes')} description={t('home.modesSub')} />
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {MODE_CARDS.map((m, i) => (
-            <motion.div
-              key={m.href}
-              initial={reduce ? false : { opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 + 0.05 * i, duration: 0.45, ease }}
-            >
+            <div key={m.href} className="animate-fade-up" style={{ animationDelay: `${0.15 + 0.05 * i}s` }}>
               <Link href={m.href} className="card card-hover group flex h-full flex-col focus-visible:ring-2 focus-visible:ring-brand">
                 <div className="flex items-start justify-between">
                   <span className={`grid h-11 w-11 place-items-center rounded-xl ring-1 ring-inset ${m.tone}`}>
@@ -141,7 +127,7 @@ export default function HomePage() {
                   <Icon name="arrowRight" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </Link>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
@@ -157,12 +143,7 @@ export default function HomePage() {
           {previewGames.map((g, i) => {
             const rec = hydrated ? completed[g.slug] : undefined;
             return (
-              <motion.div
-                key={g.slug}
-                initial={reduce ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 + 0.04 * i, duration: 0.4, ease }}
-              >
+              <div key={g.slug} className="animate-fade-up" style={{ animationDelay: `${0.2 + 0.04 * i}s` }}>
                 <Link href={`/play/${g.slug}`} className="card card-hover flex items-center gap-3 !p-3.5 focus-visible:ring-2 focus-visible:ring-brand">
                   <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${g.color} text-white shadow-xs`}>
                     <Icon name={gameIcon(g.slug)} className="h-5 w-5" />
@@ -178,7 +159,7 @@ export default function HomePage() {
                     </span>
                   )}
                 </Link>
-              </motion.div>
+              </div>
             );
           })}
         </div>
