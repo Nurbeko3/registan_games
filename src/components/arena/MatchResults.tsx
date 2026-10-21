@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { TEAMS, type MatchResult } from '@/lib/arena/types';
+import { motion, useReducedMotion } from 'framer-motion';
+import { type MatchResult } from '@/lib/arena/types';
 import { Confetti } from '@/components/ui/Confetti';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
 import { GuestRewardNudge } from '@/components/ui/GuestRewardNudge';
+import { StatCard } from '@/components/ui/Primitives';
 import { useT } from '@/lib/i18n';
 import { useMustLogIn } from '@/lib/supabase/useAccount';
 
@@ -13,60 +14,66 @@ import { useMustLogIn } from '@/lib/supabase/useAccount';
  *  the child LEARNED (accuracy, questions, XP) as much as the battle result. */
 export function MatchResults({ result, onPlayAgain }: { result: MatchResult; onPlayAgain: () => void }) {
   const t = useT();
+  const reduce = useReducedMotion();
   const mustLogIn = useMustLogIn();
   const acc = result.answered ? Math.round((result.correct / result.answered) * 100) : 0;
-  const mine = TEAMS[result.myTeam];
-  const myTeamName = `${mine.emoji} ${t(`team.${result.myTeam}`)}`;
+  const myTeamName = t(`team.${result.myTeam}`);
 
   return (
-    <div className="relative">
+    <div className="relative mx-auto max-w-md">
       {result.won && <Confetti />}
       <div className="card text-center">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260 }} className="text-6xl">
-          <Icon name={result.won ? 'trophy' : 'brain'} className="mx-auto h-14 w-14 text-grape" />
-        </motion.div>
-        <p className="mt-2 font-display text-2xl font-extrabold">
+        <motion.span
+          initial={reduce ? false : { scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+          className={`mx-auto grid h-14 w-14 place-items-center rounded-xl ${result.won ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand'}`}
+        >
+          <Icon name={result.won ? 'trophy' : 'brain'} className="h-7 w-7" />
+        </motion.span>
+        <p className="mt-4 font-display text-2xl font-extrabold tracking-tight text-fg">
           {result.won ? t('arena.res.victory') : t('arena.res.effort')}
         </p>
-        <p className="text-ink-soft">
+        <p className="mt-1 text-sm text-fg-soft">
           {result.won ? t('arena.res.win', { team: myTeamName }) : t('arena.res.smarter')}
         </p>
-        <p className="mt-2 font-display text-3xl font-extrabold">
-          <span className="text-bubble-600">{result.redScore}</span>
-          <span className="mx-2 text-ink-faint">–</span>
-          <span className="text-sky-600">{result.blueScore}</span>
-        </p>
+        <div className="mt-5 inline-flex items-center gap-4 rounded-xl border border-border bg-surface-2 px-5 py-3 font-display text-3xl font-extrabold tabular-nums">
+          <span className="flex flex-col items-center">
+            <span className="text-danger-600">{result.redScore}</span>
+            <span className="mt-0.5 text-2xs font-bold uppercase tracking-wide text-fg-faint">{t('team.red')}</span>
+          </span>
+          <span className="text-fg-faint">–</span>
+          <span className="flex flex-col items-center">
+            <span className="text-info-600">{result.blueScore}</span>
+            <span className="mt-0.5 text-2xs font-bold uppercase tracking-wide text-fg-faint">{t('team.blue')}</span>
+          </span>
+        </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <Stat icon="zap" label={t('arena.res.tagouts')} value={result.elims} />
-        <Stat icon="rank" label={t('arena.res.accuracy')} value={`${acc}%`} />
-        <Stat icon="star" label={t('arena.res.correct')} value={`${result.correct}/${result.answered}`} />
-        <Stat icon="spark" label={t('arena.res.xp')} value={`+${result.xpEarned}`} />
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <StatCard icon="zap" tone="brand" label={t('arena.res.tagouts')} value={result.elims} />
+        <StatCard icon="target" tone="success" label={t('arena.res.accuracy')} value={`${acc}%`} />
+        <StatCard icon="checkCircle" tone="brand" label={t('arena.res.correct')} value={`${result.correct}/${result.answered}`} />
+        <StatCard icon="spark" tone="amber" label={t('arena.res.xp')} value={`+${result.xpEarned}`} />
       </div>
 
       {mustLogIn ? (
         <GuestRewardNudge className="mt-3" />
       ) : (
         <div className="mt-3 flex justify-center">
-          <span className="chip bg-mango/20 text-ink"><Icon name="coin" className="h-4 w-4" /> +{result.coinsEarned} {t('arena.res.coins')}</span>
+          <span className="chip bg-amber-50 text-amber-700">
+            <Icon name="coin" className="h-3.5 w-3.5" /> +{result.coinsEarned} {t('arena.res.coins')}
+          </span>
         </div>
       )}
 
       <div className="mt-5 flex gap-2">
-        <Link href="/arena" className="btn-ghost flex-1 text-center">{t('arena.res.newMatch')}</Link>
-        <button onClick={onPlayAgain} className="btn-primary flex-1">{t('arena.res.rematch')}</button>
+        <Link href="/arena" className="btn-secondary flex-1">{t('arena.res.newMatch')}</Link>
+        <button type="button" onClick={onPlayAgain} className="btn-primary flex-1">
+          <Icon name="refresh" className="h-4 w-4" />
+          {t('arena.res.rematch')}
+        </button>
       </div>
-    </div>
-  );
-}
-
-function Stat({ icon, label, value }: { icon: IconName; label: string; value: number | string }) {
-  return (
-    <div className="card flex flex-col items-center gap-0.5 p-3 text-center">
-      <Icon name={icon} className="h-5 w-5 text-grape" />
-      <span className="font-display text-xl font-extrabold">{value}</span>
-      <span className="text-[11px] font-bold text-ink-faint">{label}</span>
     </div>
   );
 }

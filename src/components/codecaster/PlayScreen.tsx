@@ -5,6 +5,7 @@ import { useReducedMotion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { useRegisterByte } from '@/lib/mentor/context';
 import { Icon } from '@/components/ui/Icon';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { DungeonView } from './DungeonView';
 import { CodePane, type RunState } from './CodePane';
 import { MissionPanel } from './MissionPanel';
@@ -220,48 +221,58 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
   const nextLevel = next ? getLevel(next) : undefined;
 
   return (
-    <div className="min-h-screen pb-24">
-      <TopBar showBack />
+    <div className="min-h-screen pb-24 md:pb-10">
+      <TopBar showBack backHref="/quest" />
 
-      <div className="game-surface mx-auto max-w-7xl px-4 py-6">
+      <div className="game-surface mx-auto max-w-7xl px-4 py-5 sm:px-6">
         <MissionPanel level={level} />
 
         {/* Phone-only segmented toggle */}
-        <div className="mt-4 flex items-center gap-2 lg:hidden" role="tablist" aria-label={t('cc.paneToggle')}>
-          <PaneTab active={pane === 'world'} onClick={() => setPane('world')} icon="map" label={t('cc.paneWorld')} />
-          <PaneTab active={pane === 'code'} onClick={() => setPane('code')} icon="binary" label={t('cc.paneCode')} />
-        </div>
+        <SegmentedTabs
+          className="mt-4 lg:hidden"
+          ariaLabel={t('cc.paneToggle')}
+          value={pane}
+          onChange={setPane}
+          tabs={[
+            { value: 'world', label: t('cc.paneWorld'), icon: 'map' },
+            { value: 'code', label: t('cc.paneCode'), icon: 'binary' },
+          ]}
+        />
 
-        <div className="mt-4 grid items-start gap-5 lg:grid-cols-[1.3fr_1fr] xl:grid-cols-[1.5fr_1fr]">
-          {/* Game arena — its own large, prominent panel */}
+        <div className="panel mt-4 grid items-stretch overflow-hidden lg:grid-cols-[1.3fr_1fr] lg:divide-x lg:divide-border xl:grid-cols-[1.5fr_1fr]">
+          {/* Game arena */}
           <section
-            className={`${pane === 'world' ? 'flex' : 'hidden'} lg:flex flex-col gap-3`}
+            className={`${pane === 'world' ? 'flex' : 'hidden'} min-w-0 flex-col lg:flex`}
             aria-label={t('cc.paneWorld')}
           >
-            <div className="card flex min-h-[420px] flex-col gap-3 lg:min-h-[560px]">
-              <div className="flex items-center gap-2">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky to-grape text-white">
-                  <Icon name="map" className="h-5 w-5" />
-                </span>
-                <p className="font-display text-base font-extrabold text-ink">{t('cc.arena')}</p>
-              </div>
-              <div className="flex-1">
-                <DungeonView state={displayState} />
-              </div>
+            <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-info-50 text-info-600">
+                <Icon name="map" className="h-4 w-4" />
+              </span>
+              <p className="font-display text-sm font-bold text-fg">{t('cc.arena')}</p>
+            </div>
+            <div className="flex min-h-[420px] flex-1 flex-col p-4 lg:min-h-[560px]">
+              <DungeonView state={displayState} />
             </div>
           </section>
 
-          {/* Code pane — its own separate, comfortable panel */}
-          <section className={`${pane === 'code' ? 'flex' : 'hidden'} lg:flex flex-col gap-4`} aria-label={t('cc.paneCode')}>
+          {/* Code pane */}
+          <section className={`${pane === 'code' ? 'flex' : 'hidden'} min-w-0 flex-col lg:flex`} aria-label={t('cc.paneCode')}>
+            <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand">
+                <Icon name="binary" className="h-4 w-4" />
+              </span>
+              <p className="font-display text-sm font-bold text-fg">{t('cc.paneCode')}</p>
+              <span className="ml-auto font-mono text-2xs font-semibold text-fg-faint">main.py</span>
+            </div>
+
             {hydrated && hintsRevealed > 0 && (
-              <div className="card !p-0 overflow-hidden">
-                <p className="border-b border-grape-100/60 px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-ink-faint">
-                  {t('cc.hintsFromByte')}
-                </p>
-                <ul className="space-y-2 px-4 py-3">
+              <div className="border-b border-border bg-amber-50/60 px-4 py-3 dark:bg-amber-50/30">
+                <p className="eyebrow">{t('cc.hintsFromByte')}</p>
+                <ul className="mt-2 space-y-1.5">
                   {level.hints.slice(0, hintsRevealed).map((h, i) => (
-                    <li key={i} className="flex items-start gap-2 rounded-xl bg-sun/15 px-3 py-2 text-sm font-bold leading-relaxed text-ink-soft whitespace-pre-line">
-                      <Icon name="spark" className="mt-0.5 h-4 w-4 shrink-0 text-mango-600" />
+                    <li key={i} className="flex items-start gap-2 whitespace-pre-line text-sm font-medium leading-relaxed text-fg-soft">
+                      <Icon name="spark" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                       <span>{t(h)}</span>
                     </li>
                   ))}
@@ -269,13 +280,7 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
               </div>
             )}
 
-            <div className="card flex flex-1 flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-grape to-bubble text-white">
-                  <Icon name="binary" className="h-5 w-5" />
-                </span>
-                <p className="font-display text-base font-extrabold text-ink">{t('cc.paneCode')}</p>
-              </div>
+            <div className="flex flex-1 flex-col p-4">
               <CodePane
                 code={code}
                 onChange={setCode}
@@ -301,21 +306,5 @@ export function PlayScreen({ level }: { level: CodecasterLevel }) {
         nextLevelId={feedback?.kind === 'win' && feedback.result.stars > 0 ? nextLevel?.id : undefined}
       />
     </div>
-  );
-}
-
-function PaneTab({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: 'map' | 'binary'; label: string }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl2 px-4 py-2.5 font-display text-sm font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2 ${
-        active ? 'bg-grape text-white shadow-card' : 'bg-white text-ink-soft ring-1 ring-grape-100/70'
-      }`}
-    >
-      <Icon name={icon} className="h-4 w-4" /> {label}
-    </button>
   );
 }

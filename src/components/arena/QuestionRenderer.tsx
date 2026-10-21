@@ -32,7 +32,7 @@ export function QuestionRenderer({
     return (
       <div>
         {q.type === 'code-fill' && (
-          <pre className="mb-4 overflow-x-auto rounded-2xl bg-ink p-4 text-left font-mono text-lg leading-relaxed text-mint">
+          <pre className="mb-4 overflow-x-auto rounded-2xl bg-fg p-4 text-left font-mono text-lg leading-relaxed text-success">
             {q.code.replace('___', '⬜')}
           </pre>
         )}
@@ -42,7 +42,7 @@ export function QuestionRenderer({
               key={i}
               whileTap={{ scale: 0.97 }}
               onClick={() => onAnswer(i)}
-              className="min-h-[64px] rounded-2xl bg-white px-4 py-4 text-center font-display text-xl font-extrabold shadow-card hover:bg-grape-50"
+              className="min-h-[64px] rounded-2xl bg-white px-4 py-4 text-center font-display text-xl font-extrabold shadow-sm hover:bg-brand-50"
             >
               {q.type === 'truefalse' ? t(opt === TF_TRUE ? 'arena.tfTrue' : 'arena.tfFalse') : opt}
             </motion.button>
@@ -61,9 +61,9 @@ export function QuestionRenderer({
             key={i}
             whileTap={{ scale: 0.98 }}
             onClick={() => onAnswer(i)}
-            className="flex items-center gap-2 rounded-2xl bg-ink p-4 font-mono text-lg text-cloud hover:ring-2 hover:ring-bubble"
+            className="flex items-center gap-2 rounded-2xl bg-fg p-4 font-mono text-lg text-surface-2 hover:ring-2 hover:ring-danger"
           >
-            <span className="text-ink-faint">{i + 1}</span>
+            <span className="text-fg-faint">{i + 1}</span>
             <span>{line}</span>
           </motion.button>
         ))}
@@ -76,13 +76,13 @@ export function QuestionRenderer({
     const remaining = prepared.shuffledBlocks.filter((b) => !order.includes(b));
     return (
       <div>
-        <div className="min-h-[3rem] rounded-2xl border-2 border-dashed border-grape-100 p-2">
+        <div className="min-h-[3rem] rounded-2xl border-2 border-dashed border-brand-100 p-2">
           {order.length === 0 ? (
-            <p className="py-2 text-sm font-bold text-ink-faint">{t('arena.q.tap')}</p>
+            <p className="py-2 text-sm font-bold text-fg-faint">{t('arena.q.tap')}</p>
           ) : (
             <ol className="flex flex-wrap gap-2">
               {order.map((b, i) => (
-                <li key={b} className="chip bg-grape text-white">
+                <li key={b} className="chip bg-brand text-white">
                   <span className="opacity-70">{i + 1}.</span> {b}
                 </li>
               ))}
@@ -95,7 +95,7 @@ export function QuestionRenderer({
               key={b}
               whileTap={{ scale: 0.95 }}
               onClick={() => setOrder((o) => [...o, b])}
-              className="rounded-2xl bg-white px-3 py-2 font-bold shadow-card hover:bg-grape-50"
+              className="rounded-2xl bg-white px-3 py-2 font-bold shadow-sm hover:bg-brand-50"
             >
               {b}
             </motion.button>
@@ -121,14 +121,14 @@ export function QuestionRenderer({
     const value = bits.reduce((sum, on, i) => sum + (on ? BITS[i] : 0), 0);
     return (
       <div className="text-center">
-        <p className="font-display text-4xl font-extrabold text-grape">{q.target}</p>
+        <p className="font-display text-4xl font-extrabold text-brand">{q.target}</p>
         <div className="mt-3 flex justify-center gap-2">
           {BITS.map((bit, i) => (
             <button
               key={bit}
               onClick={() => setBits((b) => b.map((v, idx) => (idx === i ? !v : v)))}
-              className={`grid h-14 w-12 place-items-center rounded-2xl font-display text-xl font-extrabold shadow-card transition ${
-                bits[i] ? 'bg-grape text-white' : 'bg-white text-ink-faint'
+              className={`grid h-14 w-12 place-items-center rounded-2xl font-display text-xl font-extrabold shadow-sm transition ${
+                bits[i] ? 'bg-brand text-white' : 'bg-white text-fg-faint'
               }`}
             >
               {bits[i] ? 1 : 0}
@@ -136,7 +136,7 @@ export function QuestionRenderer({
             </button>
           ))}
         </div>
-        <p className="mt-2 font-bold">{t('arena.q.your')} <span className={value === q.target ? 'text-mint-600' : 'text-bubble-600'}>{value}</span></p>
+        <p className="mt-2 font-bold">{t('arena.q.your')} <span className={value === q.target ? 'text-success-600' : 'text-danger-600'}>{value}</span></p>
         <button onClick={() => onAnswer(value)} className="btn-primary mt-3 w-full py-2 text-sm">{t('arena.q.check')}</button>
       </div>
     );

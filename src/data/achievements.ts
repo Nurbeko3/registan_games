@@ -100,8 +100,8 @@ export const ACHIEVEMENTS: Achievement[] = [
 ];
 
 export const RARITY_RING: Record<Achievement['rarity'], string> = {
-  common: 'ring-mint',
-  rare: 'ring-sky',
-  epic: 'ring-grape',
-  legendary: 'ring-mango',
+  common: 'ring-success-300',
+  rare: 'ring-info-300',
+  epic: 'ring-violet-300',
+  legendary: 'ring-amber-400',
 };

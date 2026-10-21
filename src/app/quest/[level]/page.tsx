@@ -4,6 +4,7 @@ import { use } from 'react';
 import Link from 'next/link';
 import { TopBar } from '@/components/layout/TopBar';
 import { Icon } from '@/components/ui/Icon';
+import { EmptyState } from '@/components/ui/Primitives';
 import { PlayScreen } from '@/components/codecaster/PlayScreen';
 import { getLevel } from '@/data/codecaster/levels';
 import { useT } from '@/lib/i18n';
@@ -30,16 +31,19 @@ function NotFoundLevel({ levelId }: { levelId: string }) {
   const t = useT();
   return (
     <main id="main" className="page-pad-bottom">
-      <TopBar showBack />
-      <section className="mx-auto flex max-w-lg flex-col items-center px-5 py-16 text-center">
-        <span className="grid h-16 w-16 place-items-center rounded-2xl bg-grape-50 text-grape">
-          <Icon name="compass" className="h-8 w-8" />
-        </span>
-        <h1 className="mt-4 font-display text-2xl font-extrabold text-ink">{t('cc.notFound.title')}</h1>
-        <p className="mt-2 font-bold text-ink-soft">{t('cc.notFound.body', { id: levelId })}</p>
-        <Link href="/quest" className="btn-primary mt-6 inline-flex items-center gap-2">
-          <Icon name="map" className="h-4 w-4" /> {t('cc.notFound.back')}
-        </Link>
+      <TopBar showBack backHref="/quest" />
+      <section className="mx-auto max-w-lg px-4 py-12 sm:px-6">
+        <EmptyState
+          icon="compass"
+          tone="brand"
+          title={t('cc.notFound.title')}
+          description={t('cc.notFound.body', { id: levelId })}
+          action={
+            <Link href="/quest" className="btn-primary">
+              <Icon name="map" className="h-4 w-4" /> {t('cc.notFound.back')}
+            </Link>
+          }
+        />
       </section>
     </main>
   );

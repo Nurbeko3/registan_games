@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
 
 /**
@@ -73,37 +74,39 @@ export function OutputOracle({ onWin }: GameProps) {
   };
 
   const rocket = Math.min(1, combo / 5);
+  const starfield = useMemo(() => Array.from({ length: 16 }, (_, i) => (
+    <span key={i} className="pointer-events-none absolute text-white/25"
+      style={{ left: `${(i * 37) % 100}%`, top: `${(i * 53) % 100}%`, fontSize: i % 3 ? 8 : 12 }} aria-hidden>✦</span>
+  )), []);
 
   return (
-    <div className="relative overflow-hidden rounded-xl2 bg-gradient-to-b from-[#1b1233] to-[#3a2566] p-4 text-white shadow-card">
-      {/* stars */}
-      {useMemo(() => Array.from({ length: 16 }, (_, i) => (
-        <span key={i} className="pointer-events-none absolute text-white/30"
-          style={{ left: `${(i * 37) % 100}%`, top: `${(i * 53) % 100}%`, fontSize: i % 3 ? 8 : 12 }}>✦</span>
-      )), [])}
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-fg p-4 text-white shadow-sm dark:bg-bg-subtle">
+      {starfield}
 
-      <div className="relative mb-3 flex items-center justify-between">
-        <span className="chip bg-white/15 text-white">🪐 {qi + 1}/{quiz.length}</span>
-        <span className={`chip ${combo >= 2 ? 'bg-sun/30 text-sun' : 'bg-white/15 text-white/80'}`}>🔥 Kombo ×{combo}</span>
+      <div className="relative mb-3 flex items-center justify-between gap-2">
+        <span className="chip bg-white/10 text-white/90 ring-white/10 tabular-nums"><Icon name="planet" className="h-3.5 w-3.5" /> {qi + 1}/{quiz.length}</span>
+        <span className={`chip ring-white/10 tabular-nums ${combo >= 2 ? 'bg-amber-400/25 text-amber-200' : 'bg-white/10 text-white/70'}`}>
+          <Icon name="flame" className="h-3.5 w-3.5" /> Kombo ×{combo}
+        </span>
       </div>
 
       <div className="relative flex gap-3">
         {/* rocket track */}
-        <div className="relative h-auto w-9 shrink-0 rounded-2xl bg-white/10">
-          <span className="absolute -top-1 left-1/2 -translate-x-1/2 text-lg">🌙</span>
+        <div className="relative h-auto w-9 shrink-0 rounded-lg bg-white/10">
+          <span className="absolute -top-1 left-1/2 -translate-x-1/2 text-lg" aria-hidden>🌙</span>
           <motion.span className="absolute left-1/2 -translate-x-1/2 text-2xl" animate={{ bottom: `${6 + rocket * 80}%`, rotate: rocket > 0.6 ? -8 : 0 }}
-            transition={{ type: 'spring', stiffness: 140, damping: 14 }}>🚀</motion.span>
+            transition={{ type: 'spring', stiffness: 140, damping: 14 }} aria-hidden>🚀</motion.span>
         </div>
 
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           {/* timer */}
-          <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-white/15">
+          <div className="mb-2 h-1 overflow-hidden rounded-full bg-white/15">
             <motion.div key={qi} initial={{ width: '100%' }} animate={{ width: phase === 'play' ? '0%' : undefined }}
-              transition={{ duration: LIMIT / 1000, ease: 'linear' }} className="h-full bg-gradient-to-r from-sun to-bubble" />
+              transition={{ duration: LIMIT / 1000, ease: 'linear' }} className="h-full bg-amber-400" />
           </div>
 
           {/* code */}
-          <div className="rounded-2xl bg-black/40 p-3 font-mono text-sm leading-relaxed text-mint">
+          <div className="overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-sm leading-relaxed text-success-300">
             {q.code.map((line, i) => <div key={i} className="whitespace-pre">{line}</div>)}
           </div>
 
@@ -114,11 +117,11 @@ export function OutputOracle({ onWin }: GameProps) {
               const isAns = i === q.answer;
               const isMine = i === picked;
               const cls = reveal
-                ? isAns ? 'bg-mint/25 ring-2 ring-mint' : isMine ? 'bg-bubble/25 ring-2 ring-bubble' : 'bg-white/10 opacity-60'
+                ? isAns ? 'bg-success-500/25 ring-2 ring-success-400' : isMine ? 'bg-danger-500/25 ring-2 ring-danger-400' : 'bg-white/10 opacity-60'
                 : 'bg-white/10 hover:bg-white/20';
               return (
-                <motion.button key={i} whileTap={{ scale: 0.97 }} disabled={reveal} onClick={() => handle(i)}
-                  className={`rounded-2xl p-3 text-center font-mono text-base font-extrabold transition ${cls}`}>
+                <motion.button key={i} type="button" whileTap={{ scale: 0.98 }} disabled={reveal} onClick={() => handle(i)}
+                  className={`rounded-xl p-3 text-center font-mono text-base font-bold transition ${cls}`}>
                   {opt} {reveal && isAns && '✓'}
                 </motion.button>
               );
@@ -130,12 +133,12 @@ export function OutputOracle({ onWin }: GameProps) {
       <AnimatePresence>
         {phase === 'reveal' && (
           <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className={`relative mt-3 text-center text-sm font-extrabold ${picked === q.answer ? 'text-mint' : 'text-bubble-200'}`}>
-            {picked === q.answer ? (combo >= 3 ? `🔥 ${combo} ketma-ket!` : '✅ To‘g‘ri!') : picked === -1 ? '⏱️ Vaqt tugadi!' : '💡 To‘g‘risi belgilandi'}
+            className={`relative mt-3 text-center text-sm font-bold ${picked === q.answer ? 'text-success-300' : 'text-danger-300'}`}>
+            {picked === q.answer ? (combo >= 3 ? `${combo} ketma-ket!` : 'To‘g‘ri!') : picked === -1 ? 'Vaqt tugadi!' : 'To‘g‘risi belgilandi'}
           </motion.p>
         )}
       </AnimatePresence>
-      <p className="relative mt-2 text-center text-[11px] text-white/60">Eng uzun kombo: ×{best} · tez va to‘g‘ri javob = ⭐⭐⭐</p>
+      <p className="relative mt-2 text-center text-xs text-white/50">Eng uzun kombo: ×{best} · tez va to‘g‘ri javob = 3 yulduz</p>
     </div>
   );
 }

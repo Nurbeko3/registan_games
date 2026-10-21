@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Reorder } from 'framer-motion';
 import { useT } from '@/lib/i18n';
+import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
 
 interface Block { id: number; text: string }
@@ -109,44 +110,46 @@ export function LogicPuzzle({ onWin }: GameProps) {
     }
   };
 
+  // the i18n strings may still begin with a status glyph; detect success by key instead
+  const isOk = msg !== null && msg === t('mg.logic.correct');
+  void triesThisStep; void completed;
+
   return (
     <div className="card">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="font-display text-2xl font-extrabold">{puzzle.title}</p>
-        <span className="chip bg-grape-50 text-grape text-sm">
-          {step + 1}/{PUZZLE_SETS.length}
-        </span>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <p className="font-display text-lg font-extrabold text-fg">{puzzle.title}</p>
+        <span className="chip bg-brand-50 text-brand-700 tabular-nums">{step + 1}/{PUZZLE_SETS.length}</span>
       </div>
-      <p className="text-center text-lg font-extrabold text-ink-soft">
-        {t('mg.logic.instr')}
-      </p>
+      <p className="text-sm font-semibold text-fg-soft">{t('mg.logic.instr')}</p>
       <Reorder.Group
         axis="y"
         values={blocks}
         onReorder={setBlocks}
-        className="mx-auto mt-5 max-w-2xl space-y-3"
+        className="mx-auto mt-4 max-w-2xl space-y-2"
       >
         {blocks.map((b, i) => (
           <Reorder.Item
             key={b.id}
             value={b}
-            className="flex cursor-grab items-center gap-4 rounded-2xl bg-cloud p-5 font-extrabold shadow-card active:cursor-grabbing"
-            whileDrag={{ scale: 1.04, boxShadow: '0 12px 24px rgba(124,92,252,0.3)' }}
+            className="flex cursor-grab select-none items-center gap-3 rounded-xl border border-border bg-surface px-3.5 py-3 font-semibold shadow-xs active:cursor-grabbing"
+            whileDrag={{ scale: 1.02, boxShadow: '0 12px 24px -6px rgb(16 24 40 / 0.18)' }}
           >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-grape font-display text-lg text-white">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-50 font-display text-sm font-extrabold tabular-nums text-brand-700">
               {i + 1}
             </span>
-            <span className="text-xl">{b.text}</span>
-            <span className="ml-auto text-ink-faint">⠿</span>
+            <span className="text-base text-fg">{b.text}</span>
+            <span className="ml-auto text-fg-faint" aria-hidden>
+              <Icon name="menu" className="h-4 w-4" />
+            </span>
           </Reorder.Item>
         ))}
       </Reorder.Group>
       {msg && (
-        <p className={`mt-4 text-center text-lg font-extrabold ${msg.startsWith('✅') ? 'text-mint-600' : 'text-bubble-600'}`}>
+        <p role="status" className={`mt-4 text-center text-sm font-bold ${isOk ? 'text-success-600' : 'text-danger'}`}>
           {msg}
         </p>
       )}
-      <button onClick={check} className="btn-primary mt-4 w-full">
+      <button type="button" onClick={check} className="btn-primary mt-4 w-full">
         {t('mg.logic.check')}
       </button>
     </div>

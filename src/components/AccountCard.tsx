@@ -7,14 +7,15 @@ import {
   accountLogin, accountResume, accountSave, accountLogout, type AuthReason,
 } from '@/lib/supabase/account';
 import { useGame } from '@/store/useGame';
-import { Icon, IconTile } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
+import { Notice, Spinner } from '@/components/ui/Primitives';
 import { useT } from '@/lib/i18n';
 
 type Phase = 'off' | 'loading' | 'logged-out' | 'logged-in' | 'busy';
 
 /** Student account: log in with the username + password the teacher gave you.
  *  Inside: your name, avatar (shop below) and achievements all sync to the cloud. */
-export function AccountCard() {
+export function AccountCard({ className = '' }: { className?: string }) {
   const t = useT();
   const playerName = useGame((s) => s.playerName);
   const setPlayerName = useGame((s) => s.setPlayerName);
@@ -36,6 +37,7 @@ export function AccountCard() {
   }, []);
 
   if (!isCloudEnabled()) return null;
+  void playerName;
 
   const errText = (r?: AuthReason) =>
     r === 'bad' ? t('auth.errBad') : r === 'rate_limited' ? t('auth.errRateLimited') : r === 'cloud' ? t('auth.offline') : t('auth.errUnknown');
@@ -72,93 +74,118 @@ export function AccountCard() {
   };
 
   return (
-    <section className="card mt-6">
-      <div className="flex items-center gap-3">
-        <IconTile name="user" className="h-12 w-12 shrink-0 bg-grape-50 text-grape ring-grape-100" />
-        <div className="flex-1">
-          <h2 className="font-display text-xl font-extrabold">{t('auth.title')}</h2>
-          <p className="text-sm text-ink-soft">
+    <section className={`card !p-0 ${className}`}>
+      <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand ring-1 ring-inset ring-brand-100">
+          <Icon name="user" className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-base font-extrabold text-fg">{t('auth.title')}</h2>
+          <p className="text-xs text-fg-soft">
             {phase === 'logged-in' ? t('auth.syncedSub') : t('auth.loginSub')}
           </p>
         </div>
+        {phase === 'logged-in' && (
+          <span className="badge-success"><Icon name="cloud" className="h-3 w-3" />{t('auth.signedInAs')}</span>
+        )}
       </div>
 
       {phase === 'loading' && (
-        <div className="mt-4 grid place-items-center py-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-grape-100 border-t-grape" />
+        <div className="grid place-items-center py-8">
+          <Spinner label={t('common.loading')} />
         </div>
       )}
 
       {/* ── LOGGED IN ── */}
       {phase === 'logged-in' && (
-        <div className="mt-4 space-y-3">
-          <div className="flex items-center gap-2 rounded-2xl bg-mint/15 px-4 py-3">
-            <Icon name="profile" className="h-5 w-5 text-mint-600" />
-            <div className="flex-1">
-              <p className="text-xs font-bold text-ink-faint">{t('auth.signedInAs')}</p>
-              <p className="font-display font-extrabold">@{signedName}</p>
+        <div className="space-y-4 p-5">
+          <div className="flex items-center gap-3 rounded-xl bg-surface-2 px-4 py-3">
+            <Icon name="profile" className="h-5 w-5 text-success-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-fg-faint">{t('auth.signedInAs')}</p>
+              <p className="truncate font-display font-bold text-fg">@{signedName}</p>
             </div>
           </div>
 
           {/* change display name */}
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">{t('auth.displayName')}</span>
+          <div>
+            <label htmlFor="account-display-name" className="label">{t('auth.displayName')}</label>
             <div className="flex gap-2">
               <input
+                id="account-display-name"
                 value={nameDraft}
                 onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && onSaveName()}
                 maxLength={20}
-                className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape"
+                className="input flex-1"
               />
-              <button onClick={onSaveName} className="btn-primary px-4">{savedName ? '✓' : t('auth.save')}</button>
+              <button onClick={onSaveName} className="btn-secondary shrink-0">
+                {savedName ? <Icon name="check" className="h-4 w-4 text-success-600" /> : t('auth.save')}
+              </button>
             </div>
-          </label>
-
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => accountSave()} className="btn-primary flex-1">{t('auth.syncNow')}</button>
-            <Link href="/leaderboard" className="btn-sun flex-1 text-center">{t('auth.leaderboard')}</Link>
-            <button onClick={onLogout} className="btn-ghost">{t('auth.logout')}</button>
+            <p className="help">{t('auth.editHint')}</p>
           </div>
-          <p className="text-[11px] text-ink-faint">{t('auth.editHint')}</p>
+
+          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+            <button onClick={() => accountSave()} className="btn-primary flex-1">
+              <Icon name="refresh" className="h-4 w-4" />
+              {t('auth.syncNow')}
+            </button>
+            <Link href="/leaderboard" className="btn-secondary flex-1 text-center">
+              <Icon name="rank" className="h-4 w-4" />
+              {t('auth.leaderboard')}
+            </Link>
+            <button onClick={onLogout} className="btn-subtle text-danger-600 hover:bg-danger-50 hover:text-danger-700">
+              <Icon name="logout" className="h-4 w-4" />
+              {t('auth.logout')}
+            </button>
+          </div>
         </div>
       )}
 
       {/* ── LOGGED OUT: login form ── */}
       {(phase === 'logged-out' || phase === 'busy') && (
-        <div className="mt-4">
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">{t('auth.username')}</span>
+        <form
+          className="space-y-4 p-5"
+          onSubmit={(e) => { e.preventDefault(); void onLogin(); }}
+        >
+          <div>
+            <label htmlFor="account-username" className="label">{t('auth.username')}</label>
             <input
+              id="account-username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder={t('auth.usernamePh')}
               autoComplete="username"
               autoCapitalize="none"
               maxLength={20}
-              className="w-full rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape"
+              className={`input ${err ? 'input-error' : ''}`}
             />
-          </label>
-          <label className="mt-3 block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">{t('auth.password')}</span>
+          </div>
+          <div>
+            <label htmlFor="account-password" className="label">{t('auth.password')}</label>
             <input
+              id="account-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && onLogin()}
               placeholder={t('auth.passwordPh')}
               type="password"
               autoComplete="current-password"
-              className="w-full rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-mono font-bold outline-none focus:border-grape"
+              className={`input font-mono ${err ? 'input-error' : ''}`}
             />
-          </label>
+          </div>
 
-          {err && <p className="mt-3 text-center text-sm font-bold text-bubble-600">{err}</p>}
+          {err && <Notice tone="danger">{err}</Notice>}
 
-          <button onClick={onLogin} disabled={phase === 'busy'} className="btn-primary mt-4 w-full text-lg disabled:opacity-60">
+          <button type="submit" disabled={phase === 'busy'} className="btn-primary w-full">
+            {phase === 'busy' ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <Icon name="unlock" className="h-4 w-4" />}
             {phase === 'busy' ? t('auth.working') : t('auth.loginBtn')}
           </button>
-          <p className="mt-2 text-center text-[11px] font-bold text-ink-faint">{t('auth.switchHint')}</p>
-          <p className="mt-3 text-center text-[11px] text-ink-faint">{t('auth.askTeacher')}</p>
-        </div>
+          <div className="space-y-1 text-center">
+            <p className="text-xs font-semibold text-fg-soft">{t('auth.switchHint')}</p>
+            <p className="text-xs text-fg-faint">{t('auth.askTeacher')}</p>
+          </div>
+        </form>
       )}
     </section>
   );

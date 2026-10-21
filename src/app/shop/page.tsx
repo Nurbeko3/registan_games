@@ -7,8 +7,9 @@ import { TopBar } from '@/components/layout/TopBar';
 import { useGame, useHydrated } from '@/store/useGame';
 import { AVATARS, THEMES, type Avatar, type Theme } from '@/data/cosmetics';
 import { levelForXp } from '@/lib/leveling';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { AvatarBadge } from '@/components/ui/AvatarBadge';
+import { Modal, Notice, PageHeader, PageLoading, SectionHeader, StatCard } from '@/components/ui/Primitives';
 import { useT } from '@/lib/i18n';
 import { accountSave } from '@/lib/supabase/account';
 import { useMustLogIn } from '@/lib/supabase/useAccount';
@@ -28,9 +29,7 @@ export default function ShopPage() {
     return (
       <>
         <TopBar />
-        <div className="grid min-h-[50vh] place-items-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-grape-100 border-t-grape" />
-        </div>
+        <PageLoading />
       </>
     );
   }
@@ -160,49 +159,45 @@ function ShopContent() {
   const pendingTheme = pending?.kind === 'theme'
     ? THEMES.find((th) => th.id === pending.id) ?? null
     : null;
-  const pendingEmoji = pendingAvatar?.emoji ?? pendingTheme?.emoji ?? '';
   const pendingName = pendingAvatar?.name ?? pendingTheme?.name ?? '';
   const pendingCost = pendingAvatar?.cost ?? pendingTheme?.cost ?? 0;
 
-  return (
-    <main id="main" className="mx-auto max-w-3xl px-4 py-6 page-pad-bottom">
+  const ownedAvatars = AVATARS.filter((a) => a.cost === 0 || unlockedAvatars.includes(a.id)).length;
+  const ownedThemes = THEMES.filter((th) => th.cost === 0 || unlockedThemes.includes(th.id)).length;
 
-      {/* ── coins balance header ──────────────────────────────────────────── */}
-      <section className="card bg-gradient-to-br from-grape to-grape-600 text-center text-white">
-        <h1 className="font-display text-2xl font-extrabold">{t('shop.title')}</h1>
-        <p className="mt-1 text-sm text-white/80">{t('shop.subtitle')}</p>
-        <div className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white/20 px-6 py-3">
-          <Icon name="coin" className="h-8 w-8 text-sun" />
-          <span className="font-display text-3xl font-extrabold">{coins}</span>
-          <span className="text-sm font-bold text-white/80">{t('rw.coins')}</span>
-        </div>
+  return (
+    <main id="main" className="page-pad-bottom mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <PageHeader icon="bag" eyebrow={t('nav.shop')} title={t('shop.title')} description={t('shop.subtitle')} />
+
+      {/* ── balance + inventory ──────────────────────────────────────────── */}
+      <section className="mt-6 hidden grid-cols-3 gap-3 sm:grid">
+        <StatCard label={t('rw.coins')} value={coins} icon="coin" tone="amber" />
+        <StatCard label={t('rw.characters')} value={`${ownedAvatars}/${AVATARS.length}`} icon="user" tone="brand" />
+        <StatCard label={t('rw.themes')} value={`${ownedThemes}/${THEMES.length}`} icon="layers" tone="neutral" />
       </section>
+      <dl className="card mt-6 grid grid-cols-3 divide-x divide-border !p-0 sm:hidden">
+        <Metric label={t('rw.coins')} value={coins} icon="coin" tone="text-amber-500" />
+        <Metric label={t('rw.characters')} value={`${ownedAvatars}/${AVATARS.length}`} icon="user" tone="text-brand" />
+        <Metric label={t('rw.themes')} value={`${ownedThemes}/${THEMES.length}`} icon="layers" tone="text-fg-soft" />
+      </dl>
 
       {/* ── login-required banner (cloud mode only, when not logged in) ──── */}
       {mustLogIn && (
-        <section className="card mt-4 flex items-start gap-3 border-2 border-mint/40 bg-mint/10">
-          <span className="mt-0.5 text-2xl leading-none" aria-hidden>🔒</span>
-          <div className="flex-1">
-            <p className="font-display text-base font-extrabold text-ink">
-              {t('shop.loginBannerTitle')}
-            </p>
-            <p className="mt-0.5 text-sm text-ink-soft">
-              {t('shop.loginRequired')}
-            </p>
-          </div>
-          <Link
-            href="/rewards"
-            className="btn-primary shrink-0 self-center px-4 py-2 text-sm"
-          >
-            {t('shop.loginCta')}
-          </Link>
-        </section>
+        <Notice
+          tone="brand"
+          icon="lock"
+          className="mt-4"
+          action={<Link href="/rewards" className="btn-primary btn-sm">{t('shop.loginCta')}</Link>}
+        >
+          <p className="font-bold">{t('shop.loginBannerTitle')}</p>
+          <p className="mt-0.5 font-medium text-brand-700/80">{t('shop.loginRequired')}</p>
+        </Notice>
       )}
 
       {/* ── characters section ───────────────────────────────────────────── */}
-      <section className="mt-6">
-        <h2 className="font-display text-xl font-extrabold">{t('rw.characters')}</h2>
-        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
+      <section className="mt-8">
+        <SectionHeader title={t('rw.characters')} description={`${ownedAvatars}/${AVATARS.length}`} />
+        <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           {AVATARS.map((avatar) => (
             <AvatarCard
               key={avatar.id}
@@ -218,9 +213,9 @@ function ShopContent() {
       </section>
 
       {/* ── themes section ───────────────────────────────────────────────── */}
-      <section className="mt-6">
-        <h2 className="font-display text-xl font-extrabold">{t('rw.themes')}</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="mt-8">
+        <SectionHeader title={t('rw.themes')} description={`${ownedThemes}/${THEMES.length}`} />
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {THEMES.map((theme) => (
             <ThemeCard
               key={theme.id}
@@ -235,24 +230,45 @@ function ShopContent() {
       </section>
 
       {/* ── buy confirmation modal ───────────────────────────────────────── */}
-      <AnimatePresence>
-        {pending && (
-          <BuyModal
-            emoji={pendingEmoji}
-            name={pendingName}
-            cost={pendingCost}
-            affordable={coins >= pendingCost}
-            onConfirm={handleConfirm}
-            onCancel={handleCancelModal}
-          />
-        )}
-      </AnimatePresence>
+      <Modal
+        open={pending !== null}
+        onClose={handleCancelModal}
+        size="sm"
+        title={t('shop.buyTitle')}
+        footer={
+          <>
+            <button onClick={handleCancelModal} className="btn-secondary">{t('shop.cancel')}</button>
+            <button onClick={handleConfirm} disabled={coins < pendingCost} className="btn-primary" autoFocus>
+              <Icon name="coin" className="h-4 w-4" />
+              {t('shop.buy')} · {pendingCost}
+            </button>
+          </>
+        }
+      >
+        <div className="flex items-center gap-4">
+          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-surface-2 ring-1 ring-inset ring-border">
+            {pendingAvatar ? (
+              <AvatarBadge avatar={pendingAvatar.id} className="h-12 w-12 text-3xl" bg="" />
+            ) : pendingTheme ? (
+              <span className={`h-12 w-12 rounded-lg ring-1 ring-inset ring-border ${pendingTheme.bg}`} aria-hidden />
+            ) : null}
+          </span>
+          <div className="min-w-0">
+            <p className="font-display text-base font-extrabold text-fg">{pendingName}</p>
+            <p className="mt-0.5 text-sm text-fg-soft">{t('shop.buyQ', { name: pendingName, cost: String(pendingCost) })}</p>
+            <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-fg">
+              <Icon name="coin" className="h-4 w-4 text-amber-500" />
+              <span className="tabular-nums">{coins}</span>
+              <Icon name="arrowRight" className="h-3.5 w-3.5 text-fg-faint" />
+              <span className={`tabular-nums ${coins - pendingCost < 0 ? 'text-danger' : 'text-fg'}`}>{coins - pendingCost}</span>
+            </p>
+          </div>
+        </div>
+      </Modal>
 
       {/* ── toast notification ───────────────────────────────────────────── */}
       <AnimatePresence>
-        {toast && (
-          <Toast key={toast} message={toast} />
-        )}
+        {toast && <Toast key={toast} message={toast} />}
       </AnimatePresence>
     </main>
   );
@@ -276,58 +292,40 @@ function AvatarCard({ avatar, active, owned, level, coins, onClick }: AvatarCard
   const affordable = coins >= avatar.cost;
   const disabled = !owned && (lockedByLevel || !affordable);
 
-  let statusLabel: React.ReactNode;
+  let status: React.ReactNode;
   if (active) {
-    statusLabel = (
-      <span className="inline-flex items-center gap-0.5">
-        <Icon name="check" className="h-3 w-3" />
-        {t('rw.wearing')}
-      </span>
-    );
+    status = <span className="badge-brand"><Icon name="check" className="h-3 w-3" />{t('rw.wearing')}</span>;
   } else if (owned) {
-    statusLabel = (
-      <span className="inline-flex items-center gap-0.5">
-        <Icon name="unlock" className="h-3 w-3" />
-        {t('rw.tapWear')}
-      </span>
-    );
+    status = <span className="badge-neutral">{t('rw.tapWear')}</span>;
   } else if (lockedByLevel) {
-    statusLabel = (
-      <span className="inline-flex items-center gap-0.5">
-        <Icon name="lock" className="h-3 w-3" />
-        {t('common.lv')} {avatar.unlockLevel}
-      </span>
-    );
+    status = <span className="badge-neutral"><Icon name="lock" className="h-3 w-3" />{t('common.lv')} {avatar.unlockLevel}</span>;
   } else {
-    statusLabel = (
-      <span className="inline-flex items-center gap-1">
-        <Icon name="coin" className="h-3 w-3" />
-        {avatar.cost}
+    status = (
+      <span className={affordable ? 'badge-warning' : 'badge-neutral'}>
+        <Icon name="coin" className="h-3 w-3" />{avatar.cost}
       </span>
     );
   }
 
   return (
     <motion.button
-      whileTap={shouldReduceMotion ? undefined : { scale: 0.93 }}
+      type="button"
+      whileTap={shouldReduceMotion || disabled ? undefined : { scale: 0.97 }}
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={active}
       aria-label={`${avatar.name}${active ? ` — ${t('rw.wearing')}` : ''}`}
       className={[
-        'grid min-h-[4rem] place-items-center rounded-2xl p-3 text-center shadow-card ring-1 ring-grape-100/60 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape',
+        'flex flex-col items-center rounded-xl border bg-surface p-3 text-center transition focus-visible:ring-2 focus-visible:ring-brand',
         active
-          ? 'bg-grape text-white ring-2 ring-grape'
-          : owned
-            ? 'bg-white hover:bg-grape-50 hover:scale-[1.03]'
-            : 'bg-white hover:scale-[1.03]',
-        disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
+          ? 'border-brand ring-2 ring-brand/30'
+          : 'border-border shadow-xs hover:border-border-strong hover:shadow-sm',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
       ].join(' ')}
     >
-      <AvatarBadge avatar={avatar.id} className="h-12 w-12 text-3xl" bg="" />
-      <span className="mt-1 text-xs font-bold leading-tight">{avatar.name}</span>
-      <span className="mt-0.5 text-[11px] font-bold leading-none">
-        {statusLabel}
-      </span>
+      <AvatarBadge avatar={avatar.id} className="h-14 w-14 text-3xl" rounded="rounded-lg" bg={active ? 'bg-brand-50' : 'bg-surface-2'} />
+      <span className="mt-2 w-full truncate text-xs font-bold text-fg">{avatar.name}</span>
+      <span className="mt-1.5">{status}</span>
     </motion.button>
   );
 }
@@ -348,140 +346,45 @@ function ThemeCard({ theme, active, owned, coins, onClick }: ThemeCardProps) {
   const affordable = coins >= theme.cost;
   const disabled = !owned && !affordable;
 
-  let statusLabel: React.ReactNode;
+  let status: React.ReactNode;
   if (active) {
-    statusLabel = (
-      <span className="inline-flex items-center gap-0.5">
-        <Icon name="check" className="h-3 w-3" />
-        {t('rw.active')}
-      </span>
-    );
+    status = <span className="badge-brand"><Icon name="check" className="h-3 w-3" />{t('rw.active')}</span>;
   } else if (owned) {
-    statusLabel = (
-      <span className="inline-flex items-center gap-0.5">
-        <Icon name="unlock" className="h-3 w-3" />
-        {t('rw.use')}
-      </span>
-    );
+    status = <span className="badge-neutral">{t('rw.use')}</span>;
   } else {
-    statusLabel = (
-      <span className="inline-flex items-center gap-1">
-        <Icon name="coin" className="h-3 w-3" />
-        {theme.cost}
+    status = (
+      <span className={affordable ? 'badge-warning' : 'badge-neutral'}>
+        <Icon name="coin" className="h-3 w-3" />{theme.cost}
       </span>
     );
   }
 
   return (
     <motion.button
-      whileTap={shouldReduceMotion ? undefined : { scale: 0.93 }}
+      type="button"
+      whileTap={shouldReduceMotion || disabled ? undefined : { scale: 0.97 }}
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={active}
       aria-label={`${theme.name}${active ? ` — ${t('rw.active')}` : ''}`}
       className={[
-        'min-h-[4rem] rounded-2xl p-4 text-center text-ink shadow-card transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape',
-        active ? 'ring-2 ring-grape' : 'ring-1 ring-grape-100/60',
-        theme.bg,
-        disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02] hover:shadow-card',
+        'overflow-hidden rounded-xl border bg-surface text-left transition focus-visible:ring-2 focus-visible:ring-brand',
+        active ? 'border-brand ring-2 ring-brand/30' : 'border-border shadow-xs hover:border-border-strong hover:shadow-sm',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
       ].join(' ')}
     >
-      <div className="text-3xl leading-none">{theme.emoji}</div>
-      <p className="mt-1 text-sm font-bold">{theme.name}</p>
-      <p className="mt-0.5 text-[11px] font-bold">{statusLabel}</p>
+      {/* preview swatch of the theme background */}
+      <div className={`relative h-20 border-b border-border ${theme.bg}`} aria-hidden>
+        <div className="absolute inset-x-3 bottom-3 space-y-1.5">
+          <div className="h-2 w-2/3 rounded-full bg-surface/90 ring-1 ring-border" />
+          <div className="h-2 w-1/2 rounded-full bg-surface/70 ring-1 ring-border" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+        <span className="truncate text-xs font-bold text-fg">{theme.name}</span>
+        {status}
+      </div>
     </motion.button>
-  );
-}
-
-// ── BuyModal ──────────────────────────────────────────────────────────────────
-
-interface BuyModalProps {
-  emoji: string;
-  name: string;
-  cost: number;
-  affordable: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-function BuyModal({ emoji, name, cost, affordable, onConfirm, onCancel }: BuyModalProps) {
-  const t = useT();
-  const shouldReduceMotion = useReducedMotion();
-
-  // keyboard: Escape closes modal
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
-
-  // trap focus inside modal
-  const confirmRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { confirmRef.current?.focus(); }, []);
-
-  return (
-    // backdrop
-    <motion.div
-      key="buy-modal-backdrop"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4 backdrop-blur-sm"
-      onClick={onCancel}
-      aria-modal="true"
-      role="dialog"
-      aria-labelledby="buy-modal-title"
-    >
-      {/* panel — stop propagation so backdrop click doesn't bleed through */}
-      <motion.div
-        key="buy-modal-panel"
-        initial={shouldReduceMotion ? {} : { scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={shouldReduceMotion ? {} : { scale: 0.9, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-2xl"
-      >
-        {/* big emoji */}
-        <div className="mb-3 text-center text-6xl leading-none" aria-hidden>
-          {emoji}
-        </div>
-
-        {/* title */}
-        <h2 id="buy-modal-title" className="text-center font-display text-xl font-extrabold">
-          {t('shop.buyTitle')}
-        </h2>
-
-        {/* question */}
-        <p className="mt-2 text-center text-sm font-bold text-ink-soft">
-          {t('shop.buyQ', { name, cost: String(cost) })}
-        </p>
-
-        {/* cost display */}
-        <div className="mt-3 flex items-center justify-center gap-1.5">
-          <Icon name="coin" className="h-5 w-5 text-sun" />
-          <span className="font-display text-2xl font-extrabold text-grape">{cost}</span>
-        </div>
-
-        {/* actions */}
-        <div className="mt-5 flex gap-3">
-          <button
-            onClick={onCancel}
-            className="btn-ghost flex-1 py-3 text-base"
-          >
-            {t('shop.cancel')}
-          </button>
-          <button
-            ref={confirmRef}
-            onClick={onConfirm}
-            disabled={!affordable}
-            className="btn-primary flex-1 py-3 text-base disabled:opacity-40"
-          >
-            {t('shop.buy')}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
   );
 }
 
@@ -492,15 +395,29 @@ function Toast({ message }: { message: string }) {
 
   return (
     <motion.div
-      initial={shouldReduceMotion ? {} : { y: 24, opacity: 0 }}
+      initial={shouldReduceMotion ? {} : { y: 16, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      exit={shouldReduceMotion ? {} : { y: 24, opacity: 0 }}
-      transition={{ duration: 0.22 }}
-      className="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-2xl bg-ink/90 px-5 py-3 text-sm font-bold text-white shadow-xl"
+      exit={shouldReduceMotion ? {} : { y: 16, opacity: 0 }}
+      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      className="pointer-events-none fixed inset-x-4 bottom-24 z-50 mx-auto flex w-fit max-w-sm items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold text-fg shadow-lg md:bottom-8"
       role="status"
       aria-live="polite"
     >
+      <Icon name="checkCircle" className="h-4 w-4 shrink-0 text-success-600" />
       {message}
     </motion.div>
+  );
+}
+
+/** Compact 3-up metric cell for phones (desktop uses StatCard). */
+function Metric({ label, value, icon, tone }: { label: string; value: number | string; icon: IconName; tone: string }) {
+  return (
+    <div className="min-w-0 px-3 py-3">
+      <dt className="flex items-center gap-1 truncate text-2xs font-semibold text-fg-faint">
+        <Icon name={icon} className={`h-3.5 w-3.5 shrink-0 ${tone}`} />
+        <span className="truncate">{label}</span>
+      </dt>
+      <dd className="mt-0.5 font-display text-lg font-extrabold tabular-nums leading-none text-fg">{value}</dd>
+    </div>
   );
 }

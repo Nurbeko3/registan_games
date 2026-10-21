@@ -16,6 +16,25 @@ function useThemeBg(): string {
   return getTheme(themeId).bg;
 }
 
+/** Keeps `<html class="dark">` in sync with the persisted colour-scheme setting
+ *  (and with the OS when the setting is `system`). The inline script in
+ *  `layout.tsx` applies the same rule before first paint. */
+function useColorScheme() {
+  const hydrated = useGame((s) => s.hydrated);
+  const scheme = useGame((s) => s.settings.colorScheme ?? 'system');
+  useEffect(() => {
+    if (!hydrated) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const dark = scheme === 'dark' || (scheme === 'system' && mq.matches);
+      document.documentElement.classList.toggle('dark', dark);
+    };
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [hydrated, scheme]);
+}
+
 /** Client wrapper: applies the chosen theme background, honors reduced-motion,
  *  hosts the celebration overlay, cloud sync, and the persistent tab bar. */
 export function AppChrome({ children }: { children: React.ReactNode }) {
@@ -23,6 +42,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const reduced = useGame((s) => s.settings.reducedMotion);
   const pathname = usePathname() ?? '/';
   const [arenaPlaying, setArenaPlaying] = useState(false);
+  useColorScheme();
 
   // Mark the store hydrated after first paint so locale/theme switch to the
   // persisted values without an SSR mismatch (see store note on setHydrated).
@@ -42,11 +62,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <MentorProvider>
       <MotionConfig reducedMotion={reduced ? 'always' : 'user'}>
-        <div className={`min-h-screen ${bg} transition-colors ${showNav ? 'pb-24' : ''}`}>{children}</div>
+        <div className={`min-h-screen ${bg} transition-colors`}>{children}</div>
         <Celebrations />
         <AccountSync />
-        {/* Byte floats site-wide; hidden only during a live arena match (fullscreen). */}
-        {!arenaPlaying && <Byte />}
+        {/* Byte floats site-wide; hidden during a live arena match (fullscreen) and in the teacher panel. */}
+        {!arenaPlaying && !pathname.startsWith('/admin') && <Byte />}
         {showNav && <BottomNav />}
       </MotionConfig>
     </MentorProvider>

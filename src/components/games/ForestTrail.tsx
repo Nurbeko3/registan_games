@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
 
 /**
@@ -38,10 +39,16 @@ const LEVELS: Level[] = [
 ];
 
 const DIRS: Record<Exclude<Cmd, 'loop'>, [number, number, string]> = {
-  up: [0, -1, '⬆️'], down: [0, 1, '⬇️'], left: [-1, 0, '⬅️'], right: [1, 0, '➡️'],
+  up: [0, -1, '↑'], down: [0, 1, '↓'], left: [-1, 0, '←'], right: [1, 0, '→'],
 };
+const DIR_ICON: Record<Exclude<Cmd, 'loop'>, IconName> = { up: 'chevronDown', down: 'chevronDown', left: 'chevronLeft', right: 'chevronRight' };
+const DIR_ROT: Record<Exclude<Cmd, 'loop'>, string> = { up: 'rotate-180', down: '', left: '', right: '' };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function DirGlyph({ c, className = 'h-4 w-4' }: { c: Exclude<Cmd, 'loop'>; className?: string }) {
+  return <Icon name={DIR_ICON[c]} className={`${className} ${DIR_ROT[c]}`} />;
+}
 
 export function ForestTrail({ onWin }: GameProps) {
   const [lvl, setLvl] = useState(0);
@@ -72,6 +79,7 @@ export function ForestTrail({ onWin }: GameProps) {
   const [msg, setMsg] = useState<string | null>(null);
   const [tries, setTries] = useState(0);
   const wonRef = useRef(false);
+  void tries;
 
   const isWall = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || level.grid[y][x] === 'T';
 
@@ -134,15 +142,15 @@ export function ForestTrail({ onWin }: GameProps) {
   };
 
   return (
-    <div className="overflow-hidden rounded-xl2 bg-gradient-to-br from-[#dff6e3] to-[#bfe9cf] p-4 shadow-card">
+    <div className="card">
       {/* header */}
-      <div className="mb-3 flex items-center justify-between">
-        <span className="chip bg-white/70 text-mint-600">🌳 {lvl + 1}-bosqich</span>
-        <span className="chip bg-white/70 text-ink-soft">🫐 {collected.size}/{berries.size}</span>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="chip bg-success-50 text-success-700"><Icon name="forest" className="h-3.5 w-3.5" /> {lvl + 1}-bosqich</span>
+        <span className="chip bg-surface-2 text-fg-soft tabular-nums">🫐 {collected.size}/{berries.size}</span>
       </div>
 
       {/* board */}
-      <div className="relative mx-auto w-fit rounded-2xl bg-[#a7dbb6]/40 p-2">
+      <div className="relative mx-auto w-fit max-w-full rounded-xl border border-border bg-success-50 p-2 dark:bg-success-50/60">
         <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${W}, minmax(0, 1fr))` }}>
           {Array.from({ length: H }).map((_, y) =>
             Array.from({ length: W }).map((_, x) => {
@@ -151,13 +159,13 @@ export function ForestTrail({ onWin }: GameProps) {
               const key = `${x},${y}`;
               const berryGone = collected.has(key);
               return (
-                <div key={key} className={`relative grid h-12 w-12 place-items-center rounded-xl sm:h-14 sm:w-14 ${
-                  cell === 'T' ? 'bg-[#5fa86f]' : 'bg-[#c8edd1] shadow-inner'
+                <div key={key} className={`relative grid h-11 w-11 place-items-center rounded-lg sm:h-14 sm:w-14 ${
+                  cell === 'T' ? 'bg-success-600/90' : 'bg-surface shadow-xs'
                 }`}>
-                  {cell === 'T' && <span className="text-2xl drop-shadow">🌲</span>}
-                  {cell === 'G' && <span className="text-2xl">🏡</span>}
+                  {cell === 'T' && <span className="text-2xl drop-shadow" aria-hidden>🌲</span>}
+                  {cell === 'G' && <span className="text-2xl" aria-hidden>🏡</span>}
                   {cell === 'B' && !berryGone && (
-                    <motion.span animate={{ scale: [1, 1.18, 1] }} transition={{ duration: 1.4, repeat: Infinity }} className="text-xl">🫐</motion.span>
+                    <motion.span animate={{ scale: [1, 1.18, 1] }} transition={{ duration: 1.4, repeat: Infinity }} className="text-xl" aria-hidden>🫐</motion.span>
                   )}
                   {here && (
                     <motion.span
@@ -165,6 +173,7 @@ export function ForestTrail({ onWin }: GameProps) {
                       transition={{ type: 'spring', stiffness: 500, damping: 28 }}
                       animate={bump ? { rotate: [0, -12, 12, 0], x: [0, -4, 4, 0] } : { y: [0, -6, 0] }}
                       className="absolute z-10 text-3xl drop-shadow-lg"
+                      aria-label="Fox"
                     >🦊</motion.span>
                   )}
                 </div>
@@ -175,9 +184,9 @@ export function ForestTrail({ onWin }: GameProps) {
 
         <AnimatePresence>
           {msg === 'win' && (
-            <motion.div initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 grid place-items-center rounded-2xl bg-mint/30 backdrop-blur-[1px]">
-              <span className="font-display text-3xl font-extrabold text-mint-600 drop-shadow">🎉 Zo‘r!</span>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 grid place-items-center rounded-xl bg-success-500/30 backdrop-blur-[1px]">
+              <span className="rounded-lg bg-surface px-4 py-2 font-display text-xl font-extrabold text-success-600 shadow-sm">Zo‘r!</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -186,43 +195,49 @@ export function ForestTrail({ onWin }: GameProps) {
       {/* hint */}
       <AnimatePresence>
         {(msg === 'berries' || msg === 'den') && (
-          <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="mt-3 rounded-xl bg-white/70 p-2 text-center text-sm font-bold text-bubble-600">
-            {msg === 'berries' ? '🫐 Avval hamma mevani yig‘! Buyruqlarni qayta tuz.' : '🏡 Mevalar tayyor — endi uyga (🏡) yetib bor!'}
+          <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status"
+            className="mt-3 flex items-start gap-2 rounded-xl border border-warning-100 bg-warning-50 px-3.5 py-2.5 text-sm font-medium text-warning-700">
+            <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{msg === 'berries' ? 'Avval hamma mevani yig‘! Buyruqlarni qayta tuz.' : 'Mevalar tayyor — endi uyga yetib bor!'}</span>
           </motion.p>
         )}
       </AnimatePresence>
 
       {/* command palette */}
-      <div className="mt-4 rounded-2xl bg-white/80 p-3">
+      <div className="mt-4 rounded-xl border border-border bg-surface-2 p-3">
         <div className="flex flex-wrap items-center justify-center gap-2">
           {(['up', 'down', 'left', 'right'] as const).map((c) => (
-            <button key={c} disabled={running} onClick={() => setProgram((p) => [...p, c])}
-              className="grid h-11 w-11 place-items-center rounded-xl bg-mint/20 text-xl shadow-card transition active:scale-90 disabled:opacity-40">
-              {DIRS[c][2]}
+            <button key={c} type="button" disabled={running} onClick={() => setProgram((p) => [...p, c])} aria-label={c}
+              className="btn-secondary btn-icon h-11 w-11 min-h-0 text-fg">
+              <DirGlyph c={c} className="h-5 w-5" />
             </button>
           ))}
-          <button disabled={running} onClick={() => setProgram((p) => [...p, 'loop'])}
-            className="flex h-11 items-center gap-1 rounded-xl bg-grape/15 px-3 text-sm font-extrabold text-grape shadow-card transition active:scale-90 disabled:opacity-40">
-            🔁 Takror
-            <select value={loopN} onClick={(e) => e.stopPropagation()} onChange={(e) => { e.stopPropagation(); setLoopN(Number(e.target.value)); }}
-              className="rounded bg-white/70 px-1 text-grape">
+          <span className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-brand-200 bg-brand-50 pl-1 pr-2 text-sm font-bold text-brand-700">
+            <button type="button" disabled={running} onClick={() => setProgram((p) => [...p, 'loop'])}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 transition hover:bg-brand-100 disabled:opacity-40">
+              <Icon name="loop" className="h-4 w-4" /> Takror
+            </button>
+            <select value={loopN} aria-label="Takror soni" onChange={(e) => setLoopN(Number(e.target.value))}
+              className="h-7 rounded-md border border-brand-200 bg-surface px-1 text-xs font-bold text-brand-700 outline-none">
               {[2, 3, 4].map((n) => <option key={n} value={n}>×{n}</option>)}
             </select>
-          </button>
+          </span>
         </div>
 
         {/* program strip */}
-        <div className="mt-3 min-h-[44px] rounded-xl border-2 border-dashed border-mint/40 bg-[#f3fbf5] p-2">
+        <div className="mt-3 min-h-[44px] rounded-xl border border-dashed border-border-strong bg-surface p-2">
           {program.length === 0 ? (
-            <p className="grid h-7 place-items-center text-xs font-bold text-ink-faint">Buyruqlarni shu yerga qo‘sh → 🦊</p>
+            <p className="grid h-7 place-items-center text-xs font-semibold text-fg-faint">Buyruqlarni shu yerga qo‘sh</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {program.map((c, i) => (
-                <motion.button key={i} layout initial={{ scale: 0 }} animate={{ scale: 1 }} disabled={running}
+                <motion.button key={i} type="button" layout initial={{ scale: 0 }} animate={{ scale: 1 }} disabled={running}
                   onClick={() => setProgram((p) => p.filter((_, idx) => idx !== i))}
-                  className={`grid h-8 min-w-8 place-items-center rounded-lg px-1.5 text-sm font-extrabold shadow-card ${c === 'loop' ? 'bg-grape text-white' : 'bg-mint/30'}`}>
-                  {c === 'loop' ? `🔁×${loopN}` : DIRS[c][2]}
+                  aria-label={`${c} (remove)`}
+                  className={`grid h-8 min-w-8 place-items-center rounded-lg border px-1.5 text-xs font-extrabold ${
+                    c === 'loop' ? 'border-brand bg-brand text-white' : 'border-border bg-surface-2 text-fg'
+                  }`}>
+                  {c === 'loop' ? <span className="inline-flex items-center gap-0.5"><Icon name="loop" className="h-3.5 w-3.5" />×{loopN}</span> : <DirGlyph c={c} className="h-4 w-4" />}
                 </motion.button>
               ))}
             </div>
@@ -230,12 +245,12 @@ export function ForestTrail({ onWin }: GameProps) {
         </div>
 
         <div className="mt-3 flex gap-2">
-          <button onClick={run} disabled={running || !program.length} className="btn-primary flex-1 disabled:opacity-40">
-            {running ? 'Yuribdi…' : '▶ Ishga tushir'}
+          <button type="button" onClick={run} disabled={running || !program.length} className="btn-primary flex-1">
+            <Icon name="play" className="h-4 w-4" /> {running ? 'Yuribdi…' : 'Ishga tushir'}
           </button>
-          <button onClick={() => reset()} disabled={running} className="btn-ghost">Tozalash</button>
+          <button type="button" onClick={() => reset()} disabled={running} className="btn-secondary">Tozalash</button>
         </div>
-        <p className="mt-2 text-center text-[11px] text-ink-faint">🔁 Takror = oldidagi buyruqlarni qaytaradi. Kamroq buyruq = ⭐⭐⭐</p>
+        <p className="mt-2 text-center text-xs text-fg-faint">Takror = oldidagi buyruqlarni qaytaradi. Kamroq buyruq = 3 yulduz</p>
       </div>
     </div>
   );

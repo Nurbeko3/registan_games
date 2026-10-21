@@ -1,14 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { CASES } from '@/data/cases';
 import { localizeCaseTitle } from '@/data/cases/i18n';
 import type { CaseDef } from '@/data/cases/types';
-
-interface AdminInfo { id: string; email: string; name: string; role: 'super' | 'admin' }
+import { Icon } from '@/components/ui/Icon';
+import { PageHeader } from '@/components/ui/Primitives';
+import { AdminCard, AdminGate, AdminShell } from '@/components/admin/AdminShell';
 
 /** Generate a random 4-letter uppercase room code. */
 function makeCode(): string {
@@ -18,51 +17,19 @@ function makeCode(): string {
 }
 
 export default function AdminCasesPage() {
-  const [admin, setAdmin] = useState<AdminInfo | null | undefined>(undefined);
-
-  const refresh = useCallback(() => {
-    fetch('/api/admin/me')
-      .then((r) => r.json())
-      .then((d) => setAdmin(d.ok ? d.admin : null))
-      .catch(() => setAdmin(null));
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  if (admin === undefined) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-ink">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
-      </div>
-    );
-  }
-
-  if (admin === null) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-gradient-to-br from-ink to-grape-600 p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-toy text-center"
-        >
-          <div className="text-4xl">🔒</div>
-          <h1 className="mt-2 font-display text-xl font-extrabold">Kirish kerak</h1>
-          <p className="mt-1 text-sm text-ink-soft">
-            Bu sahifadan foydalanish uchun admin sifatida tizimga kiring.
-          </p>
-          <Link href="/admin" className="btn-primary mt-5 block">
-            Admin panelga kirish
-          </Link>
-        </motion.div>
-      </div>
-    );
-  }
-
-  return <CasePicker admin={admin} />;
+  return (
+    <AdminGate>
+      {(admin, logout) => (
+        <AdminShell admin={admin} onLogout={() => void logout()}>
+          <CasePicker />
+        </AdminShell>
+      )}
+    </AdminGate>
+  );
 }
 
 // ── main setup UI ─────────────────────────────────────────────────────────────
-function CasePicker({ admin }: { admin: AdminInfo }) {
+function CasePicker() {
   const router = useRouter();
   const [selected, setSelected] = useState<CaseDef | null>(null);
   const [joinCode, setJoinCode] = useState('');
@@ -82,124 +49,83 @@ function CasePicker({ admin }: { admin: AdminInfo }) {
   };
 
   return (
-    <div className="min-h-screen bg-cloud">
-      {/* Header — matches /admin panel style */}
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-grape-100 bg-white px-4 py-3">
-        <div className="flex items-center gap-2 font-display font-extrabold">
-          🕵️ Sinf turniri
-          <span className="chip bg-grape-50 text-grape text-xs">INC 8</span>
-          <span className="hidden text-sm font-bold text-ink-faint sm:inline">{admin.email}</span>
-        </div>
-        <Link href="/admin" className="btn-ghost px-3 py-1.5 text-sm">
-          ← Admin panel
-        </Link>
-      </header>
+    <>
+      <PageHeader
+        eyebrow="Sinf turniri"
+        title="Tergov fayllari — sinf turniri"
+        description="Ishni tanlang, xona yarating va o‘quvchilar kod orqali qo‘shiladi. Siz har bir bosqichni o‘zingiz boshqarasiz."
+      />
 
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-5">
+      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_20rem]">
         {/* Step 1: pick a case */}
-        <section className="card">
-          <h2 className="font-display text-xl font-extrabold">
-            1-qadam — Ish tanlang
-          </h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            O'quvchilar hal qiladigan ish mavzusini tanlang.
-          </p>
-
-          <ul className="mt-4 space-y-2">
+        <AdminCard title="1-qadam — Ish tanlang" description="O‘quvchilar hal qiladigan ish mavzusini tanlang." className="!p-0">
+          <ul className="-m-5 divide-y divide-border" role="radiogroup" aria-label="Ishlar">
             {CASES.map((c) => {
               const isSelected = selected?.id === c.id;
               return (
                 <li key={c.id}>
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={isSelected}
                     onClick={() => setSelected(isSelected ? null : c)}
-                    className={`flex w-full items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition
-                      ${isSelected
-                        ? 'border-grape bg-grape-50 shadow-card'
-                        : 'border-grape-100 bg-white hover:border-grape-300 hover:shadow-card'
-                      }`}
+                    className={`flex w-full items-center gap-3.5 px-5 py-3.5 text-left transition ${
+                      isSelected ? 'bg-brand-50' : 'hover:bg-surface-2'
+                    }`}
                   >
                     <span
-                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white
-                        ${isSelected ? 'bg-grape' : 'bg-gradient-to-br from-sky to-grape'}`}
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ring-1 ring-inset ${
+                        isSelected ? 'bg-brand text-white ring-brand' : 'bg-surface-2 text-fg-soft ring-border'
+                      }`}
                       aria-hidden
                     >
-                      🔍
+                      <Icon name="search" className="h-4.5 w-4.5 h-[18px] w-[18px]" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-display font-extrabold text-ink">{localizeCaseTitle(c, 'uz')}</p>
-                      <p className="text-xs font-bold text-ink-faint">
-                        {c.gradeBand} sinf · {c.questions.length} ta savol
-                      </p>
+                      <p className={`truncate text-sm font-bold ${isSelected ? 'text-brand-700' : 'text-fg'}`}>{localizeCaseTitle(c, 'uz')}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <span className="badge-neutral">{c.gradeBand} sinf</span>
+                        <span className="text-xs text-fg-faint">{c.questions.length} ta savol</span>
+                      </div>
                     </div>
-                    {isSelected && (
-                      <span className="shrink-0 text-grape font-extrabold">✓</span>
-                    )}
+                    <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${isSelected ? 'border-brand bg-brand text-white' : 'border-border-strong'}`}>
+                      {isSelected && <Icon name="check" className="h-3 w-3" />}
+                    </span>
                   </button>
                 </li>
               );
             })}
           </ul>
-        </section>
+        </AdminCard>
 
-        {/* Step 2: launch */}
-        <section className="card">
-          <h2 className="font-display text-xl font-extrabold">
-            2-qadam — Sinfni ishga tushirish
-          </h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            Tugmani bossangiz, yangi xona kodi yaratiladi va siz darhol o'sha xonaga o'tasiz.
-          </p>
-          <button
-            type="button"
-            onClick={launch}
-            disabled={!selected}
-            className="btn-primary mt-4 w-full text-lg disabled:opacity-40"
-          >
-            🚀 Sinfni ishga tushirish
-          </button>
-          {!selected && (
-            <p className="mt-2 text-center text-xs font-bold text-ink-faint">
-              Avval ish tanlang
-            </p>
-          )}
-        </section>
-
-        {/* Join existing room */}
-        <section className="card">
-          <h2 className="font-display text-xl font-extrabold">
-            Mavjud xonaga kirish
-          </h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            Oldin yaratilgan xonaga kod orqali kiring.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <input
-              value={joinCode}
-              onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setJoinErr(false); }}
-              onKeyDown={(e) => e.key === 'Enter' && join()}
-              placeholder="ABCD"
-              maxLength={4}
-              aria-label="Xona kodi"
-              className={`flex-1 rounded-2xl border-2 bg-white px-4 py-2.5 text-center font-display text-xl font-extrabold uppercase tracking-widest outline-none
-                ${joinErr ? 'border-bubble-500' : 'border-grape-100 focus:border-grape'}`}
-            />
-            <button
-              type="button"
-              onClick={join}
-              disabled={joinCode.trim().length < 4}
-              className="btn-sun disabled:opacity-40"
-            >
-              Kirish
+        <div className="space-y-5">
+          {/* Step 2: launch */}
+          <AdminCard title="2-qadam — Ishga tushirish" description="Yangi xona kodi yaratiladi va siz darhol boshqaruv ekraniga o‘tasiz.">
+            <button type="button" onClick={launch} disabled={!selected} className="btn-primary w-full">
+              <Icon name="play" className="h-4 w-4" />Sinfni ishga tushirish
             </button>
-          </div>
-          {joinErr && (
-            <p className="mt-1 text-xs font-bold text-bubble-600">
-              4 harfli kod kiriting
-            </p>
-          )}
-        </section>
-      </main>
-    </div>
+            <p className="help text-center">{selected ? `Tanlangan: ${localizeCaseTitle(selected, 'uz')}` : 'Avval ish tanlang'}</p>
+          </AdminCard>
+
+          {/* Join existing room */}
+          <AdminCard title="Mavjud xonaga kirish" description="Oldin yaratilgan xonaga kod orqali qaytib kiring.">
+            <div className="flex gap-2">
+              <input
+                value={joinCode}
+                onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setJoinErr(false); }}
+                onKeyDown={(e) => e.key === 'Enter' && join()}
+                placeholder="ABCD"
+                maxLength={4}
+                aria-label="Xona kodi"
+                aria-invalid={joinErr || undefined}
+                className={`input text-center font-mono text-lg font-bold uppercase tracking-[0.3em] ${joinErr ? 'input-error' : ''}`}
+              />
+              <button type="button" onClick={join} disabled={joinCode.trim().length < 4} className="btn-secondary shrink-0">Kirish</button>
+            </div>
+            {joinErr && <p className="help text-danger">4 harfli kod kiriting</p>}
+          </AdminCard>
+        </div>
+      </div>
+    </>
   );
 }

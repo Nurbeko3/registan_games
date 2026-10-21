@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { ArenaMenu, type MenuChoice } from '@/components/arena/ArenaMenu';
 import { hasSavedPracticeSession, PracticeSetup } from '@/components/arena/PracticeSetup';
@@ -12,6 +11,8 @@ import { loadArenaAuthorityStatus } from '@/lib/arena/authority';
 import { loadCloudQuestions } from '@/lib/arena/cloudQuestions';
 import { DEFAULT_WEAPON, isWeaponId, type WeaponId } from '@/lib/arena/weapons';
 import { useT } from '@/lib/i18n';
+import { Icon, type IconName } from '@/components/ui/Icon';
+import { Modal } from '@/components/ui/Primitives';
 
 type View = 'menu' | 'practice' | 'room';
 type HostRole = 'observer' | 'player';
@@ -129,7 +130,7 @@ export default function ArenaPage() {
   const toMenu = useCallback(() => { setRoom(null); setView('menu'); }, []);
 
   return (
-    <main id="main" className={`min-h-screen ${view === 'menu' ? 'dotted page-pad-bottom' : 'pb-4'}`}>
+    <main id="main" className={view === 'menu' ? 'page-pad-bottom' : 'pb-6'}>
       <TopBar />
 
       {view === 'menu' && <ArenaMenu onSelect={choose} multiplayerEnabled={multiplayerEnabled} authorityChecked={authorityChecked} />}
@@ -149,57 +150,40 @@ export default function ArenaPage() {
         />
       )}
 
-      <AnimatePresence>
-        {modal === 'hostRole' && <HostRoleModal onPick={onCreate} onClose={() => setModal(null)} />}
-        {modal === 'join' && <JoinRoomModal onJoin={onJoin} onClose={() => setModal(null)} />}
-      </AnimatePresence>
+      <HostRoleModal open={modal === 'hostRole'} onPick={onCreate} onClose={() => setModal(null)} />
+      <JoinRoomModal open={modal === 'join'} onJoin={onJoin} onClose={() => setModal(null)} />
     </main>
   );
 }
 
-function HostRoleModal({ onPick, onClose }: { onPick: (role: HostRole) => void; onClose: () => void }) {
+function HostRoleModal({ open, onPick, onClose }: { open: boolean; onPick: (role: HostRole) => void; onClose: () => void }) {
   const t = useT();
-
-  // Escape key support
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const options: { role: HostRole; icon: IconName; title: string; desc: string }[] = [
+    { role: 'observer', icon: 'eye', title: t('arena.hostRole.observer'), desc: t('arena.hostRole.observerDesc') },
+    { role: 'player', icon: 'arena', title: t('arena.hostRole.player'), desc: t('arena.hostRole.playerDesc') },
+  ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('arena.hostRole.title')}
-    >
-      <motion.div
-        initial={{ scale: 0.92, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.92, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-        className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-soft"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="font-display text-xl font-extrabold">{t('arena.hostRole.title')}</p>
-        <p className="mt-1 text-sm font-bold text-ink-soft">{t('arena.hostRole.sub')}</p>
-        <div className="mt-4 grid gap-3">
-          <button onClick={() => onPick('observer')} className="rounded-2xl bg-grape-50 p-4 text-left shadow-card ring-2 ring-grape transition hover:bg-grape-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape">
-            <span className="block font-display text-lg font-extrabold text-grape">👁 {t('arena.hostRole.observer')}</span>
-            <span className="mt-1 block text-sm font-bold text-ink-soft">{t('arena.hostRole.observerDesc')}</span>
+    <Modal open={open} onClose={onClose} title={t('arena.hostRole.title')} description={t('arena.hostRole.sub')} size="sm">
+      <div className="grid gap-2">
+        {options.map((o) => (
+          <button
+            key={o.role}
+            type="button"
+            onClick={() => onPick(o.role)}
+            className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-3.5 text-left transition hover:border-brand hover:bg-brand-50/40"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand ring-1 ring-inset ring-brand-100">
+              <Icon name={o.icon} className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-fg">{o.title}</span>
+              <span className="mt-0.5 block text-xs text-fg-soft">{o.desc}</span>
+            </span>
+            <Icon name="chevronRight" className="mt-2.5 h-4 w-4 shrink-0 text-fg-faint transition-transform group-hover:translate-x-0.5" />
           </button>
-          <button onClick={() => onPick('player')} className="rounded-2xl bg-white p-4 text-left shadow-card ring-1 ring-grape-100 transition hover:bg-grape-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape">
-            <span className="block font-display text-lg font-extrabold">⚔️ {t('arena.hostRole.player')}</span>
-            <span className="mt-1 block text-sm font-bold text-ink-soft">{t('arena.hostRole.playerDesc')}</span>
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
+        ))}
+      </div>
+    </Modal>
   );
 }

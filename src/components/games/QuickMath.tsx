@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
 
 interface Q { prompt: string; answer: number; options: number[] }
@@ -69,17 +70,33 @@ export function QuickMath({ onWin }: GameProps) {
 
   return (
     <div className="card text-center">
-      <p className="font-display text-lg font-extrabold">⏱️ {time.toFixed(1)}s · {step + 1}/{TOTAL} · ✅ {correct}</p>
-      <motion.p key={step} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mt-4 font-display text-4xl font-extrabold text-grape">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <span className="chip bg-surface-2 text-fg-soft tabular-nums"><Icon name="timer" className="h-3.5 w-3.5" /> {time.toFixed(1)}s</span>
+        <span className="chip bg-surface-2 text-fg-soft tabular-nums">{step + 1}/{TOTAL}</span>
+        <span className="chip bg-success-50 text-success-700 tabular-nums"><Icon name="check" className="h-3.5 w-3.5" /> {correct}</span>
+      </div>
+      <motion.p
+        key={step}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="mt-5 font-display text-4xl font-extrabold tabular-nums tracking-tight text-fg sm:text-5xl"
+      >
         {q.prompt}
       </motion.p>
-      <div className={`mx-auto mt-6 grid max-w-md grid-cols-2 gap-4 ${flash === 'ok' ? 'animate-pulse' : ''}`}>
+      <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
         {q.options.map((opt) => (
           <motion.button
             key={opt}
+            type="button"
             onClick={() => answer(opt)}
-            whileTap={{ scale: 0.92 }}
-            className="grid h-24 place-items-center rounded-2xl bg-white font-display text-4xl font-extrabold shadow-card hover:bg-grape-50"
+            whileTap={{ scale: 0.96 }}
+            className={`grid h-20 place-items-center rounded-xl border font-display text-3xl font-extrabold tabular-nums transition ${
+              flash === 'ok' && opt === q.answer
+                ? 'border-success-300 bg-success-50 text-success-700'
+                : flash === 'no' && opt !== q.answer
+                  ? 'border-border bg-surface opacity-60'
+                  : 'border-border bg-surface text-fg hover:border-brand-300 hover:bg-brand-50'
+            }`}
           >
             {opt}
           </motion.button>

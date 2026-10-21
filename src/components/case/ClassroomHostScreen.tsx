@@ -6,7 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCaseRoom } from '@/lib/caseFiles/useCaseRoom';
 import { Scoreboard, type Standing } from './Scoreboard';
 import { SourcesPane } from './SourcesPane';
+import { CaseBriefing } from './CaseBriefing';
+import { CaseMetaBadges } from './CaseMeta';
 import { Icon } from '@/components/ui/Icon';
+import { EmptyState, Notice, PageLoading } from '@/components/ui/Primitives';
 import { isCloudEnabled } from '@/lib/supabase/client';
 
 interface Props {
@@ -98,25 +101,36 @@ export function ClassroomHostScreen({ code, caseId }: Props) {
   const currentQ = caseDef?.questions[qIndex] ?? null;
   const isLastQuestion = qIndex + 1 >= total;
 
+  const phaseLabel: Record<string, string> = {
+    lobby: 'Kutish',
+    investigation: 'Tekshirish',
+    question: `Savol ${qIndex + 1}/${total}`,
+    reveal: `Javob ${qIndex + 1}/${total}`,
+    ended: 'Yakun',
+  };
+
   // ── offline / error ──────────────────────────────────────────────────
   if (!isCloudEnabled() || phase === 'error') {
     return (
-      <div className="min-h-screen bg-cloud">
+      <div className="min-h-screen bg-bg">
         <AdminHeader code={code} />
         <div className="mx-auto max-w-2xl px-4 py-10">
-          <div className="card text-center">
-            <div className="text-5xl">📡</div>
-            <p className="mt-3 font-display text-xl font-extrabold">
-              Supabase ulanmagan
-            </p>
-            <p className="mt-2 text-ink-soft">
-              Classroom mode faqat cloud bilan ishlaydi. <code>.env.local</code> faylida
-              Supabase kalitlarini tekshiring.
-            </p>
-            <Link href="/admin/cases" className="btn-primary mt-5">
-              ← Orqaga
-            </Link>
-          </div>
+          <EmptyState
+            icon="signal"
+            tone="danger"
+            title="Backend ulanmagan"
+            description={
+              <>
+                Classroom rejimi faqat cloud bilan ishlaydi. <code className="rounded bg-surface-3 px-1 font-mono text-xs">NEXT_PUBLIC_API_URL</code> sozlanganini tekshiring.
+              </>
+            }
+            action={
+              <Link href="/admin/cases" className="btn-primary">
+                <Icon name="arrowLeft" className="h-4 w-4" />
+                Orqaga
+              </Link>
+            }
+          />
         </div>
       </div>
     );
@@ -125,11 +139,9 @@ export function ClassroomHostScreen({ code, caseId }: Props) {
   // ── connecting ───────────────────────────────────────────────────────
   if (phase === 'connecting') {
     return (
-      <div className="min-h-screen bg-cloud">
+      <div className="min-h-screen bg-bg">
         <AdminHeader code={code} />
-        <div className="grid min-h-[60vh] place-items-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-grape-100 border-t-grape" />
-        </div>
+        <PageLoading />
       </div>
     );
   }
@@ -137,79 +149,71 @@ export function ClassroomHostScreen({ code, caseId }: Props) {
   // ── lobby ────────────────────────────────────────────────────────────
   if (phase === 'lobby') {
     return (
-      <div className="min-h-screen bg-cloud">
-        <AdminHeader code={code} />
-        <main className="mx-auto max-w-2xl space-y-5 px-4 py-6">
+      <div className="min-h-screen bg-bg">
+        <AdminHeader code={code} phase={phaseLabel.lobby} />
+        <main className="mx-auto max-w-2xl space-y-5 px-4 py-6 sm:px-6">
           {/* Room code — large, clearly visible */}
-          <div className="card text-center">
-            <p className="text-sm font-bold text-ink-soft">O'quvchilar uchun xona kodi</p>
-            <p className="my-3 font-display text-7xl font-extrabold tracking-widest text-grape">
+          <section className="card text-center">
+            <p className="eyebrow">O'quvchilar uchun xona kodi</p>
+            <p className="my-4 font-mono text-6xl font-bold tracking-[0.3em] text-fg sm:text-7xl" aria-label={code}>
               {code}
             </p>
-            <div className="flex justify-center gap-3">
-              <button
-                type="button"
-                onClick={copyCode}
-                className="inline-flex items-center gap-2 rounded-xl bg-grape-50 px-4 py-2 text-sm font-extrabold text-grape hover:bg-grape-100 transition"
-              >
-                <Icon name={copied ? 'check' : 'gift'} className="h-4 w-4" />
-                {copied ? 'Nusxalandi!' : 'Kodni nusxalash'}
+            <div className="flex flex-wrap justify-center gap-2">
+              <button type="button" onClick={copyCode} className="btn-secondary">
+                <Icon name={copied ? 'check' : 'copy'} className="h-4 w-4" />
+                {copied ? 'Nusxalandi' : 'Kodni nusxalash'}
               </button>
-              <button
-                type="button"
-                onClick={openProjector}
-                className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-2 text-sm font-extrabold text-white hover:bg-ink/80 transition"
-              >
-                <Icon name="eye" className="h-4 w-4" />
+              <button type="button" onClick={openProjector} className="btn-primary">
+                <Icon name="monitor" className="h-4 w-4" />
                 Proyektorda ko'rsatish
               </button>
             </div>
-          </div>
+          </section>
 
           {/* Case info */}
           {caseDef && (
-            <div className="flex items-center gap-3 rounded-2xl bg-grape-50 px-4 py-3">
-              <Icon name="search" className="h-5 w-5 shrink-0 text-grape" />
-              <div>
-                <p className="font-display font-extrabold text-ink">{caseDef.title}</p>
-                <p className="text-xs font-bold text-ink-faint">
-                  {caseDef.gradeBand} sinf · {caseDef.questions.length} ta savol
-                </p>
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-xs">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand ring-1 ring-inset ring-brand-100">
+                <Icon name="search" className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate font-display text-sm font-bold text-fg">{caseDef.title}</p>
+                <CaseMetaBadges caseDef={caseDef} className="mt-1" />
               </div>
             </div>
           )}
 
           {/* Roster */}
-          <div className="card">
-            <p className="font-display font-extrabold">
-              O'quvchilar ({players.length})
-            </p>
-            <ol className="mt-3 max-h-72 space-y-1.5 overflow-y-auto">
+          <section className="panel overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <p className="font-display text-sm font-bold text-fg">O'quvchilar</p>
+              <span className="badge-neutral">{players.length}</span>
+            </div>
+            <ol className="max-h-72 divide-y divide-border overflow-y-auto">
               {players.length === 0 ? (
-                <li className="py-4 text-center text-sm font-bold text-ink-faint">
-                  Hali hech kim qo'shilmagan — o'quvchilar xona kodini kiriting.
+                <li className="px-4 py-6 text-center text-sm text-fg-faint">
+                  Hali hech kim qo'shilmagan — o'quvchilar xona kodini kiritsin.
                 </li>
               ) : (
                 players.map((p, i) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center gap-3 rounded-xl bg-cloud px-3 py-2"
-                  >
-                    <span className="w-6 text-center text-sm font-extrabold text-ink-faint">{i + 1}</span>
-                    <span className="flex-1 font-bold truncate">{p.name}</span>
+                  <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-6 text-center text-xs font-bold tabular-nums text-fg-faint">{i + 1}</span>
+                    <span className="flex-1 truncate text-sm font-bold text-fg">{p.name}</span>
+                    <span className="h-2 w-2 rounded-full bg-success-500" aria-label="online" />
                   </li>
                 ))
               )}
             </ol>
-          </div>
+          </section>
 
           <button
             type="button"
             onClick={startInvestigation}
             disabled={players.length < 1}
-            className="btn-primary w-full py-4 text-xl disabled:opacity-40"
+            className="btn-primary btn-lg w-full"
           >
-            Tekshirishni boshlash →
+            <Icon name="play" className="h-4 w-4" />
+            Tekshirishni boshlash
           </button>
         </main>
       </div>
@@ -219,138 +223,116 @@ export function ClassroomHostScreen({ code, caseId }: Props) {
   // ── investigation ────────────────────────────────────────────────────
   if (phase === 'investigation' && caseDef) {
     return (
-      <div className="min-h-screen bg-cloud">
-        <AdminHeader code={code} />
-        <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
-          <div className="rounded-3xl bg-gradient-to-br from-sky to-grape p-6 text-white shadow-toy">
-            <p className="font-display text-xs font-extrabold uppercase tracking-widest opacity-80">
-              Tekshirish bosqichi
-            </p>
-            <h1 className="mt-1 font-display text-3xl font-extrabold">{caseDef.title}</h1>
-            <p className="mt-2 text-white/90 font-semibold leading-relaxed">{caseDef.briefing}</p>
-          </div>
+      <div className="min-h-screen bg-bg">
+        <AdminHeader code={code} phase={phaseLabel.investigation} />
+        <main className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6">
+          <CaseBriefing
+            title={caseDef.title}
+            briefing={caseDef.briefing}
+            caseDef={caseDef}
+            aside={
+              <span className="inline-flex items-center gap-1.5">
+                <Icon name="users" className="h-3.5 w-3.5" />
+                {players.length} ta o'quvchi
+              </span>
+            }
+          />
 
-          <p className="rounded-2xl bg-sun/15 px-4 py-3 text-sm font-bold text-mango-600">
+          <Notice tone="warning" icon="timer">
             O'quvchilar hozir manbalarni o'qimoqda. Tayyor bo'lganda savollarni boshlang.
-          </p>
+          </Notice>
 
           <SourcesPane sources={caseDef.sources} />
 
-          <button
-            type="button"
-            onClick={advanceQuestion}
-            className="btn-primary w-full py-4 text-xl"
-          >
-            Savollarni boshlash →
+          <button type="button" onClick={advanceQuestion} className="btn-primary btn-lg w-full">
+            Savollarni boshlash
+            <Icon name="arrowRight" className="h-4 w-4" />
           </button>
         </main>
       </div>
     );
   }
 
-  // ── question ─────────────────────────────────────────────────────────
-  if (phase === 'question' && caseDef && currentQ) {
+  // ── question / reveal ────────────────────────────────────────────────
+  if ((phase === 'question' || phase === 'reveal') && caseDef && currentQ) {
+    const isReveal = phase === 'reveal';
     return (
-      <div className="min-h-screen bg-cloud">
-        <AdminHeader code={code} />
-        <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
+      <div className="min-h-screen bg-bg">
+        <AdminHeader code={code} phase={isReveal ? phaseLabel.reveal : phaseLabel.question} />
+        <main className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6">
           {/* Progress */}
-          <div className="flex items-center justify-between text-sm font-bold text-ink-soft">
-            <span>Savol {qIndex + 1} / {total}</span>
-            <span>{players.length} ta o'quvchi</span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="badge-neutral">Savol {qIndex + 1} / {total}</span>
+              {isReveal && <span className="badge-success">Javob ochildi</span>}
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-fg-faint">
+              <Icon name="users" className="h-3.5 w-3.5" />
+              {players.length} ta o'quvchi
+            </span>
           </div>
 
           {/* Question card */}
-          <div className="card">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-grape to-bubble text-white shrink-0">
-                <Icon name="search" className="h-5 w-5" />
-              </span>
-              <p className="font-display text-xs font-extrabold uppercase tracking-wide text-ink-faint">
-                {qIndex + 1}-savol
-              </p>
+          <section className="card">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand ring-1 ring-inset ring-brand-100">
+                  <Icon name="help" className="h-4 w-4" />
+                </span>
+                <p className="eyebrow">{qIndex + 1}-savol</p>
+              </div>
+              <div className="flex items-center gap-1" aria-hidden>
+                {Array.from({ length: total }).map((_, i) => (
+                  <span key={i} className={`h-1.5 w-4 rounded-full ${i < qIndex ? 'bg-brand' : i === qIndex ? 'bg-brand-300' : 'bg-border'}`} />
+                ))}
+              </div>
             </div>
-            <p className="font-display text-2xl font-extrabold leading-snug text-ink">
+            <p className="mt-4 font-display text-2xl font-extrabold leading-snug tracking-tight text-fg">
               {currentQ.prompt}
             </p>
-            {/* Choices shown greyed-out — teacher can see them; correct answer hidden */}
-            <ul className="mt-4 space-y-2">
-              {currentQ.choices.map((choice, i) => (
-                <li
-                  key={i}
-                  className="rounded-2xl border-2 border-grape-100 bg-white px-4 py-3 font-semibold text-ink-soft"
-                >
-                  <span className="mr-2 font-extrabold text-ink-faint">
-                    {String.fromCharCode(65 + i)}.
-                  </span>
-                  {choice}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <Scoreboard standings={standings} title="Joriy holat" />
-
-          <button
-            type="button"
-            onClick={advanceReveal}
-            className="btn-primary w-full py-4 text-xl"
-          >
-            Javobni ochish →
-          </button>
-        </main>
-      </div>
-    );
-  }
-
-  // ── reveal ────────────────────────────────────────────────────────────
-  if (phase === 'reveal' && caseDef && currentQ) {
-    return (
-      <div className="min-h-screen bg-cloud">
-        <AdminHeader code={code} />
-        <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
-          {/* Progress */}
-          <div className="flex items-center justify-between text-sm font-bold text-ink-soft">
-            <span>Savol {qIndex + 1} / {total}</span>
-            <span>{players.length} ta o'quvchi</span>
-          </div>
-
-          {/* Question + revealed answer */}
-          <div className="card">
-            <p className="font-display text-2xl font-extrabold leading-snug text-ink">
-              {currentQ.prompt}
-            </p>
-            <ul className="mt-4 space-y-2">
+            {/* Choices — teacher sees them; the correct one is highlighted only on reveal */}
+            <ul className="mt-5 space-y-2">
               {currentQ.choices.map((choice, i) => {
-                const isCorrect = revealCorrect === i;
+                const isCorrect = isReveal && revealCorrect === i;
                 return (
                   <li
                     key={i}
-                    className={`rounded-2xl border-2 px-4 py-3 font-semibold transition
-                      ${isCorrect
-                        ? 'border-mint bg-mint/15 font-extrabold text-mint-600'
-                        : 'border-grape-100 bg-white text-ink-soft'
-                      }`}
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-base font-semibold ${
+                      isCorrect
+                        ? 'border-success-300 bg-success-50 text-success-700 ring-2 ring-success-200'
+                        : isReveal
+                          ? 'border-border bg-surface text-fg-faint opacity-60'
+                          : 'border-border bg-surface text-fg'
+                    }`}
                   >
-                    <span className="mr-2 font-extrabold">
-                      {isCorrect ? '✓' : `${String.fromCharCode(65 + i)}.`}
+                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md font-display text-xs font-bold ${isCorrect ? 'bg-success-600 text-white' : 'bg-surface-2 text-fg-soft'}`}>
+                      {String.fromCharCode(65 + i)}
                     </span>
-                    {choice}
+                    <span className="flex-1">{choice}</span>
+                    {isCorrect && <Icon name="checkCircle" className="h-5 w-5 shrink-0" />}
                   </li>
                 );
               })}
             </ul>
-          </div>
+          </section>
 
           <Scoreboard standings={standings} title="Joriy holat" />
 
-          <button
-            type="button"
-            onClick={isLastQuestion ? endMatch : advanceQuestion}
-            className="btn-primary w-full py-4 text-xl"
-          >
-            {isLastQuestion ? 'Natijalarni ko\'rsatish' : 'Keyingi savol →'}
-          </button>
+          {isReveal ? (
+            <button
+              type="button"
+              onClick={isLastQuestion ? endMatch : advanceQuestion}
+              className="btn-primary btn-lg w-full"
+            >
+              {isLastQuestion ? 'Natijalarni ko\'rsatish' : 'Keyingi savol'}
+              <Icon name="arrowRight" className="h-4 w-4" />
+            </button>
+          ) : (
+            <button type="button" onClick={advanceReveal} className="btn-primary btn-lg w-full">
+              <Icon name="eye" className="h-4 w-4" />
+              Javobni ochish
+            </button>
+          )}
         </main>
       </div>
     );
@@ -358,55 +340,49 @@ export function ClassroomHostScreen({ code, caseId }: Props) {
 
   // ── ended ─────────────────────────────────────────────────────────────
   if (phase === 'ended') {
-    const winner = standings[0];
+    const winner = [...standings].sort((a, b) => b.score - a.score)[0];
     return (
-      <div className="min-h-screen bg-cloud">
-        <AdminHeader code={code} />
-        <main className="mx-auto max-w-2xl space-y-5 px-4 py-6">
+      <div className="min-h-screen bg-bg">
+        <AdminHeader code={code} phase={phaseLabel.ended} />
+        <main className="mx-auto max-w-2xl space-y-5 px-4 py-6 sm:px-6">
           {/* Winner banner */}
           <AnimatePresence>
             {winner && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
+              <motion.section
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
-                className="rounded-3xl bg-gradient-to-br from-sun to-mango p-6 text-center shadow-toy motion-reduce:transition-none motion-reduce:animate-none"
+                className="card text-center motion-reduce:animate-none motion-reduce:transition-none"
               >
-                <p className="text-4xl">🏆</p>
-                <p className="mt-2 font-display text-xs font-extrabold uppercase tracking-widest text-mango-700">
-                  Chempion
-                </p>
-                <p className="mt-1 font-display text-3xl font-extrabold text-ink">
-                  {winner.name}
-                </p>
-                <p className="font-display text-xl font-extrabold text-mango-700">
-                  {winner.score} ball
-                </p>
-              </motion.div>
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-amber-600">
+                  <Icon name="trophy" className="h-7 w-7" />
+                </span>
+                <p className="eyebrow mt-4">Chempion</p>
+                <p className="mt-1 font-display text-3xl font-extrabold tracking-tight text-fg">{winner.name}</p>
+                <p className="mt-1 font-display text-lg font-bold text-amber-600">{winner.score} ball</p>
+              </motion.section>
             )}
           </AnimatePresence>
 
           <Scoreboard standings={standings} title="Yakuniy natijalar" />
 
           {/* Actions */}
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
               onClick={downloadXlsx}
               disabled={downloading}
-              className="btn-sun flex-1 py-3 text-base disabled:opacity-60"
+              className="btn-primary flex-1"
             >
-              {downloading ? 'Yuklanmoqda…' : '⬇️ Excel natijalar'}
+              <Icon name="download" className="h-4 w-4" />
+              {downloading ? 'Yuklanmoqda…' : 'Excel natijalar'}
             </button>
-            <Link
-              href="/admin/cases"
-              className="btn-ghost flex-1 py-3 text-center text-base font-extrabold"
-            >
+            <Link href="/admin/cases" className="btn-secondary flex-1">
               Yangi turnir
             </Link>
           </div>
 
-          <p className="text-xs text-ink-faint text-center">
+          <p className="text-center text-xs text-fg-faint">
             Excel faylda har bir o'quvchining to'liq natijalari bo'ladi.
           </p>
         </main>
@@ -418,18 +394,24 @@ export function ClassroomHostScreen({ code, caseId }: Props) {
 }
 
 // ── shared header ─────────────────────────────────────────────────────────────
-function AdminHeader({ code }: { code: string }) {
+function AdminHeader({ code, phase }: { code: string; phase?: string }) {
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-grape-100 bg-white px-4 py-3">
-      <div className="flex items-center gap-2 font-display font-extrabold">
-        🕵️ Sinf boshqaruvi
-        <span className="chip bg-grape-50 text-grape font-mono text-xs tracking-widest">
-          {code}
+    <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 max-w-3xl items-center gap-3 px-4 sm:px-6">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-white">
+          <Icon name="graduation" className="h-4 w-4" />
         </span>
+        <div className="min-w-0">
+          <p className="truncate font-display text-sm font-bold text-fg">Sinf boshqaruvi</p>
+          {phase && <p className="text-2xs font-semibold uppercase tracking-wide text-fg-faint">{phase}</p>}
+        </div>
+        <span className="chip ml-1 bg-surface-2 font-mono text-xs tracking-[0.2em] text-fg">{code}</span>
+        <div className="flex-1" />
+        <Link href="/admin/cases" className="btn-secondary btn-sm">
+          <Icon name="arrowLeft" className="h-4 w-4" />
+          Orqaga
+        </Link>
       </div>
-      <Link href="/admin/cases" className="btn-ghost px-3 py-1.5 text-sm">
-        ← Orqaga
-      </Link>
     </header>
   );
 }

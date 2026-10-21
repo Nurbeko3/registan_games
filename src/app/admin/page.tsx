@@ -1,148 +1,79 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Icon } from '@/components/ui/Icon';
+import { EmptyState, Modal, Notice, PageHeader, StatCard } from '@/components/ui/Primitives';
+import {
+  AdminCard, AdminGate, AdminShell, CopyRow, TableSkeleton, genPassword, useCopy, type AdminInfo,
+} from '@/components/admin/AdminShell';
 
-interface AdminInfo { id: string; email: string; name: string; role: 'super' | 'admin' }
 interface Student { id: string; username: string; display_name: string; xp: number; coins: number; total_stars: number; created_at: string }
 interface AdminRow { id: string; email: string; name: string; role: 'super' | 'admin'; created_at: string; is_self: boolean }
 interface ImportRow { name: string; username: string; password: string; ok: boolean; reason?: string }
 
-function genPassword(): string {
-  const a = ['Robo', 'Star', 'Pixel', 'Byte', 'Nova', 'Turbo', 'Cyber', 'Mega', 'Hyper', 'Laser'];
-  const b = ['Fox', 'Tiger', 'Whale', 'Dragon', 'Falcon', 'Wolf', 'Panda', 'Shark', 'Lion', 'Hawk'];
-  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-  return `${pick(a)}-${pick(b)}-${Math.floor(1000 + Math.random() * 9000)}`;
-}
-
 export default function AdminPage() {
-  const [admin, setAdmin] = useState<AdminInfo | null | undefined>(undefined);
-
-  const refresh = useCallback(() => {
-    fetch('/api/admin/me').then((r) => r.json()).then((d) => setAdmin(d.ok ? d.admin : null)).catch(() => setAdmin(null));
-  }, []);
-  useEffect(() => { refresh(); }, [refresh]);
-
-  if (admin === undefined) {
-    return <div className="grid min-h-screen place-items-center bg-ink"><div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" /></div>;
-  }
-  return admin ? <Panel admin={admin} onLogout={() => setAdmin(null)} /> : <Login onIn={refresh} />;
-}
-
-// ── login ────────────────────────────────────────────────────────────
-function Login({ onIn }: { onIn: () => void }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    setErr(null); setBusy(true);
-    const r = await fetch('/api/admin/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    setBusy(false);
-    if (r.ok) onIn();
-    else if (r.status === 503) setErr('Supabase ulanmagan yoki migratsiya qo‘llanmagan.');
-    else setErr('Email yoki parol noto‘g‘ri.');
-  };
-
   return (
-    <div className="grid min-h-screen place-items-center bg-gradient-to-br from-ink to-grape-600 p-4">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-toy">
-        <div className="text-center">
-          <div className="text-4xl">🛡️</div>
-          <h1 className="mt-2 font-display text-2xl font-extrabold">Admin panel</h1>
-          <p className="text-sm text-ink-soft">KidsCode Quest — admin kirishi</p>
-        </div>
-        <div className="mt-5 space-y-3">
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" autoCapitalize="none"
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            className="w-full rounded-2xl border-2 border-grape-100 px-4 py-2.5 font-bold outline-none focus:border-grape" />
-          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parol" type="password"
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            className="w-full rounded-2xl border-2 border-grape-100 px-4 py-2.5 font-bold outline-none focus:border-grape" />
-          {err && <p className="text-center text-sm font-bold text-bubble-600">{err}</p>}
-          <button onClick={submit} disabled={busy} className="btn-primary w-full text-lg disabled:opacity-60">
-            {busy ? 'Tekshirilmoqda…' : 'Kirish'}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// ── panel ────────────────────────────────────────────────────────────
-function Panel({ admin, onLogout }: { admin: AdminInfo; onLogout: () => void }) {
-  const [tab, setTab] = useState<'students' | 'admins'>('students');
-  const logout = async () => { await fetch('/api/admin/logout', { method: 'POST' }); onLogout(); };
-
-  return (
-    <div className="min-h-screen bg-cloud">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-grape-100 bg-white px-4 py-3">
-        <div className="flex items-center gap-2 font-display font-extrabold">
-          🛡️ Admin
-          <span className={`chip text-xs ${admin.role === 'super' ? 'bg-sun/40 text-mango-600' : 'bg-grape-50 text-grape'}`}>
-            {admin.role === 'super' ? '⭐ Super admin' : 'Admin'}
-          </span>
-          <span className="hidden text-sm font-bold text-ink-faint sm:inline">{admin.email}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/admin/arena" className="btn-ghost px-3 py-1.5 text-sm">
-            ⚔️ Arena savollari
-          </Link>
-          <Link href="/admin/cases" className="btn-sun px-3 py-1.5 text-sm">
-            🕵️ Sinf turniri
-          </Link>
-          <button onClick={logout} className="btn-ghost px-3 py-1.5 text-sm">Chiqish</button>
-        </div>
-      </header>
-
-      {admin.role === 'super' && (
-        <div className="mx-auto flex max-w-3xl gap-2 px-4 pt-4">
-          <TabBtn active={tab === 'students'} onClick={() => setTab('students')}>👥 O‘quvchilar</TabBtn>
-          <TabBtn active={tab === 'admins'} onClick={() => setTab('admins')}>🛡️ Adminlar</TabBtn>
-        </div>
+    <AdminGate>
+      {(admin, logout) => (
+        <AdminShell admin={admin} onLogout={() => void logout()}>
+          <Panel admin={admin} />
+        </AdminShell>
       )}
-
-      <main className="mx-auto max-w-3xl px-4 py-6">
-        {tab === 'students' ? <Students /> : <Admins />}
-      </main>
-    </div>
+    </AdminGate>
   );
 }
 
-function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+// ── panel ─────────────────────────────────────────────────────────────────────
+function Panel({ admin }: { admin: AdminInfo }) {
+  const [tab, setTab] = useState<'students' | 'admins'>('students');
+
   return (
-    <button onClick={onClick} className={`rounded-full px-4 py-2 text-sm font-extrabold shadow-card transition ${active ? 'bg-grape text-white' : 'bg-white text-ink-faint'}`}>
-      {children}
-    </button>
+    <>
+      <PageHeader
+        eyebrow="Boshqaruv"
+        title="Sinf boshqaruvi"
+        description="O‘quvchi hisoblarini yarating, parollarni yangilang va Excel orqali ko‘plab qo‘shing."
+        actions={
+          admin.role === 'super' ? (
+            <div role="tablist" aria-label="Bo‘limlar" className="inline-flex rounded-lg bg-surface-3 p-0.5">
+              {([
+                { id: 'students', label: 'O‘quvchilar', icon: 'users' },
+                { id: 'admins', label: 'Adminlar', icon: 'shield' },
+              ] as const).map((o) => {
+                const active = tab === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setTab(o.id)}
+                    className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-md px-3 text-xs font-bold transition ${
+                      active ? 'bg-surface text-fg shadow-xs' : 'text-fg-soft hover:text-fg'
+                    }`}
+                  >
+                    <Icon name={o.icon} className="h-3.5 w-3.5" />
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : undefined
+        }
+      />
+      <div className="mt-6">{tab === 'students' ? <Students /> : <Admins />}</div>
+    </>
   );
 }
 
-function Row({ label, value, onCopy, copied }: { label: string; value: string; onCopy: (t: string) => void; copied: string | null }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-14 shrink-0 text-ink-faint">{label}:</span>
-      <code className="flex-1 break-all font-extrabold">{value}</code>
-      <button onClick={() => onCopy(value)} className="btn-ghost px-2 py-0.5 text-xs">{copied === value ? '✓' : 'nusxa'}</button>
-    </div>
-  );
-}
-
-const useCopy = () => {
-  const [copied, setCopied] = useState<string | null>(null);
-  const copy = (t: string) => { try { navigator.clipboard?.writeText(t); setCopied(t); setTimeout(() => setCopied(null), 1500); } catch {} };
-  return { copied, copy };
-};
-
-// ── students ─────────────────────────────────────────────────────────
+// ── students ──────────────────────────────────────────────────────────────────
 function Students() {
   const { copied, copy } = useCopy();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState(genPassword());
@@ -241,116 +172,154 @@ function Students() {
     XLSX.writeFile(wb, 'kcq-oquvchilar.xlsx');
   };
 
-  return (
-    <>
-      <section className="card">
-        <h2 className="font-display text-xl font-extrabold">➕ Yangi o‘quvchi</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">Ism</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Aziz Karimov" maxLength={30}
-              className="w-full rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">Login</span>
-            <input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="aziz" autoCapitalize="none" maxLength={20}
-              className="w-full rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-mono font-bold outline-none focus:border-grape" />
-          </label>
-        </div>
-        <div className="mt-3">
-          <span className="mb-1 block text-sm font-bold text-ink-soft">Parol</span>
-          <div className="flex gap-2">
-            <input value={password} onChange={(e) => setPassword(e.target.value)}
-              className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-mono font-extrabold outline-none focus:border-grape" />
-            <button onClick={() => setPassword(genPassword())} className="btn-ghost px-4" title="Yangi parol">↻</button>
-          </div>
-        </div>
-        {error && <p className="mt-3 text-sm font-bold text-bubble-600">{error}</p>}
-        <button onClick={create} disabled={creating || !username} className="btn-primary mt-4 w-full text-lg disabled:opacity-50">
-          {creating ? 'Yaratilmoqda…' : '✨ Akkaunt yaratish'}
-        </button>
-        <AnimatePresence>
-          {created && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-4 rounded-2xl bg-mint/15 p-4">
-              <p className="font-display font-extrabold text-mint-600">✅ Yaratildi!</p>
-              <div className="mt-2 grid gap-1 font-mono text-sm">
-                <Row label="Login" value={created.username} onCopy={copy} copied={copied} />
-                <Row label="Parol" value={created.password} onCopy={copy} copied={copied} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
+  const totals = useMemo(() => ({
+    xp: students.reduce((a, s) => a + (s.xp ?? 0), 0),
+    stars: students.reduce((a, s) => a + (s.total_stars ?? 0), 0),
+    active: students.filter((s) => (s.xp ?? 0) > 0).length,
+  }), [students]);
 
-      {/* Excel import */}
-      <section className="card mt-4">
-        <h2 className="font-display text-xl font-extrabold">📄 Excel orqali ko‘plab qo‘shish</h2>
-        <p className="mt-1 text-sm text-ink-soft">Namunani yuklab oling, to‘ldiring, keyin import qiling. Parol bo‘sh bo‘lsa — avtomatik yaratiladi.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={downloadTemplate} className="btn-ghost">⬇️ Namuna (Excel)</button>
-          <button onClick={() => fileRef.current?.click()} disabled={importing} className="btn-primary disabled:opacity-60">
-            {importing ? 'Import qilinmoqda…' : '📤 Excel import'}
-          </button>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); e.target.value = ''; }} />
-        </div>
-        <AnimatePresence>
-          {importRes && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
-              <div className="flex items-center justify-between">
-                <p className="font-bold text-mint-600">✅ {importRes.filter((r) => r.ok).length}/{importRes.length} ta qo‘shildi</p>
-                <button onClick={downloadResults} className="btn-sun px-3 py-1.5 text-sm">⬇️ Natijani yuklab olish</button>
-              </div>
-              <div className="mt-2 max-h-56 overflow-auto rounded-2xl bg-cloud p-2 text-xs">
-                <table className="w-full text-left">
-                  <thead className="text-ink-faint"><tr><th className="py-1">Ism</th><th>Login</th><th>Parol</th><th></th></tr></thead>
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter((s) => s.username.toLowerCase().includes(q) || (s.display_name ?? '').toLowerCase().includes(q));
+  }, [students, query]);
+
+  const closeAdd = () => { setAddOpen(false); setError(null); };
+
+  return (
+    <div className="space-y-5">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="O‘quvchilar" value={loading ? '—' : students.length} icon="users" tone="brand" />
+        <StatCard label="Faol o‘quvchilar" value={loading ? '—' : totals.active} icon="activity" tone="success" hint="XP to‘plaganlar" />
+        <StatCard label="Jami XP" value={loading ? '—' : totals.xp.toLocaleString()} icon="zap" tone="warning" />
+        <StatCard label="Jami yulduzlar" value={loading ? '—' : totals.stars.toLocaleString()} icon="star" tone="amber" />
+      </div>
+
+      {/* one-off notices */}
+      <AnimatePresence>
+        {resetInfo && (
+          <motion.div key="reset" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <Notice tone="warning" icon="lock" action={<button type="button" onClick={() => setResetInfo(null)} className="btn-subtle btn-sm">Yopish</button>}>
+              <p className="font-bold">Yangi parol — {resetInfo.username}</p>
+              <p className="mt-0.5 text-xs opacity-80">Parol faqat hozir ko‘rinadi.</p>
+              <div className="mt-2"><CopyRow label="Parol" value={resetInfo.password} onCopy={copy} copied={copied} /></div>
+            </Notice>
+          </motion.div>
+        )}
+        {importRes && (
+          <motion.div key="import" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <AdminCard
+              title={`Import natijasi · ${importRes.filter((r) => r.ok).length}/${importRes.length} ta qo‘shildi`}
+              description="Parollar faqat hozir ko‘rinadi — natijani Excel’da saqlang."
+              actions={
+                <>
+                  <button type="button" onClick={downloadResults} className="btn-secondary btn-sm"><Icon name="download" className="h-3.5 w-3.5" />Natijani yuklab olish</button>
+                  <button type="button" onClick={() => setImportRes(null)} className="btn-subtle btn-sm">Yopish</button>
+                </>
+              }
+              className="!p-0"
+            >
+              <div className="-m-5 max-h-72 overflow-auto">
+                <table className="table">
+                  <thead className="sticky top-0"><tr><th>Ism</th><th>Login</th><th>Parol</th><th>Holat</th></tr></thead>
                   <tbody>
                     {importRes.map((r, i) => (
-                      <tr key={i} className="border-t border-grape-100">
-                        <td className="py-1">{r.name || '—'}</td>
+                      <tr key={i}>
+                        <td>{r.name || '—'}</td>
                         <td className="font-mono font-bold">{r.username}</td>
                         <td className="font-mono">{r.ok ? r.password : '—'}</td>
-                        <td>{r.ok ? '✅' : `❌ ${r.reason ?? ''}`}</td>
+                        <td>{r.ok ? <span className="badge-success">OK</span> : <span className="badge-danger">{r.reason ?? 'xato'}</span>}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="mt-1 text-[11px] text-ink-faint">Parollar faqat hozir ko‘rinadi — natijani Excel’da saqlang.</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
-
-      <AnimatePresence>
-        {resetInfo && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="card mt-4 bg-sun/15">
-            <p className="font-display font-extrabold">🔑 Yangi parol — <b>{resetInfo.username}</b></p>
-            <div className="mt-2 font-mono text-sm"><Row label="Parol" value={resetInfo.password} onCopy={copy} copied={copied} /></div>
+            </AdminCard>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <section className="card mt-6">
-        <h2 className="font-display text-xl font-extrabold">👥 O‘quvchilar ({students.length})</h2>
+      {error && !addOpen && <Notice tone="danger">{error}</Notice>}
+
+      {/* roster */}
+      <section className="panel">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 sm:flex-row sm:items-center sm:px-5">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-base font-extrabold text-fg">O‘quvchilar ro‘yxati</h2>
+            <p className="text-xs text-fg-faint">Login va parolni o‘quvchiga bering — u o‘yinda profil bo‘limidan kiradi.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-faint" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Qidirish…"
+                aria-label="O‘quvchini qidirish"
+                className="input h-9 min-h-0 w-44 py-0 pl-9 sm:w-52"
+              />
+            </div>
+            <button type="button" onClick={downloadTemplate} className="btn-secondary btn-sm" title="Excel namunasini yuklab olish">
+              <Icon name="download" className="h-3.5 w-3.5" /><span className="hidden sm:inline">Namuna</span>
+            </button>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={importing} className="btn-secondary btn-sm">
+              <Icon name="upload" className="h-3.5 w-3.5" />{importing ? 'Import…' : 'Excel import'}
+            </button>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); e.target.value = ''; }} />
+            <button type="button" onClick={() => setAddOpen(true)} className="btn-primary btn-sm">
+              <Icon name="plus" className="h-3.5 w-3.5" />Yangi o‘quvchi
+            </button>
+          </div>
+        </div>
+
         {loading ? (
-          <div className="grid place-items-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-4 border-grape-100 border-t-grape" /></div>
+          <TableSkeleton rows={6} cols={5} />
         ) : students.length === 0 ? (
-          <p className="py-6 text-center text-ink-soft">Hali o‘quvchi yo‘q.</p>
+          <EmptyState
+            icon="users"
+            tone="brand"
+            title="Hali o‘quvchi yo‘q"
+            description="Birinchi hisobni qo‘lda yarating yoki Excel ro‘yxatini import qiling."
+            action={
+              <>
+                <button type="button" onClick={() => setAddOpen(true)} className="btn-primary btn-sm"><Icon name="plus" className="h-3.5 w-3.5" />Yangi o‘quvchi</button>
+                <button type="button" onClick={downloadTemplate} className="btn-secondary btn-sm"><Icon name="download" className="h-3.5 w-3.5" />Excel namunasi</button>
+              </>
+            }
+            className="!rounded-none !border-0 !shadow-none"
+          />
+        ) : shown.length === 0 ? (
+          <EmptyState icon="search" title="Hech narsa topilmadi" description={`"${query}" bo‘yicha o‘quvchi yo‘q.`} className="!rounded-none !border-0 !shadow-none" />
         ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs font-bold uppercase text-ink-faint"><tr><th className="py-2">Login</th><th>Ism</th><th>XP</th><th>⭐</th><th></th></tr></thead>
+          <div className="overflow-x-auto">
+            <table className="table min-w-[640px]">
+              <thead className="sticky top-0 z-[1]">
+                <tr>
+                  <th>Login</th>
+                  <th>Ism</th>
+                  <th className="text-right">XP</th>
+                  <th className="text-right">Yulduz</th>
+                  <th className="text-right">Tanga</th>
+                  <th className="text-right">Amallar</th>
+                </tr>
+              </thead>
               <tbody>
-                {students.map((s) => (
-                  <tr key={s.id} className="border-t border-grape-100">
-                    <td className="py-2.5 font-mono font-bold">{s.username}</td>
-                    <td className="text-ink-soft">{s.display_name || '—'}</td>
-                    <td className="font-bold">{s.xp}</td>
-                    <td className="font-bold">{s.total_stars}</td>
+                {shown.map((s) => (
+                  <tr key={s.id}>
+                    <td className="font-mono font-bold">{s.username}</td>
+                    <td className="text-fg-soft">{s.display_name || '—'}</td>
+                    <td className="text-right font-semibold tabular-nums">{s.xp}</td>
+                    <td className="text-right font-semibold tabular-nums">{s.total_stars}</td>
+                    <td className="text-right font-semibold tabular-nums">{s.coins}</td>
                     <td className="whitespace-nowrap text-right">
-                      <button onClick={() => reset(s.username)} className="btn-ghost px-2 py-1 text-xs" title="Parolni yangilash">🔑</button>
-                      <button onClick={() => del(s.username)} className="btn-ghost px-2 py-1 text-xs text-bubble-600" title="O‘chirish">🗑️</button>
+                      <button type="button" onClick={() => reset(s.username)} className="btn-subtle btn-sm" title="Parolni yangilash">
+                        <Icon name="refresh" className="h-3.5 w-3.5" /><span className="hidden md:inline">Parol</span>
+                      </button>
+                      <button type="button" onClick={() => del(s.username)} className="btn-subtle btn-sm text-danger hover:bg-danger-50 hover:text-danger-700" title="O‘chirish">
+                        <Icon name="trash" className="h-3.5 w-3.5" /><span className="hidden md:inline">O‘chirish</span>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -358,16 +327,68 @@ function Students() {
             </table>
           </div>
         )}
+        {!loading && students.length > 0 && (
+          <div className="border-t border-border px-4 py-2.5 text-xs text-fg-faint sm:px-5">{shown.length} / {students.length} ta o‘quvchi</div>
+        )}
       </section>
-    </>
+
+      {/* add student modal */}
+      <Modal
+        open={addOpen}
+        onClose={closeAdd}
+        title="Yangi o‘quvchi"
+        description="Ism kiritilsa, login avtomatik taklif qilinadi. Parolni o‘zgartirishingiz mumkin."
+        footer={
+          <>
+            <button type="button" onClick={closeAdd} className="btn-secondary">Yopish</button>
+            <button type="button" onClick={create} disabled={creating || !username} className="btn-primary">
+              {creating ? 'Yaratilmoqda…' : 'Akkaunt yaratish'}
+            </button>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="label">Ism</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Aziz Karimov" maxLength={30} className="input" />
+          </label>
+          <label className="block">
+            <span className="label">Login</span>
+            <input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="aziz" autoCapitalize="none" maxLength={20} className="input font-mono" />
+          </label>
+        </div>
+        <label className="mt-4 block">
+          <span className="label">Parol</span>
+          <div className="flex gap-2">
+            <input value={password} onChange={(e) => setPassword(e.target.value)} className="input font-mono" />
+            <button type="button" onClick={() => setPassword(genPassword())} className="btn-secondary btn-icon shrink-0" title="Yangi parol" aria-label="Yangi parol">
+              <Icon name="refresh" className="h-4 w-4" />
+            </button>
+          </div>
+        </label>
+        {error && <Notice tone="danger" className="mt-4">{error}</Notice>}
+        <AnimatePresence>
+          {created && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-4 rounded-xl border border-success-100 bg-success-50 p-3">
+              <p className="flex items-center gap-1.5 text-sm font-bold text-success-700"><Icon name="checkCircle" className="h-4 w-4" />Hisob yaratildi</p>
+              <div className="mt-2 grid gap-1.5">
+                <CopyRow label="Login" value={created.username} onCopy={copy} copied={copied} />
+                <CopyRow label="Parol" value={created.password} onCopy={copy} copied={copied} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Modal>
+    </div>
   );
 }
 
-// ── admins (super only) ──────────────────────────────────────────────
+// ── admins (super only) ───────────────────────────────────────────────────────
 function Admins() {
   const { copied, copy } = useCopy();
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [aname, setAname] = useState('');
   const [role, setRole] = useState<'admin' | 'super'>('admin');
@@ -404,73 +425,49 @@ function Admins() {
     void load();
   };
 
-  return (
-    <>
-      <section className="card">
-        <h2 className="font-display text-xl font-extrabold">➕ Yangi admin</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">Email</span>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@maktab.uz" autoCapitalize="none"
-              className="w-full rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">Ism</span>
-            <input value={aname} onChange={(e) => setAname(e.target.value)} placeholder="Dilnoza opa" maxLength={40}
-              className="w-full rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape" />
-          </label>
-        </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">Rol</span>
-            <select value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'super')}
-              className="w-full rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape">
-              <option value="admin">Admin (o‘quvchilar)</option>
-              <option value="super">Super admin (hammasi)</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-ink-soft">Parol</span>
-            <div className="flex gap-2">
-              <input value={password} onChange={(e) => setPassword(e.target.value)}
-                className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-mono font-extrabold outline-none focus:border-grape" />
-              <button onClick={() => setPassword(genPassword())} className="btn-ghost px-4" title="Yangi parol">↻</button>
-            </div>
-          </label>
-        </div>
-        {error && <p className="mt-3 text-sm font-bold text-bubble-600">{error}</p>}
-        <button onClick={create} disabled={busy || !email} className="btn-primary mt-4 w-full text-lg disabled:opacity-50">
-          {busy ? 'Yaratilmoqda…' : '✨ Admin qo‘shish'}
-        </button>
-        <AnimatePresence>
-          {created && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-4 rounded-2xl bg-mint/15 p-4">
-              <p className="font-display font-extrabold text-mint-600">✅ Admin yaratildi!</p>
-              <div className="mt-2 grid gap-1 font-mono text-sm">
-                <Row label="Email" value={created.email} onCopy={copy} copied={copied} />
-                <Row label="Parol" value={created.password} onCopy={copy} copied={copied} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
+  const closeAdd = () => { setAddOpen(false); setError(null); };
 
-      <section className="card mt-6">
-        <h2 className="font-display text-xl font-extrabold">🛡️ Adminlar ({admins.length})</h2>
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Adminlar" value={loading ? '—' : admins.length} icon="shield" tone="brand" />
+        <StatCard label="Super adminlar" value={loading ? '—' : admins.filter((a) => a.role === 'super').length} icon="crown" tone="warning" />
+      </div>
+
+      <section className="panel">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 sm:flex-row sm:items-center sm:px-5">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-base font-extrabold text-fg">Adminlar</h2>
+            <p className="text-xs text-fg-faint">Admin — o‘quvchilarni boshqaradi. Super admin — adminlarni ham.</p>
+          </div>
+          <button type="button" onClick={() => setAddOpen(true)} className="btn-primary btn-sm">
+            <Icon name="plus" className="h-3.5 w-3.5" />Yangi admin
+          </button>
+        </div>
+
         {loading ? (
-          <div className="grid place-items-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-4 border-grape-100 border-t-grape" /></div>
+          <TableSkeleton rows={3} cols={4} />
+        ) : admins.length === 0 ? (
+          <EmptyState icon="shield" title="Admin topilmadi" className="!rounded-none !border-0 !shadow-none" />
         ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs font-bold uppercase text-ink-faint"><tr><th className="py-2">Email</th><th>Ism</th><th>Rol</th><th></th></tr></thead>
+          <div className="overflow-x-auto">
+            <table className="table min-w-[560px]">
+              <thead><tr><th>Email</th><th>Ism</th><th>Rol</th><th className="text-right">Amallar</th></tr></thead>
               <tbody>
                 {admins.map((a) => (
-                  <tr key={a.id} className="border-t border-grape-100">
-                    <td className="py-2.5 font-bold">{a.email}{a.is_self && <span className="ml-1 text-xs text-ink-faint">(siz)</span>}</td>
-                    <td className="text-ink-soft">{a.name || '—'}</td>
-                    <td><span className={`chip text-xs ${a.role === 'super' ? 'bg-sun/40 text-mango-600' : 'bg-grape-50 text-grape'}`}>{a.role}</span></td>
+                  <tr key={a.id}>
+                    <td className="font-semibold">
+                      {a.email}
+                      {a.is_self && <span className="ml-2 badge-neutral">siz</span>}
+                    </td>
+                    <td className="text-fg-soft">{a.name || '—'}</td>
+                    <td><span className={a.role === 'super' ? 'badge-warning' : 'badge-brand'}>{a.role === 'super' ? 'Super admin' : 'Admin'}</span></td>
                     <td className="text-right">
-                      {!a.is_self && <button onClick={() => del(a.email)} className="btn-ghost px-2 py-1 text-xs text-bubble-600" title="O‘chirish">🗑️</button>}
+                      {!a.is_self && (
+                        <button type="button" onClick={() => del(a.email)} className="btn-subtle btn-sm text-danger hover:bg-danger-50 hover:text-danger-700" title="O‘chirish">
+                          <Icon name="trash" className="h-3.5 w-3.5" /><span className="hidden md:inline">O‘chirish</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -479,6 +476,57 @@ function Admins() {
           </div>
         )}
       </section>
-    </>
+
+      <Modal
+        open={addOpen}
+        onClose={closeAdd}
+        title="Yangi admin"
+        footer={
+          <>
+            <button type="button" onClick={closeAdd} className="btn-secondary">Yopish</button>
+            <button type="button" onClick={create} disabled={busy || !email} className="btn-primary">{busy ? 'Yaratilmoqda…' : 'Admin qo‘shish'}</button>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="label">Email</span>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@maktab.uz" type="email" autoCapitalize="none" className="input" />
+          </label>
+          <label className="block">
+            <span className="label">Ism</span>
+            <input value={aname} onChange={(e) => setAname(e.target.value)} placeholder="Dilnoza opa" maxLength={40} className="input" />
+          </label>
+          <label className="block">
+            <span className="label">Rol</span>
+            <select value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'super')} className="input">
+              <option value="admin">Admin (o‘quvchilar)</option>
+              <option value="super">Super admin (hammasi)</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Parol</span>
+            <div className="flex gap-2">
+              <input value={password} onChange={(e) => setPassword(e.target.value)} className="input font-mono" />
+              <button type="button" onClick={() => setPassword(genPassword())} className="btn-secondary btn-icon shrink-0" title="Yangi parol" aria-label="Yangi parol">
+                <Icon name="refresh" className="h-4 w-4" />
+              </button>
+            </div>
+          </label>
+        </div>
+        {error && <Notice tone="danger" className="mt-4">{error}</Notice>}
+        <AnimatePresence>
+          {created && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-4 rounded-xl border border-success-100 bg-success-50 p-3">
+              <p className="flex items-center gap-1.5 text-sm font-bold text-success-700"><Icon name="checkCircle" className="h-4 w-4" />Admin yaratildi</p>
+              <div className="mt-2 grid gap-1.5">
+                <CopyRow label="Email" value={created.email} onCopy={copy} copied={copied} />
+                <CopyRow label="Parol" value={created.password} onCopy={copy} copied={copied} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Modal>
+    </div>
   );
 }

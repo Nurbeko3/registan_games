@@ -57,24 +57,31 @@ export function MemoryMatch({ onWin }: GameProps) {
 
   return (
     <div className="card">
-      <p className="text-center text-xl font-extrabold text-ink-soft">{t('mg.memory.instr')}</p>
-      <div className="mx-auto mt-5 grid w-full max-w-lg grid-cols-4 gap-3">
-        {cards.map((c, i) => (
-          <motion.button
-            key={c.id}
-            onClick={() => flip(i)}
-            whileTap={{ scale: 0.92 }}
-            className={`grid aspect-square place-items-center rounded-2xl text-5xl shadow-card transition ${
-              c.flipped || c.matched ? 'bg-white' : 'bg-grape text-grape'
-            } ${c.matched ? 'opacity-60 ring-2 ring-mint' : ''}`}
-          >
-            <motion.span animate={{ rotateY: c.flipped || c.matched ? 0 : 180 }}>
-              {c.flipped || c.matched ? c.icon : '❓'}
-            </motion.span>
-          </motion.button>
-        ))}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-fg-soft">{t('mg.memory.instr')}</p>
+        <span className="chip bg-surface-2 text-fg-soft tabular-nums">{t('mg.memory.moves', { n: moves })}</span>
       </div>
-      <p className="mt-4 text-center text-lg font-extrabold text-ink-faint">{t('mg.memory.moves', { n: moves })}</p>
+      <div className="mx-auto mt-4 grid w-full max-w-lg grid-cols-4 gap-2 rounded-xl border border-border bg-surface-2 p-2 sm:gap-3 sm:p-3">
+        {cards.map((c, i) => {
+          const face = c.flipped || c.matched;
+          return (
+            <motion.button
+              key={c.id}
+              type="button"
+              onClick={() => flip(i)}
+              whileTap={{ scale: 0.94 }}
+              aria-label={face ? c.icon : 'Hidden card'}
+              className={`grid aspect-square place-items-center rounded-xl border text-4xl transition sm:text-5xl ${
+                face ? 'border-border bg-surface' : 'border-brand-600 bg-brand text-white shadow-sm hover:bg-brand-600'
+              } ${c.matched ? 'border-success-300 bg-success-50 opacity-80' : ''}`}
+            >
+              <motion.span animate={{ rotateY: face ? 0 : 180 }} className="select-none">
+                {face ? c.icon : <span className="block h-3 w-3 rounded-full bg-white/60" />}
+              </motion.span>
+            </motion.button>
+          );
+        })}
+      </div>
     </div>
   );
 }

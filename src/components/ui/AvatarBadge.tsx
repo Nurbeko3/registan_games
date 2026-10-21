@@ -14,8 +14,8 @@ import { resolveAvatar } from '@/data/cosmetics';
 export function AvatarBadge({
   avatar,
   className = 'h-10 w-10 text-2xl',
-  rounded = 'rounded-xl',
-  bg = 'bg-grape-50',
+  rounded = 'rounded-lg',
+  bg = 'bg-surface-2',
   alt,
 }: {
   avatar: string;

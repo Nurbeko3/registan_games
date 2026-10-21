@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import { useGame } from '@/store/useGame';
 import { ARENA_MODES, TEAM_SIZES } from '@/data/arenaModes';
 import { ARENA_MAPS, type ArenaMap } from '@/data/arenaMaps';
@@ -155,137 +154,146 @@ export function PracticeSetup({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-5">
-      <div className="mb-3 flex items-center justify-between">
-        <button onClick={clearAndBack} className="btn-ghost px-3 py-1.5 text-sm">← {t('hud.leave')}</button>
-        <span className="chip bg-grape-50 text-grape"><Icon name="bot" className="h-4 w-4" /> {t('arena.bots')}</span>
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <button type="button" onClick={clearAndBack} className="btn-secondary btn-sm">
+          <Icon name="arrowLeft" className="h-4 w-4" /> {t('hud.leave')}
+        </button>
+        <span className="chip bg-brand-50 text-brand-700"><Icon name="bot" className="h-3.5 w-3.5" /> {t('arena.bots')}</span>
       </div>
 
-      <section>
-        <p className="mb-2 font-display font-extrabold">Map</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {ARENA_MAPS.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setMapId(m.id)}
-              className={`rounded-3xl p-3 text-left shadow-card transition ${
-                mapId === m.id ? 'bg-grape text-white ring-2 ring-sun' : 'bg-white hover:bg-grape-50'
-              }`}
-            >
-              <MapPreview map={m} selected={mapId === m.id} />
-              <span className="mt-3 flex items-center gap-1.5 font-display text-base font-extrabold">
-                <span className="text-xl">{m.emoji}</span>
-                <span className="min-w-0 flex-1">{m.name}</span>
-              </span>
-              <span className={`mt-2 flex flex-wrap gap-1.5 text-[10px] font-extrabold uppercase ${mapId === m.id ? 'text-white/85' : 'text-ink-faint'}`}>
-                <span className={`rounded-full px-2 py-1 ${mapId === m.id ? 'bg-white/15' : 'bg-grape-50'}`}>{MAP_SIZE_LABEL[m.size]}</span>
-                <span className={`rounded-full px-2 py-1 ${mapId === m.id ? 'bg-white/15' : 'bg-sun/30'}`}>{MAP_CHALLENGE_LABEL[m.challenge]}</span>
-              </span>
-              <span className={`mt-2 block text-xs font-bold leading-snug ${mapId === m.id ? 'text-white/85' : 'text-ink-soft'}`}>{m.blurb}</span>
-            </button>
-          ))}
+      <section aria-labelledby="practice-map">
+        <p id="practice-map" className="mb-2 text-sm font-bold text-fg">{t('arena.map')}</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label={t('arena.map')}>
+          {ARENA_MAPS.map((m) => {
+            const active = mapId === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setMapId(m.id)}
+                className={`rounded-2xl border p-3 text-left transition ${
+                  active ? 'border-brand bg-brand-50/50 shadow-xs ring-1 ring-brand' : 'border-border bg-surface hover:border-border-strong hover:bg-surface-2'
+                }`}
+              >
+                <MapPreview map={m} selected={active} />
+                <span className="mt-3 flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-bold text-fg">{m.name}</span>
+                  {active && <Icon name="checkCircle" className="h-4 w-4 shrink-0 text-brand" />}
+                </span>
+                <span className="mt-1.5 flex flex-wrap gap-1.5">
+                  <span className="badge-neutral">{MAP_SIZE_LABEL[m.size]}</span>
+                  <span className="badge-warning">{MAP_CHALLENGE_LABEL[m.challenge]}</span>
+                </span>
+                <span className="mt-2 block text-xs leading-snug text-fg-soft">{m.blurb}</span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
-      <section className="mt-5">
-        <p className="mb-2 font-display font-extrabold">{t('lobby.botDifficulty')}</p>
-        <div className="grid grid-cols-4 gap-2">
-          {DIFFICULTIES.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setDifficulty(d.id)}
-              className={`rounded-2xl py-2.5 text-center font-display text-sm font-extrabold shadow-card transition ${
-                difficulty === d.id ? 'bg-grape text-white ring-2 ring-sun' : 'bg-white hover:bg-grape-50'
-              }`}
-            >
-              <span className="block text-lg">{d.emoji}</span>
-              {d.label}
-            </button>
-          ))}
-        </div>
-      </section>
+      <div className="card mt-5 space-y-4">
+        <section>
+          <p className="label">{t('lobby.botDifficulty')}</p>
+          <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label={t('lobby.botDifficulty')}>
+            {DIFFICULTIES.map((d) => {
+              const active = difficulty === d.id;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setDifficulty(d.id)}
+                  className={`inline-flex min-h-[38px] items-center justify-center rounded-lg border px-2 text-xs font-bold transition sm:text-sm ${
+                    active ? 'border-brand bg-brand-50 text-brand-700' : 'border-border bg-surface text-fg-soft hover:border-border-strong hover:text-fg'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
-      <section className="mt-5">
-        <p className="mb-2 font-display font-extrabold">{t('arena.grade')}</p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setGrade(undefined)}
-            className={`rounded-2xl px-3 py-2 font-display text-sm font-extrabold shadow-card transition ${
-              grade == null ? 'bg-grape text-white ring-2 ring-sun' : 'bg-white hover:bg-grape-50'
-            }`}
-          >
-            {t('arena.gradeAll')}
-          </button>
-          {GRADES.map((g) => (
-            <button
-              key={g}
-              onClick={() => setGrade(g)}
-              className={`rounded-2xl px-3 py-2 font-display text-sm font-extrabold shadow-card transition ${
-                grade === g ? 'bg-grape text-white ring-2 ring-sun' : 'bg-white hover:bg-grape-50'
-              }`}
-            >
-              {t('arena.gradeN', { n: g })}
-            </button>
-          ))}
-        </div>
-      </section>
+        <section>
+          <p className="label">{t('arena.grade')}</p>
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('arena.grade')}>
+            {[{ id: 'all', label: t('arena.gradeAll') }, ...GRADES.map((g) => ({ id: String(g), label: t('arena.gradeN', { n: g }) }))].map((it) => {
+              const active = it.id === 'all' ? grade == null : grade === Number(it.id);
+              return (
+                <button
+                  key={it.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setGrade(it.id === 'all' ? undefined : (Number(it.id) as Grade))}
+                  className={`inline-flex min-h-[32px] items-center rounded-lg border px-2.5 text-xs font-bold transition ${
+                    active ? 'border-brand bg-brand-50 text-brand-700' : 'border-border bg-surface text-fg-soft hover:border-border-strong hover:text-fg'
+                  }`}
+                >
+                  {it.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
-      <section className="mt-5">
-        <p className="mb-2 font-display font-extrabold">{t('lobby.teamSize')}</p>
-        <div className="flex gap-2">
-          {TEAM_SIZES.map((tz) => (
-            <button
-              key={tz.perTeam}
-              onClick={() => setPerTeam(tz.perTeam)}
-              className={`flex-1 rounded-2xl py-3 font-display font-extrabold shadow-card transition ${
-                tz.perTeam === perTeam ? 'bg-sun text-ink ring-2 ring-grape' : 'bg-white hover:bg-grape-50'
-              }`}
-            >
-              {tz.label}
-            </button>
-          ))}
-        </div>
-      </section>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <section>
+            <p className="label">{t('lobby.teamSize')}</p>
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('lobby.teamSize')}>
+              {TEAM_SIZES.map((tz) => {
+                const active = tz.perTeam === perTeam;
+                return (
+                  <button
+                    key={tz.perTeam}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setPerTeam(tz.perTeam)}
+                    className={`inline-flex min-h-[38px] items-center justify-center rounded-lg border px-2 text-sm font-bold transition ${
+                      active ? 'border-brand bg-brand-50 text-brand-700' : 'border-border bg-surface text-fg-soft hover:border-border-strong hover:text-fg'
+                    }`}
+                  >
+                    {tz.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-      <section className="mt-5">
-        <p className="mb-2 font-display font-extrabold">{t('lobby.matchLength')}</p>
-        <MatchLengthInput durationSec={durationSec} onChange={setDurationSec} />
-      </section>
+          <section>
+            <p className="label">{t('lobby.matchLength')}</p>
+            <MatchLengthInput durationSec={durationSec} onChange={setDurationSec} />
+          </section>
+        </div>
+      </div>
 
       <WeaponLoadout value={weapon} onChange={setWeapon} />
 
-      <motion.button
-        whileTap={{ scale: 0.98 }}
-        onClick={startPractice}
-        className="btn-primary mt-6 w-full text-lg"
-      >
-        <Icon name="rocket" className="h-5 w-5" /> {t('arena.bots')}
-      </motion.button>
+      <button type="button" onClick={startPractice} className="btn-primary btn-lg mt-6 w-full">
+        <Icon name="play" className="h-4 w-4 [&>path]:fill-current" /> {t('arena.bots')}
+      </button>
     </div>
   );
 }
 
 function MapPreview({ map, selected }: { map: ArenaMap; selected: boolean }) {
   return (
-    <span className={`relative block aspect-[720/440] overflow-hidden rounded-2xl border ${
-      selected ? 'border-white/35 bg-white/15' : 'border-grape-100 bg-[#F1EDFF]'
+    <span className={`relative block aspect-[720/440] overflow-hidden rounded-xl border ${
+      selected ? 'border-brand-200 bg-brand-50' : 'border-border bg-surface-2'
     }`}>
-      <span className="absolute inset-y-0 left-0 w-[9.72%] bg-[#FF7AB6]/20" />
-      <span className="absolute inset-y-0 right-0 w-[9.72%] bg-[#3BA7FF]/20" />
-      <span
-        className={`absolute left-[5.2%] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full ${
-          selected ? 'bg-white ring-2 ring-[#FF7AB6]' : 'bg-[#FF7AB6]'
-        }`}
-      />
-      <span
-        className={`absolute right-[5.2%] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full ${
-          selected ? 'bg-white ring-2 ring-[#3BA7FF]' : 'bg-[#3BA7FF]'
-        }`}
-      />
+      <span className="absolute inset-y-0 left-0 w-[9.72%] bg-danger-500/15" />
+      <span className="absolute inset-y-0 right-0 w-[9.72%] bg-info-500/15" />
+      <span className="absolute left-[5.2%] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-danger-500 ring-2 ring-surface" />
+      <span className="absolute right-[5.2%] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-info-500 ring-2 ring-surface" />
       {map.obstacles.map((r, i) => (
         <span
           key={`${map.id}-${i}`}
-          className={`absolute rounded-[3px] ${selected ? 'bg-white/70' : 'bg-grape/45'}`}
+          className={`absolute rounded-[3px] ${selected ? 'bg-brand/50' : 'bg-fg-faint/40'}`}
           style={{
             left: `${(r.x / WORLD_W) * 100}%`,
             top: `${(r.y / WORLD_H) * 100}%`,

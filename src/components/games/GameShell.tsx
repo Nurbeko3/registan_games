@@ -11,9 +11,10 @@ import { ACCOUNT_SESSION_EVENT, accountResume, readSession } from '@/lib/supabas
 import { TopBar } from '@/components/layout/TopBar';
 import { useRegisterByte } from '@/lib/mentor/context';
 import { Stars } from '@/components/ui/Bits';
-import { Icon, gameIcon } from '@/components/ui/Icon';
+import { Icon, gameIcon, worldIcon } from '@/components/ui/Icon';
 import { Confetti } from '@/components/ui/Confetti';
 import { GuestRewardNudge } from '@/components/ui/GuestRewardNudge';
+import { EmptyState, PageLoading } from '@/components/ui/Primitives';
 import { useT } from '@/lib/i18n';
 import { GAME_REGISTRY } from './registry';
 import { studentRankForLevel } from '@/lib/studentRanks';
@@ -61,12 +62,40 @@ export function GameShell({ slug }: { slug: string }) {
     };
   }, []);
 
+  const onWin = (stars: number) => {
+    if (awardedRef.current) return;
+    awardedRef.current = true;
+    const safeStars = Math.max(0, Math.min(3, Math.round(stars)));
+    setResult(completeGame(slug, safeStars));
+  };
+  const playAgain = () => {
+    awardedRef.current = false;
+    setResult(null);
+    setRound((r) => r + 1);
+  };
+
+  // Escape key closes the result modal. Declared before any early return so
+  // the hook order is stable across the hydration / locked / not-found states.
+  useEffect(() => {
+    if (!result) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') playAgain(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
+
   if (!meta || !GameComponent) {
     return (
-      <div className="mx-auto max-w-md p-10 text-center">
-        <Icon name="warning" className="mx-auto h-12 w-12 text-grape" />
-        <p className="mt-3 font-display text-xl font-extrabold">{t('gs.notFound')}</p>
-        <Link href="/map" className="btn-primary mt-4">{t('common.map')}</Link>
+      <div className="min-h-screen">
+        <TopBar showBack />
+        <main id="main" className="mx-auto max-w-md px-4 py-12">
+          <EmptyState
+            icon="warning"
+            tone="danger"
+            title={t('gs.notFound')}
+            action={<Link href="/map" className="btn-primary">{t('common.map')}</Link>}
+          />
+        </main>
       </div>
     );
   }
@@ -83,66 +112,59 @@ export function GameShell({ slug }: { slug: string }) {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen pb-24">
+      <div className="min-h-screen">
         <TopBar showBack />
-        <div className="grid min-h-[50vh] place-items-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-grape-100 border-t-grape" />
-        </div>
+        <PageLoading />
       </div>
     );
   }
 
   if (locked) {
     return (
-      <div className="min-h-screen pb-24">
+      <div className="min-h-screen">
         <TopBar showBack />
-        <main id="main" className="mx-auto grid min-h-[55vh] max-w-md place-items-center px-4 text-center">
-          <section className="card w-full">
-            <Icon name="lock" className="mx-auto h-12 w-12 text-grape" />
-            <h1 className="mt-3 font-display text-2xl font-extrabold">{t(`game.${slug}.title`)}</h1>
-            <p className="mt-1 font-bold text-ink-soft">{t('map.unlockAt', { n: zone.unlockStars })}</p>
-            <Link href="/map" className="btn-primary mt-5 w-full">{t('common.map')}</Link>
-          </section>
+        <main id="main" className="mx-auto max-w-md px-4 py-12">
+          <EmptyState
+            icon="lock"
+            tone="brand"
+            title={t(`game.${slug}.title`)}
+            description={t('map.unlockAt', { n: zone.unlockStars })}
+            action={<Link href="/map" className="btn-primary">{t('common.map')}</Link>}
+          />
         </main>
       </div>
     );
   }
 
-  // Escape key closes result modal
-  useEffect(() => {
-    if (!result) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') playAgain(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result]);
-
-  const onWin = (stars: number) => {
-    if (awardedRef.current) return;
-    awardedRef.current = true;
-    const safeStars = Math.max(0, Math.min(3, Math.round(stars)));
-    setResult(completeGame(slug, safeStars));
-  };
-  const playAgain = () => {
-    awardedRef.current = false;
-    setResult(null);
-    setRound((r) => r + 1);
-  };
+  const resultLabel = result
+    ? result.stars >= 3 ? t('gs.perfect') : result.stars >= 1 ? t('gs.cleared') : t('gs.goodTry')
+    : '';
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-10">
       <TopBar showBack />
 
-      <div className="game-surface mx-auto max-w-4xl px-4 py-6">
-        <div className="mb-5 flex items-center gap-4">
-          <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${meta.color} text-white shadow-card`}>
-            <Icon name={gameIcon(slug)} className="h-8 w-8" />
+      <div className="game-surface mx-auto max-w-4xl px-4 py-6 sm:px-6">
+        {/* header */}
+        <header className="mb-5 flex items-start gap-4">
+          <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${meta.color} text-white shadow-xs`}>
+            <Icon name={gameIcon(slug)} className="h-7 w-7" />
           </span>
-          <div>
-            <h1 className="font-display text-3xl font-extrabold leading-tight">{t(`game.${slug}.title`)}</h1>
-            <p className="mt-1 text-base font-bold text-ink-soft">{t(`game.${slug}.blurb`)}</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-2xl font-extrabold leading-tight tracking-tight text-fg sm:text-[1.75rem]">
+                {t(`game.${slug}.title`)}
+              </h1>
+              {zone && (
+                <span className="badge-neutral inline-flex items-center gap-1 normal-case tracking-normal">
+                  <Icon name={worldIcon(zone.slug)} className="h-3 w-3" />
+                  {t(`world.${zone.slug}.title`)}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-fg-soft sm:text-[0.9375rem]">{t(`game.${slug}.blurb`)}</p>
           </div>
-        </div>
+        </header>
 
         <GameComponent key={round} onWin={onWin} />
       </div>
@@ -150,58 +172,71 @@ export function GameShell({ slug }: { slug: string }) {
       <AnimatePresence>
         {result && (
           <motion.div
-            className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-5 backdrop-blur-sm"
+            className="fixed inset-0 z-[70] flex items-end justify-center bg-fg/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
             role="dialog"
             aria-modal="true"
-            aria-label={result.stars >= 3 ? t('gs.perfect') : result.stars >= 1 ? t('gs.cleared') : t('gs.goodTry')}
+            aria-label={resultLabel}
             onClick={playAgain}
           >
             {result.stars >= 1 && <Confetti />}
             <motion.div
-              initial={shouldReduceMotion ? false : { scale: 0.7, y: 30 }}
-              animate={shouldReduceMotion ? {} : { scale: 1, y: 0 }}
-              transition={{ type: 'spring', stiffness: 240, damping: 18 }}
-              className="card w-full max-w-sm text-center"
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full max-w-sm overflow-hidden rounded-t-2xl bg-surface shadow-xl ring-1 ring-border sm:rounded-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="font-display text-sm font-bold uppercase tracking-wide text-grape">
-                {result.stars >= 3 ? t('gs.perfect') : result.stars >= 1 ? t('gs.cleared') : t('gs.goodTry')}
-              </p>
-              <div className="mt-3 flex justify-center"><Stars count={result.stars} size="text-4xl" /></div>
+              <div className="px-6 pb-5 pt-6 text-center">
+                <p className="eyebrow text-brand">{resultLabel}</p>
+                <div className="mt-3 flex justify-center"><Stars count={result.stars} size="text-4xl" /></div>
 
-              {mustLogIn ? (
-                <GuestRewardNudge className="mt-4" />
-              ) : (
-                <div className="mt-4 flex justify-center gap-3">
-                  <span className="chip bg-sun/30 text-ink"><Icon name="zap" className="h-4 w-4" /> +{result.xpAwarded} XP</span>
-                  {result.coinsAwarded > 0 && <span className="chip bg-mango/20 text-ink"><Icon name="coin" className="h-4 w-4" /> +{result.coinsAwarded}</span>}
-                </div>
-              )}
+                {mustLogIn ? (
+                  <GuestRewardNudge className="mt-5" />
+                ) : (
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    <span className="chip bg-amber-50 text-amber-700">
+                      <Icon name="zap" className="h-3.5 w-3.5" /> +{result.xpAwarded} XP
+                    </span>
+                    {result.coinsAwarded > 0 && (
+                      <span className="chip bg-amber-50 text-amber-700">
+                        <Icon name="coin" className="h-3.5 w-3.5" /> +{result.coinsAwarded}
+                      </span>
+                    )}
+                  </div>
+                )}
 
-              {result.leveledUp && (
-                <motion.p
-                  initial={shouldReduceMotion ? false : { scale: 0 }}
-                  animate={shouldReduceMotion ? {} : { scale: 1 }}
-                  className="mt-3 font-display text-lg font-extrabold text-bubble-600"
-                >
-                  {t('gs.levelUp', { n: result.newLevel })} · {studentRankForLevel(result.newLevel).emoji}{' '}
-                  {t(studentRankForLevel(result.newLevel).titleKey)}
-                </motion.p>
-              )}
-              {result.newAchievements.length > 0 && (
-                <p className="mt-2 font-bold text-mango">
-                  {result.newAchievements.map((a) => a.title).join(', ')}
-                </p>
-              )}
+                {result.leveledUp && (
+                  <motion.p
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="mt-4 font-display text-base font-extrabold text-brand"
+                  >
+                    {t('gs.levelUp', { n: result.newLevel })} · {t(studentRankForLevel(result.newLevel).titleKey)}
+                  </motion.p>
+                )}
+                {result.newAchievements.length > 0 && (
+                  <p className="mt-2 text-sm font-semibold text-success-600">
+                    {result.newAchievements.map((a) => a.title).join(', ')}
+                  </p>
+                )}
+              </div>
 
-              <div className="mt-5 grid gap-2">
-                <button autoFocus onClick={playAgain} className="btn-primary w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2">{t('gs.playAgain')}</button>
+              <div className="grid gap-2 border-t border-border bg-surface-2 px-6 py-4">
+                <button autoFocus onClick={playAgain} className="btn-primary w-full">{t('gs.playAgain')}</button>
                 <div className="flex gap-2">
-                  <Link href="/map" className="btn-ghost flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2">{t('gs.map')}</Link>
-                  {nextSlug && <Link href={`/play/${nextSlug}`} className="btn-sun flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sun focus-visible:ring-offset-2">{t('gs.next')}</Link>}
+                  <Link href="/map" className="btn-secondary flex-1">{t('gs.map')}</Link>
+                  {nextSlug && (
+                    <Link href={`/play/${nextSlug}`} className="btn-accent flex-1">
+                      {t('gs.next')}
+                      <Icon name="arrowRight" className="h-4 w-4" />
+                    </Link>
+                  )}
                 </div>
               </div>
             </motion.div>

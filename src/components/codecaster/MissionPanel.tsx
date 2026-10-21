@@ -9,7 +9,7 @@ import { useT } from '@/lib/i18n';
 import type { CodecasterLevel } from '@/data/codecaster/types';
 
 /**
- * Collapsible mission brief shown at the top of the code pane:
+ * Collapsible mission brief shown at the top of the play screen:
  * title, objective, "Today: <concept>" badge, star requirements, and the
  * student's current best for this level (from the store, hydration-safe).
  */
@@ -23,28 +23,30 @@ export function MissionPanel({ level }: { level: CodecasterLevel }) {
   const isBoss = level.victory.defeatBoss === true;
 
   return (
-    <div className="card !p-0 overflow-hidden">
+    <div className="panel overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grape focus-visible:ring-offset-2"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
       >
         <span
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white ${
-            isBoss ? 'bg-gradient-to-br from-bubble to-grape' : 'bg-gradient-to-br from-sky to-grape'
+          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1 ring-inset ${
+            isBoss ? 'bg-violet-50 text-violet-600 ring-violet-100' : 'bg-brand-50 text-brand ring-brand-100'
           }`}
         >
           <Icon name={isBoss ? 'crown' : 'sword'} className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-lg font-extrabold text-ink">{t(level.title)}</p>
-          <p className="truncate text-xs font-bold text-ink-faint">{level.id} · {t(level.objective)}</p>
+          <p className="truncate font-display text-base font-extrabold text-fg">{t(level.title)}</p>
+          <p className="truncate text-xs font-semibold text-fg-faint">
+            <span className="font-mono">{level.id}</span> · {t(level.objective)}
+          </p>
         </div>
         {hydrated && best > 0 && (
-          <span className="shrink-0"><Stars count={best} size="text-base" /></span>
+          <span className="hidden shrink-0 sm:block"><Stars count={best} size="text-sm" /></span>
         )}
-        <Icon name={open ? 'unlock' : 'lock'} className="h-4 w-4 shrink-0 text-ink-faint" />
+        <Icon name="chevronDown" className={`h-4 w-4 shrink-0 text-fg-faint transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence initial={false}>
@@ -55,34 +57,34 @@ export function MissionPanel({ level }: { level: CodecasterLevel }) {
             exit={shouldReduceMotion ? { height: 'auto' } : { height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="space-y-3 border-t border-grape-100/60 px-4 py-3">
-              <p className="text-sm font-bold leading-relaxed text-ink-soft">{t(level.objective)}</p>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="chip bg-sky/15 text-sky-600">
-                  <Icon name="brain" className="h-4 w-4" /> {t('cc.todayConcept', { concept: t(level.concept) })}
-                </span>
-                {isBoss && (
-                  <span className="chip bg-bubble/15 text-bubble-600">
-                    <Icon name="crown" className="h-4 w-4" /> {t('cc.bossLevel')}
+            <div className="grid gap-4 border-t border-border px-4 py-4 md:grid-cols-[1fr_auto] md:items-start">
+              <div className="min-w-0">
+                <p className="text-sm leading-relaxed text-fg-soft">{t(level.objective)}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="badge-brand">
+                    <Icon name="brain" className="h-3 w-3" /> {t('cc.todayConcept', { concept: t(level.concept) })}
                   </span>
-                )}
+                  {isBoss && (
+                    <span className="badge bg-violet-50 text-violet-700">
+                      <Icon name="crown" className="h-3 w-3" /> {t('cc.bossLevel')}
+                    </span>
+                  )}
+                  {hydrated && (
+                    <span className="badge-neutral">
+                      {best > 0 ? t('cc.bestStars', { n: best }) : t('cc.noAttemptYet')}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <div className="rounded-xl2 bg-cloud/70 px-3 py-2.5">
-                <p className="text-xs font-extrabold uppercase tracking-wide text-ink-faint">{t('cc.starGoals')}</p>
-                <ul className="mt-1.5 space-y-1 text-sm font-bold text-ink-soft">
-                  <li className="flex items-center gap-1.5"><Stars count={1} size="text-xs" /> {t('cc.star1')}</li>
-                  <li className="flex items-center gap-1.5"><Stars count={2} size="text-xs" /> {t('cc.star2', { par: level.parSteps })}</li>
-                  <li className="flex items-center gap-1.5"><Stars count={3} size="text-xs" /> {t('cc.star3', { concept: t(level.concept) })}</li>
+              <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-3 md:min-w-[260px]">
+                <p className="eyebrow">{t('cc.starGoals')}</p>
+                <ul className="mt-2 space-y-1.5 text-xs font-semibold text-fg-soft">
+                  <li className="flex items-center gap-2"><Stars count={1} size="text-xs" /> {t('cc.star1')}</li>
+                  <li className="flex items-center gap-2"><Stars count={2} size="text-xs" /> {t('cc.star2', { par: level.parSteps })}</li>
+                  <li className="flex items-center gap-2"><Stars count={3} size="text-xs" /> {t('cc.star3', { concept: t(level.concept) })}</li>
                 </ul>
               </div>
-
-              {hydrated && (
-                <p className="text-xs font-bold text-ink-faint">
-                  {best > 0 ? t('cc.bestStars', { n: best }) : t('cc.noAttemptYet')}
-                </p>
-              )}
             </div>
           </motion.div>
         )}

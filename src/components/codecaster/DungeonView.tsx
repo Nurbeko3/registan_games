@@ -15,12 +15,12 @@ import type { EngineState, EntityKind, TileType } from '@/lib/codecaster/types';
  */
 
 const TILE_BG: Record<TileType, string> = {
-  floor: 'bg-cloud/60',
-  wall: 'bg-ink/80',
-  pit: 'bg-ink-soft/70',
-  spike: 'bg-bubble/25',
-  door: 'bg-mango/30',
-  goal: 'bg-mint/30',
+  floor: 'bg-surface',
+  wall: 'bg-fg/85 dark:bg-border-strong',
+  pit: 'bg-fg-soft/70',
+  spike: 'bg-danger-100',
+  door: 'bg-warning-100',
+  goal: 'bg-success-100',
 };
 
 const TILE_GLYPH: Partial<Record<TileType, string>> = {
@@ -60,28 +60,28 @@ export function DungeonView({ state }: { state: EngineState }) {
   return (
     <div className="flex h-full flex-col gap-4">
       {/* HUD — single horizontal bar, never wraps */}
-      <div className="flex items-center gap-2 overflow-x-auto">
-        <span className="chip shrink-0 bg-bubble/15 text-bubble-600">
-          <Icon name="heart" className="h-4 w-4" /> {hero.hp}
+      <div className="scrollbar-none flex items-center gap-1.5 overflow-x-auto">
+        <span className="chip shrink-0 bg-danger-50 text-danger-700 tabular-nums">
+          <Icon name="heart" className="h-3.5 w-3.5" /> {hero.hp}
         </span>
-        <span className="chip shrink-0 bg-mango/20 text-ink">
-          <Icon name="coin" className="h-4 w-4" /> {hero.coins}
+        <span className="chip shrink-0 bg-amber-50 text-amber-700 tabular-nums">
+          <Icon name="coin" className="h-3.5 w-3.5" /> {hero.coins}
         </span>
-        <span className="chip shrink-0 bg-sky/15 text-sky-600">
-          <Icon name="gem" className="h-4 w-4" /> {hero.gems}
+        <span className="chip shrink-0 bg-info-50 text-info-700 tabular-nums">
+          <Icon name="gem" className="h-3.5 w-3.5" /> {hero.gems}
         </span>
-        <span className="chip shrink-0 bg-grape-50 text-grape">
-          <Icon name="lock" className="h-4 w-4" /> {hero.keys}
+        <span className="chip shrink-0 bg-brand-50 text-brand-700 tabular-nums">
+          <Icon name="lock" className="h-3.5 w-3.5" /> {hero.keys}
         </span>
-        <span className="ml-auto shrink-0 chip bg-white text-ink-faint ring-1 ring-grape-100/60">
-          <Icon name="signal" className="h-4 w-4" /> {t('cc.step', { n: turn })}
+        <span className="chip ml-auto shrink-0 border border-border bg-surface text-fg-faint tabular-nums">
+          <Icon name="timer" className="h-3.5 w-3.5" /> {t('cc.step', { n: turn })}
         </span>
       </div>
 
       {/* Arena — generously padded frame; the board centers within it at a
           clamped tile size so short/wide or tall/narrow grids both read as a
           comfortable centered band, never a hairline or a tiny corner. */}
-      <div className="flex flex-1 items-center justify-center rounded-xl2 bg-ink/5 p-4 ring-1 ring-grape-100/60 sm:p-6">
+      <div className="dotted flex flex-1 items-center justify-center rounded-xl border border-border bg-surface-2 p-4 sm:p-6">
         <div
           role="img"
           aria-label={t('cc.dungeonAlt')}
@@ -97,7 +97,7 @@ export function DungeonView({ state }: { state: EngineState }) {
             row.map((tile, x) => (
               <div
                 key={`${x}-${y}`}
-                className={`relative grid place-items-center rounded-md text-[min(6vw,2rem)] leading-none ${TILE_BG[tile]}`}
+                className={`relative grid place-items-center rounded-[4px] text-[min(6vw,2rem)] leading-none shadow-[inset_0_0_0_1px_rgb(var(--border)/0.6)] ${TILE_BG[tile]}`}
               >
                 {TILE_GLYPH[tile] && <span aria-hidden className="opacity-80">{TILE_GLYPH[tile]}</span>}
               </div>
@@ -119,7 +119,7 @@ export function DungeonView({ state }: { state: EngineState }) {
             >
               <span>{ENTITY_GLYPH[e.kind]}</span>
               {typeof e.hp === 'number' && (
-                <span className="absolute -top-1 right-0.5 rounded-full bg-bubble px-1 text-[9px] font-extrabold text-white">
+                <span className="absolute -top-1 right-0.5 rounded-full bg-danger px-1 text-[9px] font-extrabold tabular-nums text-white">
                   {e.hp}
                 </span>
               )}
@@ -147,7 +147,7 @@ export function DungeonView({ state }: { state: EngineState }) {
 
       {/* Mission log */}
       {state.log.length > 0 && (
-        <div className="max-h-28 overflow-auto rounded-xl2 bg-cloud/70 px-3 py-2 text-xs font-bold text-ink-soft">
+        <div className="max-h-28 overflow-auto rounded-xl border border-border bg-surface-2 px-3 py-2 font-mono text-xs text-fg-soft">
           {state.log.slice(-6).map((line, i) => <p key={i} className="truncate">{line}</p>)}
         </div>
       )}

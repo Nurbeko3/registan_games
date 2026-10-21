@@ -1,7 +1,41 @@
 'use client';
 
 import {
+  Activity,
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  GraduationCap,
+  Layers,
+  LogOut,
+  Menu,
+  Monitor,
+  Moon,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Send,
+  Settings,
+  Shield,
+  Sun,
+  Trash2,
+  Upload,
+  Users,
+  Volume2,
+  Info,
+  CircleHelp,
+  CircleCheck,
+  Timer,
+  Target,
+  Maximize2,
+  Minimize2,
   Binary,
   Bot,
   Brain,
@@ -102,7 +136,41 @@ export type IconName =
   | 'warning'
   | 'wrench'
   | 'x'
-  | 'zap';
+  | 'zap'
+  | 'activity'
+  | 'arrowLeft'
+  | 'arrowRight'
+  | 'barChart'
+  | 'book'
+  | 'chevronDown'
+  | 'chevronLeft'
+  | 'chevronRight'
+  | 'download'
+  | 'graduation'
+  | 'layers'
+  | 'logout'
+  | 'menu'
+  | 'monitor'
+  | 'moon'
+  | 'pencil'
+  | 'play'
+  | 'plus'
+  | 'refresh'
+  | 'send'
+  | 'settings'
+  | 'shield'
+  | 'sunIcon'
+  | 'trash'
+  | 'upload'
+  | 'users'
+  | 'volume'
+  | 'info'
+  | 'help'
+  | 'checkCircle'
+  | 'timer'
+  | 'target'
+  | 'maximize'
+  | 'minimize';
 
 const gameIcons: Record<string, IconName> = {
   'robot-maze': 'bot',
@@ -139,12 +207,12 @@ export function worldIcon(slug: string): IconName {
 
 export function Icon({ name, className = 'h-5 w-5' }: { name: IconName; className?: string }) {
   const LucideComponent = ICON_REGISTRY[name];
-  return <LucideComponent className={className} strokeWidth={2.1} aria-hidden />;
+  return <LucideComponent className={className} strokeWidth={2} aria-hidden />;
 }
 
 export function IconTile({ name, className = '', iconClassName = 'h-7 w-7' }: { name: IconName; className?: string; iconClassName?: string }) {
   return (
-    <span className={`grid place-items-center rounded-2xl bg-white/20 text-current ring-1 ring-white/30 ${className}`}>
+    <span className={`grid place-items-center rounded-xl bg-brand-50 text-brand ring-1 ring-inset ring-brand-100 ${className}`}>
       <Icon name={name} className={iconClassName} />
     </span>
   );
@@ -206,4 +274,38 @@ const ICON_REGISTRY: Record<IconName, LucideIcon> = {
   wrench: Wrench,
   x: X,
   zap: Zap,
+  activity: Activity,
+  arrowLeft: ArrowLeft,
+  arrowRight: ArrowRight,
+  barChart: BarChart3,
+  book: BookOpen,
+  chevronDown: ChevronDown,
+  chevronLeft: ChevronLeft,
+  chevronRight: ChevronRight,
+  download: Download,
+  graduation: GraduationCap,
+  layers: Layers,
+  logout: LogOut,
+  menu: Menu,
+  monitor: Monitor,
+  moon: Moon,
+  pencil: Pencil,
+  play: Play,
+  plus: Plus,
+  refresh: RefreshCw,
+  send: Send,
+  settings: Settings,
+  shield: Shield,
+  sunIcon: Sun,
+  trash: Trash2,
+  upload: Upload,
+  users: Users,
+  volume: Volume2,
+  info: Info,
+  help: CircleHelp,
+  checkCircle: CircleCheck,
+  timer: Timer,
+  target: Target,
+  maximize: Maximize2,
+  minimize: Minimize2,
 };

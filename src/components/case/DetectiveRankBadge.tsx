@@ -42,7 +42,7 @@ export function DetectiveRankBadge({
 
   if (variant === 'compact') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-grape-50 px-3 py-1 font-display text-xs font-extrabold text-grape">
+      <span className="chip bg-info-50 text-info-700">
         <span aria-hidden="true">{rank.emoji}</span>
         {t(rank.nameKey)}
       </span>
@@ -51,27 +51,28 @@ export function DetectiveRankBadge({
 
   // full variant
   return (
-    <div className="rounded-2xl border border-grape-100 bg-white px-4 py-3 shadow-card">
-      {/* rank chip row */}
-      <div className="flex items-center gap-2">
-        <span className="text-2xl leading-none" aria-hidden="true">{rank.emoji}</span>
+    <div className="card !p-4">
+      <div className="flex items-center gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-info-50 text-xl leading-none ring-1 ring-inset ring-info-100" aria-hidden="true">
+          {rank.emoji}
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display text-sm font-extrabold text-ink">{t(rank.nameKey)}</p>
+          <p className="font-display text-sm font-extrabold text-fg">{t(rank.nameKey)}</p>
           {next ? (
-            <p className="text-[11px] font-bold text-ink-faint">
+            <p className="text-xs font-semibold text-fg-faint">
               {t('case.rankProgress', { current: caseXp, max: next.minCaseXp })}
               {' · '}
               {t('case.nextRank', { rank: t(next.nameKey) })}
             </p>
           ) : (
-            <p className="text-[11px] font-bold text-grape">{t('case.maxRank')}</p>
+            <p className="text-xs font-semibold text-info-600">{t('case.maxRank')}</p>
           )}
         </div>
+        <span className="shrink-0 text-xs font-bold tabular-nums text-fg-faint">{pct}%</span>
       </div>
 
-      {/* progress bar */}
       <div
-        className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-grape-100"
+        className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-3"
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}
@@ -79,7 +80,7 @@ export function DetectiveRankBadge({
         aria-label={next ? t('case.nextRank', { rank: t(next.nameKey) }) : t('case.maxRank')}
       >
         <div
-          className="h-full rounded-full bg-gradient-to-r from-grape to-sky transition-[width] duration-500 motion-reduce:transition-none"
+          className="h-full rounded-full bg-info-500 transition-[width] duration-500 motion-reduce:transition-none"
           style={{ width: `${pct}%` }}
         />
       </div>

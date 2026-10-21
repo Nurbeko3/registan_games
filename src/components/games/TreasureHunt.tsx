@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useT } from '@/lib/i18n';
+import { Icon } from '@/components/ui/Icon';
 import type { GameProps } from './GameProps';
 
 const SIZE = 5;
@@ -35,12 +36,24 @@ export function TreasureHunt({ onWin }: GameProps) {
     [dug, found, onWin, treasure],
   );
 
-  const heat = (d: number) => (d === 0 ? 'bg-mango text-white' : d <= 1 ? 'bg-bubble/40' : d <= 2 ? 'bg-sun/40' : d <= 3 ? 'bg-mint/30' : 'bg-sky/20');
+  // heat: closer = warmer
+  const heat = (d: number) =>
+    d === 0
+      ? 'border-amber-400 bg-amber-400 text-fg'
+      : d <= 1
+        ? 'border-danger-200 bg-danger-100 text-danger-700'
+        : d <= 2
+          ? 'border-warning-200 bg-warning-100 text-warning-700'
+          : d <= 3
+            ? 'border-amber-200 bg-amber-50 text-amber-700'
+            : 'border-info-200 bg-info-50 text-info-700';
 
   return (
     <div className="card">
-      <p className="text-center font-bold text-ink-soft">{t('mg.treasure.instr')} <span className="text-mango">{t('mg.treasure.found')}</span></p>
-      <div className="mx-auto mt-5 grid w-full max-w-md grid-cols-5 gap-3">
+      <p className="text-center text-sm font-semibold text-fg-soft">
+        {t('mg.treasure.instr')} <span className="font-bold text-amber-600">{t('mg.treasure.found')}</span>
+      </p>
+      <div className="mx-auto mt-5 grid w-full max-w-md grid-cols-5 gap-2 rounded-xl border border-border bg-surface-2 p-2">
         {Array.from({ length: SIZE * SIZE }, (_, i) => {
           const x = i % SIZE;
           const y = Math.floor(i / SIZE);
@@ -50,16 +63,20 @@ export function TreasureHunt({ onWin }: GameProps) {
           return (
             <motion.button
               key={key}
+              type="button"
               onClick={() => dig(x, y)}
-              whileTap={{ scale: 0.9 }}
-              className={`grid aspect-square min-h-16 place-items-center rounded-xl font-display text-2xl font-extrabold shadow-card ${open ? heat(d) : 'bg-white hover:bg-grape-50'}`}
+              whileTap={{ scale: 0.94 }}
+              aria-label={open ? (d === 0 ? t('mg.treasure.found') : `${d}`) : `${x + 1},${y + 1}`}
+              className={`grid aspect-square place-items-center rounded-lg border font-display text-xl font-extrabold tabular-nums transition ${
+                open ? heat(d) : 'border-border bg-surface text-fg-faint hover:border-brand-300 hover:bg-brand-50'
+              }`}
             >
-              {open ? (d === 0 ? '💎' : d) : '⛏️'}
+              {open ? (d === 0 ? <Icon name="gem" className="h-6 w-6" /> : d) : <span className="h-2 w-2 rounded-full bg-border-strong" />}
             </motion.button>
           );
         })}
       </div>
-      <p className="mt-3 text-center text-sm font-bold text-ink-faint">Digs: {Object.keys(dug).length} · fewer digs = more ⭐</p>
+      <p className="mt-3 text-center text-xs font-semibold text-fg-faint">Digs: {Object.keys(dug).length} · fewer digs = more stars</p>
     </div>
   );
 }

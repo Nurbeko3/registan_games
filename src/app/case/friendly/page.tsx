@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { TopBar } from '@/components/layout/TopBar';
-import { Icon, IconTile } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
+import { EmptyState, Modal, Notice, PageHeader, PageLoading } from '@/components/ui/Primitives';
 import { isCloudEnabled } from '@/lib/supabase/client';
 import { useGame } from '@/store/useGame';
 import { AvatarBadge } from '@/components/ui/AvatarBadge';
@@ -12,6 +13,7 @@ import { useT, useLocale } from '@/lib/i18n';
 import { CASES } from '@/data/cases';
 import { localizeCaseTitle } from '@/data/cases/i18n';
 import type { CaseDef } from '@/data/cases/types';
+import { CaseMetaBadges } from '@/components/case/CaseMeta';
 
 const makeCode = () =>
   Array.from({ length: 4 }, () =>
@@ -32,8 +34,6 @@ export default function FriendlyPage() {
   const avatarId = useGame((s) => s.avatarId);
 
   useEffect(() => setMounted(true), []);
-
-  const name = playerName || 'Player';
 
   const createRoom = () => {
     if (!pickedCase) {
@@ -57,145 +57,116 @@ export default function FriendlyPage() {
   };
 
   return (
-    <main id="main" className="min-h-screen dotted page-pad-bottom">
-      <TopBar showBack />
-      <div className="mx-auto max-w-md px-4 py-6">
-        <div className="flex items-center gap-3">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-grape-50 text-grape">
-            <Icon name="party" className="h-6 w-6" />
-          </span>
-          <div>
-            <h1 className="h-section">{t('case.mode.friendly')}</h1>
-            <p className="text-sm text-ink-soft">{t('case.mode.friendlyDesc')}</p>
-          </div>
-        </div>
+    <main id="main" className="page-pad-bottom min-h-screen">
+      <TopBar showBack backHref="/case" />
+      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
+        <PageHeader icon="users" title={t('case.mode.friendly')} description={t('case.mode.friendlyDesc')} />
+
+        {!mounted && <PageLoading />}
 
         {mounted && !isCloudEnabled() && (
-          <div className="card mt-5 text-center">
-            <Icon name="signal" className="mx-auto h-10 w-10 text-grape" />
-            <p className="mt-2 font-display font-extrabold">{t('case.needNet')}</p>
-            <Link href="/case" className="btn-primary mt-4">
-              {t('case.mode.bot')}
-            </Link>
-          </div>
+          <EmptyState
+            className="mt-6"
+            icon="signal"
+            tone="brand"
+            title={t('case.needNet')}
+            action={<Link href="/case/practice" className="btn-primary">{t('case.mode.bot')}</Link>}
+          />
         )}
 
         {mounted && isCloudEnabled() && (
-          <>
+          <div className="mt-6 space-y-4">
             {/* Hero identity */}
-            <section className="card mt-5">
-              <p className="font-display font-extrabold">{t('party.yourHero')}</p>
+            <section className="card">
+              <p className="eyebrow">{t('party.yourHero')}</p>
               <div className="mt-3 flex items-center gap-3">
-                <AvatarBadge avatar={avatarId} className="h-12 w-12 text-2xl" rounded="rounded-2xl" />
+                <AvatarBadge avatar={avatarId} className="h-11 w-11 text-2xl" rounded="rounded-xl" bg="bg-brand-50" />
                 <input
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
                   placeholder={t('party.typeName')}
                   maxLength={20}
-                  className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-2.5 font-bold outline-none focus:border-grape"
+                  aria-label={t('party.typeName')}
+                  className="input flex-1"
                 />
               </div>
-              <p className="mt-2 text-xs text-ink-faint">{t('party.changeChar')}</p>
+              <p className="help">{t('party.changeChar')}</p>
             </section>
 
-            {/* Case picker overlay */}
-            {showPicker && (
-              <div className="card mt-5">
-                <p className="font-display font-extrabold">{t('case.pickForRoom')}</p>
-                <ul className="mt-3 space-y-2">
-                  {CASES.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        onClick={() => selectCase(c)}
-                        className="flex w-full items-center gap-3 rounded-2xl border-2 border-grape-100 bg-white px-4 py-3 text-left transition hover:border-grape-400 hover:shadow-card"
-                      >
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky to-grape text-white">
-                          <Icon name="search" className="h-5 w-5" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-display font-extrabold text-ink">
-                            {localizeCaseTitle(c, locale)}
-                          </p>
-                          <p className="text-xs font-bold text-ink-faint">
-                            {c.gradeBand} · {t('case.qCount', { n: c.questions.length })}
-                          </p>
-                        </div>
-                        <Icon name="rocket" className="h-4 w-4 shrink-0 text-grape" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Create room */}
+              <button
+                type="button"
+                onClick={createRoom}
+                className="card card-hover group flex flex-col text-left focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                <div className="flex items-start justify-between">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-inset ring-violet-100">
+                    <Icon name="search" className="h-5 w-5" />
+                  </span>
+                  <span className="badge-brand">{t('case.online')}</span>
+                </div>
+                <h2 className="mt-4 font-display text-base font-extrabold text-fg">{t('case.create')}</h2>
+                <p className="mt-1 flex-1 text-sm leading-relaxed text-fg-soft">{t('case.createSub')}</p>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand">
+                  {t('home.openMode')}
+                  <Icon name="arrowRight" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </button>
+
+              {/* Join room */}
+              <section className="card flex flex-col">
+                <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-50 text-brand ring-1 ring-inset ring-brand-100">
+                  <Icon name="users" className="h-5 w-5" />
+                </span>
+                <h2 className="mt-4 font-display text-base font-extrabold text-fg">{t('case.joinByCode')}</h2>
+                <label className="label mt-3" htmlFor="case-code">{t('case.roomCode')}</label>
+                <div className="flex gap-2">
+                  <input
+                    id="case-code"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
+                    placeholder="ABCD"
+                    maxLength={4}
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    className="input min-w-0 flex-1 text-center font-mono text-lg font-bold uppercase tracking-[0.3em] placeholder:tracking-[0.3em]"
+                  />
+                  <button type="button" onClick={joinRoom} disabled={joinCode.trim().length < 4} className="btn-primary shrink-0">
+                    {t('case.join')}
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <Notice icon="signal" tone="neutral">{t('case.needNet')}</Notice>
+          </div>
+        )}
+
+        {/* Case picker */}
+        <Modal open={showPicker} onClose={() => setShowPicker(false)} title={t('case.pickForRoom')} size="md">
+          <ul className="space-y-2">
+            {CASES.map((c) => (
+              <li key={c.id}>
                 <button
                   type="button"
-                  onClick={() => setShowPicker(false)}
-                  className="btn-ghost mt-3 w-full"
+                  onClick={() => selectCase(c)}
+                  className="card card-hover group flex w-full items-center gap-3 !p-3.5 text-left focus-visible:ring-2 focus-visible:ring-brand"
                 >
-                  {t('case.exit')}
-                </button>
-              </div>
-            )}
-
-            {!showPicker && (
-              <>
-                {/* Create room */}
-                <button
-                  onClick={createRoom}
-                  className="card-tap group mt-5 block w-full overflow-hidden rounded-2xl bg-gradient-to-br from-grape to-bubble p-5 text-left text-white shadow-card"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <IconTile
-                      name="search"
-                      className="h-14 w-14 bg-white/20 text-white"
-                      iconClassName="h-7 w-7"
-                    />
-                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold">
-                      {t('case.online')}
-                    </span>
-                  </div>
-                  <h3 className="mt-5 font-display text-2xl font-extrabold">
-                    {t('case.create')}
-                  </h3>
-                  <p className="mt-1 font-bold text-white/90">{t('case.createSub')}</p>
-                  <span className="mt-5 inline-flex items-center gap-2 font-display font-extrabold text-white">
-                    {t('home.openMode')}{' '}
-                    <Icon
-                      name="spark"
-                      className="h-4 w-4 transition-transform group-hover:translate-x-1"
-                    />
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand ring-1 ring-inset ring-brand-100">
+                    <Icon name="search" className="h-5 w-5" />
                   </span>
-                </button>
-
-                {/* Join room */}
-                <div className="card mt-3">
-                  <p className="font-display font-extrabold">{t('case.joinByCode')}</p>
-                  <div className="mt-3 flex gap-2">
-                    <input
-                      value={joinCode}
-                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
-                      placeholder={t('case.roomCode')}
-                      maxLength={4}
-                      className="flex-1 rounded-2xl border-2 border-grape-100 bg-white px-4 py-3 text-center font-display text-xl font-extrabold uppercase tracking-widest outline-none focus:border-grape"
-                    />
-                    <button
-                      onClick={joinRoom}
-                      disabled={joinCode.trim().length < 4}
-                      className="btn-sun disabled:opacity-40"
-                    >
-                      {t('case.join')}
-                    </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-display text-sm font-bold text-fg">{localizeCaseTitle(c, locale)}</p>
+                    <CaseMetaBadges caseDef={c} className="mt-1.5" />
                   </div>
-                </div>
-
-                <p className="mt-4 rounded-2xl bg-cloud px-4 py-3 text-sm font-bold text-ink-soft">
-                  <Icon name="search" className="mr-1.5 inline h-4 w-4 text-grape" />
-                  {t('case.needNet')}
-                </p>
-              </>
-            )}
-          </>
-        )}
+                  <Icon name="arrowRight" className="h-4 w-4 shrink-0 text-brand transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Modal>
       </div>
     </main>
   );

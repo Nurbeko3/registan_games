@@ -27,10 +27,10 @@ export interface ArenaDebugInfo {
 }
 
 const DOT: Record<ConnectionState, string> = {
-  offline: 'bg-ink-faint',
-  connecting: 'bg-mango',
-  connected: 'bg-mint',
-  error: 'bg-bubble',
+  offline: 'bg-fg-faint',
+  connecting: 'bg-warning',
+  connected: 'bg-success',
+  error: 'bg-danger',
 };
 
 /** Collapsible diagnostics overlay for Battle Learn Arena multiplayer.
@@ -43,14 +43,14 @@ export function ArenaDebugPanel({ info }: { info: ArenaDebugInfo }) {
     <div className="pointer-events-auto absolute bottom-2 left-2 z-30 font-mono text-[10px] leading-tight">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-full bg-ink/80 px-2.5 py-1 font-bold text-white shadow"
+        className="flex items-center gap-1.5 rounded-full bg-fg/80 px-2.5 py-1 font-bold text-white shadow"
       >
         <span className={`h-2 w-2 rounded-full ${DOT[info.connection]}`} />
         NET {open ? '▾' : '▸'}
       </button>
 
       {open && (
-        <div className="mb-1 w-[232px] space-y-0.5 rounded-lg bg-ink/85 p-2 text-white shadow-card">
+        <div className="mb-1 w-[232px] space-y-0.5 rounded-lg bg-fg/85 p-2 text-white shadow-sm">
           <Row k="Room" v={info.roomCode} />
           <Row k="Match" v={info.matchId ?? '—'} highlight />
           <Row k="Seed" v={info.seed == null ? '—' : String(info.seed)} highlight />
@@ -76,7 +76,7 @@ function Row({ k, v, highlight }: { k: string; v: string; highlight?: boolean })
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-white/55">{k}</span>
-      <span className={`truncate ${highlight ? 'font-extrabold text-mango' : 'text-white'}`}>{v}</span>
+      <span className={`truncate ${highlight ? 'font-extrabold text-warning' : 'text-white'}`}>{v}</span>
     </div>
   );
 }
